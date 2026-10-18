@@ -44,15 +44,19 @@ function title() {
   clear(root).append(h('div', { class: 'screen title' },
     cv,
     h('div', { class: 'title-box' },
-      h('h1', { class: 'logo' }, '七百萬分之我'),
-      h('p', { class: 'tagline' }, '同一個起點，有冇規劃，結局差好遠。'),
-      h('button', { class: 'btn big', type: 'button', onclick: () => { cancelAnimationFrame(titleAnim); disclaimer(); } }, '開始人生'),
-      runs ? h('p', { class: 'muted small' }, `已經投胎 ${runs} 次・已解鎖：揀出生時段、自動揀`) : null,
+      h('p', { class: 'ver' }, 'v0.3 試玩版 · 免費香港人生模擬'),
+      h('h1', { class: 'logo' }, '七百萬', h('br'), '分之', h('em', null, '我')),
+      h('p', { class: 'tagline' }, '香港七百幾萬人，你係其中一個。喺邊區出世、做邊個嘅仔女，都揀唔到；之後點過，就睇你點揀。'),
+      h('div', { class: 'counts' },
+        h('div', null, h('b', null, String(runs)), h('span', null, '你投胎過嘅次數')),
+        h('div', null, h('b', null, String(new Set(store.achs()).size)), h('span', null, '已解鎖成就'))),
+      h('button', { class: 'btn big', type: 'button', onclick: () => { cancelAnimationFrame(titleAnim); disclaimer(); } }, '出生'),
+      runs ? h('p', { class: 'muted small' }, '已解鎖：揀出生時段、自動揀') : null,
       h('div', { class: 'title-row' },
         h('button', { class: 'btn ghost small', type: 'button', onclick: () => boardScreen() }, '排行榜'),
         h('button', { class: 'btn ghost small', type: 'button', onclick: () => achScreen() }, '成就'),
         h('button', { class: 'btn outline small', type: 'button', onclick: () => booking(root) }, '點擊查詢更多'))),
-    h('footer', { class: 'title-foot' }, h('span', null, 'v0.2 試玩版'), h('span', null, '內容為模擬，不構成投資建議'))));
+    h('footer', { class: 'title-foot' }, h('span', null, '同一個起點，有冇規劃，結局差好遠。'), h('span', null, '內容為模擬，不構成投資建議'))));
 }
 
 function boardScreen() {
@@ -154,20 +158,23 @@ function originCard(g: Game, period: string | null) {
   const tile = (label: string, val: string, cls = '') => h('div', { class: `otile ${cls}` }, h('span', null, label), h('b', null, val));
   const cv = h('canvas', { class: 'oscene', width: SW, height: SH, 'aria-hidden': 'true' });
   drawScene(cv.getContext('2d')!, s, 0);
+  const regNo = `No. HKG-${o.birthYear}-${String(s.seed % 10000000).padStart(7, '0')}`;
   clear(root).append(h('div', { class: 'screen center-card' }, h('div', { class: 'paper origin' },
-    cv,
-    h('div', { class: 'o-head' }, h('h2', null, s.name), h('span', { class: 'muted' }, dateOf(o.birthYear, o.birthDay))),
-    stamps.length ? h('div', { class: 'stamps' }, stamps.map((t) => h('span', { class: 'stamp' }, t))) : null,
-    h('p', { class: 'lead' }, originLine(g)),
-    h('div', { class: 'otiles' },
-      tile('出生年份', `${o.birthYear} 年`), tile('性別', o.gender === 'M' ? '男仔' : '女仔'), tile('地區', o.district),
-      tile('住屋', o.housing, 'half'), tile('家庭', o.family ?? (o.isBaoyou ? '保幼局' : '—'), 'half'), tile('兄弟姊妹', sib, 'half'),
-      !o.isBaoyou ? [tile('父親', parentText(o.father), 'half'), tile('母親', parentText(o.mother), 'half')] : null,
-      tile('家庭財務', WEALTH_LABEL[o.wealthTier], o.isBaoyou ? 'wide' : 'half')),
-    h('div', { class: 'ostats' }, stat('H', '健康'), stat('J', '快樂'), stat('K', '知識'), stat('R', '人際')),
-    h('div', { class: 'row2' },
-      h('button', { class: 'btn ghost', type: 'button', onclick: () => originCard(new Game(newSeed(), period), period) }, '🎲 重洗'),
-      h('button', { class: 'btn', type: 'button', onclick: () => start(g, period) }, '開始人生')))));
+    h('div', { class: 'reg-h' }, h('span', null, '出生登記'), h('small', null, regNo)),
+    h('div', { class: 'reg-b' },
+      h('div', { class: 'o-name' }, h('span', null, '名字'), h('h2', null, s.name)),
+      h('p', { class: 'lead' }, `${dateOf(o.birthYear, o.birthDay)}，${originLine(g)}`),
+      stamps.length ? h('div', { class: 'stamps' }, stamps.map((t) => h('span', { class: 'stamp' }, t))) : null,
+      cv,
+      h('div', { class: 'otiles' },
+        tile('性別', o.gender === 'M' ? '男' : '女'), tile('出生年份', `${o.birthYear} 年`), tile('地區', `${o.district}`),
+        tile('住屋', o.housing), tile('家庭', o.family ?? (o.isBaoyou ? '保幼局' : '—')), tile('兄弟姊妹', sib),
+        !o.isBaoyou ? [tile('父親', parentText(o.father)), tile('母親', parentText(o.mother))] : null,
+        tile('家庭財務', WEALTH_LABEL[o.wealthTier])),
+      h('div', { class: 'ostats' }, stat('H', '健康'), stat('J', '快樂'), stat('K', '知識'), stat('R', '人際')),
+      h('div', { class: 'row2' },
+        h('button', { class: 'btn ghost', type: 'button', onclick: () => originCard(new Game(newSeed(), period), period) }, '重洗'),
+        h('button', { class: 'btn', type: 'button', onclick: () => start(g, period) }, '開始這一生'))))));
 }
 
 function start(g: Game, period: string | null) {

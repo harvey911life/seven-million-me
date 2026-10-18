@@ -1,4 +1,5 @@
-// 主遊戲畫面（直向單手）：上面場景同指標，中間時間線，下面事件卡 / 快捷理財，底部導航（右下角主頁）
+// 主遊戲畫面（直向單手，版面參考 80億分之1）：頂部歲數同速度列；中間場景、指標、人生紀錄、身分紀錄、家人、人生地圖；
+// 下面事件卡 / 快捷理財（唔遮場景）；底部導航（右下角主頁）
 import type { Game } from '../engine/game';
 import type { Card } from '../engine/cards';
 import type { StatKey, InsKind } from '../engine/state';
@@ -12,7 +13,7 @@ import { ACH_BY_ID } from '../engine/achievements';
 import type { QuizAnswer } from '../engine/quiz';
 import { fmtMoney } from '../engine/util';
 import { h, clear, sleep, toast } from './dom';
-import { drawScene, SW, SH } from './scene';
+import { drawScene, drawPortrait, SW, SH } from './scene';
 import { store, type Settings } from './store';
 
 const STAT_NAME: Record<StatKey | 'F', string> = { H: '健康', J: '快樂', K: '知識', R: '人際', F: '財務' };
@@ -49,22 +50,33 @@ export function playGame(root: HTMLElement, g: Game, settings: Settings, onEnd: 
   const nudge = () => { const w = wake; wake = null; w?.(); };
 
   // ---------- 版面 ----------
-  const nameEl = h('div', { class: 'who' });
-  const speedBtn = h('button', { class: 'pill', type: 'button', 'aria-label': '轉速度', onclick: () => cycleSpeed() });
-  const pauseBtn = h('button', { class: 'pill', type: 'button', 'aria-label': '暫停或繼續', onclick: () => togglePause() });
-  const header = h('header', { class: 'g-head' }, nameEl, h('div', { class: 'g-tools' }, speedBtn, pauseBtn));
+  const ageEl = h('div', { class: 'age' });
+  const metaEl = h('div', { class: 'meta-t' });
+  const progFill = h('span');
+  const progLabel = h('span', { class: 'prog-l' });
+  const pauseBtn = h('button', { type: 'button', class: 'pz', 'aria-label': '暫停或繼續', onclick: () => togglePause() });
+  const speedSeg = h('div', { class: 'speeds', role: 'radiogroup', 'aria-label': '速度' },
+    pauseBtn, SPEEDS.map((v) => h('button', { type: 'button', role: 'radio', 'data-v': v, onclick: () => setSpeed(v) }, `${v}×`)));
+  const nextBtn = h('button', { class: 'nextb', type: 'button', onclick: () => { skipYear = true; nudge(); } }, '下一年 »');
+  const header = h('header', { class: 'g-head' },
+    h('div', { class: 'g-top' }, ageEl, h('div', { class: 'g-meta' }, metaEl, h('div', { class: 'prog-row' }, h('div', { class: 'prog' }, progFill), progLabel))),
+    h('div', { class: 'g-ctrl' }, speedSeg, nextBtn));
 
   const canvas = h('canvas', { class: 'scene', width: SW, height: SH, 'aria-label': '角色像素場景' });
   const cashEl = h('div', { class: 'cash' });
-  const scene = h('div', { class: 'scene-wrap' }, canvas, cashEl);
-  const statsEl = h('div', { class: 'stats' });
+  const placeEl = h('p', { class: 'place' });
+  const scene = h('section', { class: 'card scene-card' }, h('div', { class: 'scene-wrap' }, canvas, cashEl), placeEl);
+  const statsEl = h('section', { class: 'card stats' });
   const feed = h('div', { class: 'feed', 'aria-live': 'polite' });
+  const logCard = h('section', { class: 'card log' }, h('div', { class: 'card-h' }, h('h3', null, '人生紀錄'), h('span', null, '最新的在前')), feed);
+  const idCard = h('section', { class: 'card idcard' });
+  const famCard = h('section', { class: 'card fam' });
+  const mapGrid = h('div', { class: 'lmap' });
+  const mapCard = h('section', { class: 'card' }, h('div', { class: 'card-h' }, h('h3', null, '人生地圖'), h('span', null, '一格 = 一年，顏色係快樂程度')), mapGrid);
+  const main = h('main', { class: 'g-main' }, scene, statsEl, logCard, idCard, famCard, mapCard);
 
-  const progFill = h('span');
-  const progLabel = h('span', { class: 'prog-l' });
-  const nextBtn = h('button', { class: 'btn small', type: 'button', onclick: () => { skipYear = true; nudge(); } }, '下一年 ▶');
   const quick = h('div', { class: 'quick' });
-  const idle = h('div', { class: 'idle' }, h('div', { class: 'prog-row' }, h('div', { class: 'prog' }, progFill), progLabel, nextBtn), quick);
+  const idle = h('div', { class: 'idle' }, quick);
   const event = h('div', { class: 'event', hidden: true });
   const dock = h('section', { class: 'dock' }, idle, event);
 
@@ -81,7 +93,7 @@ export function playGame(root: HTMLElement, g: Game, settings: Settings, onEnd: 
     h('div', { class: 'sheet-head' }, sheetTitle, h('button', { class: 'x', type: 'button', 'aria-label': '收起', onclick: () => closeSheet() }, '✕')), sheetBody);
   const shade = h('div', { class: 'shade', onclick: () => closeSheet() });
 
-  root.append(h('div', { class: 'screen game' }, header, scene, statsEl, feed, dock, nav, shade, sheet));
+  root.append(h('div', { class: 'screen game' }, header, main, dock, nav, shade, sheet));
 
   // ---------- 場景動畫 ----------
   const ctx = canvas.getContext('2d')!;
@@ -97,10 +109,11 @@ export function playGame(root: HTMLElement, g: Game, settings: Settings, onEnd: 
   // ---------- 狀態顯示 ----------
   let prevStats: Record<string, number> = {};
   function renderTop() {
-    clear(nameEl).append(h('b', null, `${s.name}・${s.age} 歲`), h('span', null, `${s.year} 年・${stageLabel(g)}`));
-    speedBtn.textContent = `${settings.speed}×`;
-    pauseBtn.textContent = paused.has('user') ? '▶ 繼續' : 'Ⅱ 暫停';
+    clear(ageEl).append(h('b', null, String(s.age)), h('span', null, '歲'));
+    metaEl.textContent = `${s.year}年 · ${s.name} · ${stageLabel(g)} · 1年≈${Math.round(yearLen() / 1000)}秒`;
+    pauseBtn.textContent = paused.has('user') ? '▶' : 'Ⅱ';
     pauseBtn.classList.toggle('on', paused.has('user'));
+    speedSeg.querySelectorAll<HTMLElement>('[data-v]').forEach((b) => { const on = Number(b.dataset.v) === settings.speed; b.classList.toggle('on', on); b.setAttribute('aria-checked', on ? 'true' : 'false'); });
   }
   function renderStats() {
     clear(statsEl);
@@ -115,10 +128,52 @@ export function playGame(root: HTMLElement, g: Game, settings: Settings, onEnd: 
         h('span', { class: 'bar' }, h('span', { style: `width:${v}%` }))));
     }
     prevStats = { H: Math.round(s.H), J: Math.round(s.J), K: Math.round(s.K), R: Math.round(s.R), F: Math.round(s.F) };
+    renderSide();
     if (s.age >= 18) clear(cashEl).append(h('span', null, '現金同存款 '), h('b', null, fmtMoney(s.cash + s.deposit)));
     else if (s.age >= 6) clear(cashEl).append(h('span', null, '錫錢罐 '), h('b', null, fmtMoney(s.piggy)));
     else clear(cashEl);
   }
+  // ---------- 下面幾張資料卡（場景地點、身分紀錄、家人、人生地圖） ----------
+  const HOME_NAME: Record<string, string> = { parents: '同父母住', share: '合租', rent: '租樓', public: '公屋', subdiv: '劏房', own: '自置物業', village: '村屋', institution: '院舍' };
+  const mapCells: number[] = [];
+  function eduNow() { return s.age < 6 ? '學前' : s.status === 'study' && s.age < 12 ? '小學' : s.status === 'study' && s.age < 18 ? '中學' : EDU_NAME[s.edu] ?? '—'; }
+  function renderSide() {
+    const o = s.origin;
+    const withWho = s.home === 'institution' ? '住院舍' : s.home === 'parents' || s.age < 18 ? '與家人同住' : s.married && s.partner?.alive ? (s.kids.length ? '與伴侶同子女同住' : '與伴侶同住') : '自己住';
+    placeEl.textContent = `${o.district}${o.subArea && o.subArea !== o.district ? o.subArea : ''} · ${HOME_NAME[s.home] ?? s.home} · ${withWho}`;
+    const pc = h('canvas', { class: 'portrait-s', width: 24, height: 24, 'aria-hidden': 'true' });
+    drawPortrait(pc.getContext('2d')!, s);
+    const d = new Date(Date.UTC(o.birthYear, 0, o.birthDay));
+    const work = s.job && s.status === 'work' ? `${jobName(g, s.job.id)}・${LEVEL_NAME[s.job.level] ?? ''}` : ({ child: '—', study: '讀緊書', work: '返工', unemp: '待業', retired: '已退休' } as Record<string, string>)[s.status];
+    clear(idCard).append(
+      h('div', { class: 'id-h' }, h('span', null, '身分紀錄 · HKG'), h('span', null, String(o.birthYear))),
+      h('div', { class: 'id-b' }, pc, h('div', { class: 'id-t' }, h('b', { class: 'id-n' }, s.name),
+        h('dl', { class: 'facts tight' },
+          h('dt', null, '性別'), h('dd', null, o.gender === 'M' ? '男' : '女'),
+          h('dt', null, '出生'), h('dd', null, `${o.birthYear}年${d.getUTCMonth() + 1}月 · ${o.district}`),
+          h('dt', null, '出身'), h('dd', null, WEALTH_DOTS(o.wealthTier)),
+          h('dt', null, '學歷'), h('dd', null, eduNow()),
+          h('dt', null, '工作'), h('dd', null, work)))));
+    const rows: [string, string, string?][] = [];
+    for (const p of s.parents) rows.push([p.role === '父' ? '爸爸' : '媽媽', p.alive ? `${p.age}歲` : '已離世', p.alive ? (p.role === '父' ? o.father : o.mother)?.job : undefined]);
+    if (!s.parents.length) rows.push(['照顧者', o.isBaoyou ? '保幼局' : '—']);
+    rows.push(['兄弟姊妹', o.siblings ? `${o.siblings} 個` : '冇']);
+    if (s.partner && s.partner.alive) rows.push([s.married ? '伴侶' : '拍拖', `${s.partner.name} ${s.partner.age}歲`, s.partner.job || undefined]);
+    for (const k of s.kids) rows.push([k.sex === 'F' ? '女' : k.sex === 'M' ? '仔' : '子女', `${k.name} ${k.age}歲`]);
+    clear(famCard).append(h('div', { class: 'card-h' }, h('h3', null, '家人與生活')),
+      h('div', { class: 'fam-rows' }, rows.map(([a, b, c]) => h('div', { class: 'fr' }, h('span', null, a), h('b', null, b, c ? h('small', null, c) : null)))));
+    // 人生地圖：每年一格，用嗰年嘅快樂值上色
+    while (mapCells.length < s.age) mapCells.push(mapCells.length ? mapCells[mapCells.length - 1] : s.J);
+    mapCells[s.age] = s.J;
+    const total = Math.max(80, Math.ceil((s.age + 1) / 10) * 10);
+    clear(mapGrid).append(...Array.from({ length: total }, (_, i) => {
+      const v = mapCells[i];
+      const lv = v === undefined ? '' : v >= 70 ? 'l4' : v >= 55 ? 'l3' : v >= 40 ? 'l2' : v >= 25 ? 'l1' : 'l0';
+      return h('span', { class: `${lv} ${i === s.age ? 'cur' : ''}`, title: v === undefined ? `${i} 歲` : `${i} 歲：快樂 ${Math.round(v)}` });
+    }));
+  }
+  const WEALTH_DOTS = (t: string) => { const n = ({ 困難: 1, 基層: 2, 小康: 3, 中產: 4, 富裕: 5 } as Record<string, number>)[t] ?? 2; return `${'●'.repeat(n)}${'○'.repeat(5 - n)} ${t}`; };
+
   function fDetail() {
     const fp = s.fParts;
     const lines = s.age < 18 && !s.everEmployed
@@ -129,8 +184,8 @@ export function playGame(root: HTMLElement, g: Game, settings: Settings, onEnd: 
 
   // ---------- 時間線（新嘅喺上面） ----------
   function addYear(age: number, year: number, rows: { t: string; k: 'imp' | 'log' | 'tick' | 'sum' }[]) {
-    feed.prepend(h('div', { class: 'yr' }, h('div', { class: 'yh' }, h('b', null, `${age} 歲`), h('span', null, String(year))), h('ul', null, rows.map((r) => h('li', { class: r.k }, r.t)))));
-    feed.scrollTop = 0;
+    feed.prepend(h('div', { class: 'yr' }, h('div', { class: 'yh' }, h('b', null, `${age}歲`), h('span', null, String(year))), h('ul', null, rows.map((r) => h('li', { class: r.k }, r.t)))));
+    while (feed.children.length > 40) feed.lastElementChild!.remove();
   }
 
   // ---------- 快捷理財（等緊下一年時可以改，唔強制） ----------
@@ -281,6 +336,7 @@ export function playGame(root: HTMLElement, g: Game, settings: Settings, onEnd: 
     clear(event).append(...kids.filter((k): k is Node => !!k));
     idle.hidden = true; event.hidden = false;
     event.scrollTop = 0;
+    main.scrollTo({ top: 0, behavior: 'smooth' });
     dock.classList.add('busy');
   }
   function hideEvent() {
@@ -304,7 +360,7 @@ export function playGame(root: HTMLElement, g: Game, settings: Settings, onEnd: 
       const tag = c.cat ?? (c.kind === 'system' ? '人生抉擇' : '生活日常');
       const opts = h('div', { class: 'copts' });
       const body = h('div', { class: `ecard ${tag === '天馬行空' ? 'wonder' : ''}` },
-        h('div', { class: 'ctop' }, h('span', { class: `tag ${CAT_CLASS[tag] ?? ''}` }, tag), h('span', { class: 'muted' }, `${s.age} 歲`)),
+        h('div', { class: 'ctop' }, h('span', { class: `tag ${CAT_CLASS[tag] ?? ''}` }, tag), h('span', { class: 'muted' }, `${s.age}歲 · ${s.year}年`)),
         h('h3', null, c.title),
         h('p', { class: 'ctext' }, c.text),
         c.reason ? h('p', { class: 'reason' }, c.reason) : null,
@@ -330,6 +386,7 @@ export function playGame(root: HTMLElement, g: Game, settings: Settings, onEnd: 
         const off = !!o.disabled && !(allOff && i === c.def);
         const fx = o.fx ? (Object.keys(o.fx) as StatKey[]).filter((k) => o.fx![k]).map((k) => h('i', { class: o.fx![k]! > 0 ? 'up' : 'dn' }, `${o.fx![k]! > 0 ? '▲' : '▼'}${STAT_NAME[k]}`)) : [];
         opts.append(h('button', { class: 'copt', type: 'button', disabled: off, onclick: () => pick(i) },
+          h('span', { class: 'cn' }, String(i + 1)),
           h('span', { class: 'ol' }, o.label, o.note ? h('small', null, o.note) : null, o.disabled ? h('small', { class: 'why' }, o.disabled) : null),
           fx.length ? h('span', { class: 'ofx' }, fx) : null));
       });
@@ -412,7 +469,8 @@ export function playGame(root: HTMLElement, g: Game, settings: Settings, onEnd: 
         h('div', { class: 'ctop' }, h('span', { class: 'tag c-yellow' }, '人生焦點'), h('span', { class: 'muted' }, `${s.age} 歲`)),
         h('h3', null, title),
         h('p', { class: 'muted' }, '之後隨時可以喺底部「焦點」改，嗰度仲有其他選擇。'),
-        h('div', { class: 'copts' }, list.map((f) => h('button', { class: 'copt', type: 'button', onclick: () => { s.focus = f.id; hideEvent(); renderTop(); done(); } },
+        h('div', { class: 'copts' }, list.map((f, i) => h('button', { class: 'copt', type: 'button', onclick: () => { s.focus = f.id; hideEvent(); renderTop(); done(); } },
+          h('span', { class: 'cn' }, String(i + 1)),
           h('span', { class: 'ol' }, f.id, h('small', null, `${fxText(f.fx)}・${f.desc}`))))));
       showEvent(box);
     });
@@ -438,11 +496,12 @@ export function playGame(root: HTMLElement, g: Game, settings: Settings, onEnd: 
   }
 
   // ---------- 控制 ----------
-  function cycleSpeed() {
-    settings.speed = SPEEDS[(SPEEDS.indexOf(settings.speed) + 1) % SPEEDS.length];
+  function setSpeed(v: Settings['speed']) {
+    settings.speed = v;
     store.saveSettings(settings);
     renderTop(); nudge();
   }
+  const cycleSpeed = () => setSpeed(SPEEDS[(SPEEDS.indexOf(settings.speed) + 1) % SPEEDS.length]);
   function togglePause() { if (paused.has('user')) paused.delete('user'); else paused.add('user'); renderTop(); nudge(); }
   const onKey = (e: KeyboardEvent) => {
     if (ended) return;
