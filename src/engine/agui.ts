@@ -42,8 +42,10 @@ export function autoFocus(g: Game) {
   s.focus = map[low].find((f) => list.includes(f)) ?? list[list.length - 1];
 }
 
-export function playHeadless(seed: number, period: string | null, mode: Policy, maxAge = 120): Game {
-  const g = new Game(seed, period);
+export function playHeadless(seed: number, period: string | null, mode: Policy, maxAge = 120, force?: { year: number; day: number }, onYear?: (g: Game) => void): Game {
+  const g = new Game(seed, period, force);
+  // 某某人係「每一步都有規劃」嘅示範人物：佢遇到財困會即刻重組，唔會行到破產結局
+  if (mode === 'agui') g.s.flags['planner'] = true;
   while (g.s.alive && g.s.age < maxAge) {
     if (mode === 'agui') aguiYear(g);
     const st = g.startYear();
@@ -55,12 +57,15 @@ export function playHeadless(seed: number, period: string | null, mode: Policy, 
       g.choose(c, pickFor(c, mode));
     }
     const end = g.endYear();
+    onYear?.(g);
     if (end.dead) break;
   }
   return g;
 }
 
 const aguiCache = new Map<string, Ending>();
+/** 平行人生已經行過某某人，直接放入快取，結局唔使再行一次 */
+export function cacheAgui(seed: number, period: string | null, e: Ending) { aguiCache.set(`${seed}|${period}`, e); }
 export function aguiEnding(seed: number, period: string | null): Ending {
   const key = `${seed}|${period}`;
   const hit = aguiCache.get(key);

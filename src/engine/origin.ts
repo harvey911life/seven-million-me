@@ -39,11 +39,13 @@ export const PERIODS: Record<string, [number, number]> = {
   千禧年代: [2000, 2015], 新生代: [2016, 2025], 未來世代: [2026, 2040],
 };
 
-export function rollOrigin(seed: number, market: Market, period: string | null): Origin {
+/** force：平行人生用，同玩家同年同日出世，其餘照抽 */
+export function rollOrigin(seed: number, market: Market, period: string | null, force?: { year: number; day: number }): Origin {
   const r = streamRng(seed, 'origin');
   const [y0, y1] = PERIODS[period ?? '隨機時段'] ?? [1975, 2015];
-  const birthYear = r.int(y0, y1);
-  const birthDay = r.int(1, 365);
+  let birthYear = r.int(y0, y1);
+  let birthDay = r.int(1, 365);
+  if (force) { birthYear = force.year; birthDay = force.day; }
   const gender: 'M' | 'F' = r() < 0.515 ? 'M' : 'F';
   const isBaoyou = r() < 0.001;
   const baoyouBranch = isBaoyou ? r.weighted({ 院舍家庭: 50, 寄養家庭: 30, 被領養: 20 }) : undefined;

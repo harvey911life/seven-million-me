@@ -5,9 +5,12 @@ import { streamRng } from './rng';
 import { mkCard, firstEnabled, capOptions, type Card, type EventDef } from './cards';
 import { CAREER_EVENTS, insuranceGateCard, jobOf } from './career';
 import { EDU_EVENTS } from './education';
+import { BIZ_EVENTS } from './biz';
+import { HISTORY_EVENTS, rewritten } from './history';
 import { HEALTH_EVENTS, healthYear } from './health';
 import { FAMILY_EVENTS, householdMonthly } from './family';
-import { liquidAssets, propEquity, premiums, retireAssets, PET_INFO, petBlock, adoptPet } from './finance';
+import { liquidAssets, propEquity, premiums, retireAssets, PET_INFO, petBlock, adoptPet, livingCostYear } from './finance';
+const livingNow = (g: Game) => livingCostYear(g);
 
 export type { Card, EventDef } from './cards';
 
@@ -208,6 +211,7 @@ function jackpotCard(g: Game): Card {
   const s = g.s;
   const r = streamRng(s.seed, 'jackpot', s.age);
   const prize = Math.round(r.uni(8_000_000, 30_000_000) * Math.max(0.3, g.P));
+  g.s.lotteryWon += prize;
   return mkCard('C-AN-06', '中咗六星彩頭獎！', `你張彩票 6 個號碼全中，獎金 ${fmtMoney(prize)}！（機率約 1 / 13,983,816）`, [
     { label: '全部使', fx: { J: 10 } },
     { label: '一半投資', fx: { J: 8 } },
@@ -266,20 +270,7 @@ const GENERAL_EVENTS: EventDef[] = [
     g.s.cash += back;
     return `群組真係冇走佬，你取返 ${fmtMoney(back)}。`;
   }, { pri: 900 }),
-  // 債務太重：破產
-  T('E-BANKRUPT', [18, 110], (g) => {
-    const s = g.s;
-    const debt = s.card + s.finco + s.privateLoan;
-    return debt > Math.max(2 * (g.income() || g.monthlyIncome() * 12), 300000 * g.P) && (!s.flags['bankrupt'] || s.year - Number(s.flags['bankrupt']) >= 8) ? 1 : 0;
-  }, (g) => {
-    const s = g.s;
-    const d = s.card + s.finco + s.privateLoan;
-    s.card = 0; s.finco = 0; s.privateLoan = 0;
-    g.flag('bankrupt', s.year);
-    g.add('J', -15, '破產'); g.add('R', -5);
-    g.log(`債務 ${fmtMoney(d)} 還唔到，申請破產`, '財務衝擊', true);
-    return `你欠落 ${fmtMoney(d)} 債，最後申請破產。之後幾年借唔到錢，亦好難買樓。`;
-  }, { pri: 900, cat: '財務衝擊' }),
+  // 債務太重：v0.6 改為破產結局（見 game.ts bankruptCheck 同 E-DEBT 財困卡）
   // 交唔起保費：保單失效
   T('E-LAPSE', [18, 110], (g) => (premiums(g) > 0 && g.s.cash + g.s.deposit + g.s.index + g.s.stock < premiums(g) && g.s.card > 0 ? 1 : 0), (g) => {
     for (const k of ['med', 'ci', 'acc', 'life'] as const) g.s.ins[k] = { level: 0, a0: 0, s0: 0, p0: 1, age0: 0 };
@@ -336,46 +327,86 @@ const GENERAL_EVENTS: EventDef[] = [
       return i === 1 ? '新屋細咗，但租金平返啲。' : '返工遠咗，每日多咗一個鐘車程。';
     }, { pri: 200, def: 0, auto: 1, agui: 0 }),
   },
-  { // 健康 ≤ 25：強制出補救選項，令玩家即刻留意到
-    id: 'E-RESCUE-H', pri: 900, fixed: true, once: false, cool: 2, cat: '健康', ages: [6, 120],
-    when: (g) => (g.s.H <= 25 && g.s.alive ? 1 : 0),
+  { // 負債過多警告（破產前最後機會）
+    id: 'E-DEBT', pri: 905, fixed: true, once: false, cat: '財務衝擊', ages: [18, 120],
+    when: (g) => (g.s.flags['debtCardDue'] ? 1 : 0),
     make: (g) => {
+      delete g.s.flags['debtCardDue'];
+      const s = g.s;
+      const debt = s.card + s.finco + s.privateLoan + (s.biz?.loan ?? 0);
+      const canIva = !s.flags['ivaUsed'] && s.card + s.finco > 0;
+      const canMove = s.home !== 'own' && s.home !== 'public' && s.home !== 'subdiv' && s.home !== 'institution';
+      return mkCard('E-DEBT', '財困：快要破產', `你欠落 ${fmtMoney(debt)}，連最低還款都俾唔起。再咁落去就會被人入稟破產，人生遊戲會提早結算，理財分數變 0。`, [
+        { label: '債務重組', note: '卡數同財務公司變做低息分期，5 年內還', fx: { R: -3 }, disabled: canIva ? undefined : s.flags['ivaUsed'] ? '一世只可以重組一次' : '冇卡數或財務公司欠款' },
+        { label: '縮皮搬平啲', note: '搬去劏房、開支減兩成', fx: { J: -5 }, disabled: canMove ? undefined : '而家已經冇得再搬平' },
+        { label: '節衣縮食', note: '開支減兩成，維持三年', fx: { J: -3 } },
+        { label: '唔理佢', note: '明年仍然還唔到就破產' },
+      ], (g2, i) => {
+        const st = g2.s;
+        if (i === 0) {
+          st.privateLoan += st.card + st.finco; st.card = 0; st.finco = 0;
+          st.flags['ivaUsed'] = true; st.flags['ivaUntil'] = st.age + 5; st.flags['debtGrace'] = st.age + 4; g2.add('R', -3, '債務重組');
+          return '你同債權人達成協議，每月定額還款，暫時唔使破產。';
+        }
+        if (i === 1) {
+          st.home = 'subdiv'; st.rentBase = 0; st.flags['recur_frugal'] = -Math.round(livingNow(g2) * 0.2 / g2.P);
+          st.flags['frugalUntil'] = st.age + 5; st.flags['debtGrace'] = st.age + 3; g2.add('J', -5, '縮皮搬屋');
+          return '你搬咗去劏房，每樣嘢都慳住使。';
+        }
+        if (i === 2) {
+          st.flags['recur_frugal'] = -Math.round(livingNow(g2) * 0.2 / g2.P);
+          st.flags['frugalUntil'] = st.age + 3; st.flags['debtGrace'] = st.age + 2; g2.add('J', -3, '節衣縮食');
+          return '你戒咗出街食飯同買嘢，每個月記帳。';
+        }
+        return '你決定唔諗住先。';
+      }, { pri: 905, def: 0, auto: 0, agui: 0, cat: '財務衝擊', scene: 'bank' });
+    },
+  },
+  { // 健康 ≤ 25：強制出補救選項，令玩家即刻留意到
+    id: 'E-RESCUE-H', pri: 900, fixed: true, once: false, cool: 5, cat: '健康', ages: [6, 120],
+    when: (g) => (g.s.H <= 25 && g.s.alive && rescueOk(g, 'H') ? 1 : 0),
+    make: (g) => {
+      rescueMark(g, 'H');
       const kid = g.s.age < 18;
       const doc = g.p(kid ? 0 : 1500);
       return mkCard('E-RESCUE-H', '身體響警號', `你嘅健康得返 ${Math.round(g.s.H)} 分，成日覺得好攰。要即刻做啲嘢。`, kid ? [
         { label: '同屋企人去睇醫生', fx: { H: 5 } },
         { label: '每日放學去公園跑步', fx: { H: 4, J: 1 } },
         { label: '早啲瞓，唔再打機打通宵', fx: { H: 3, J: -1 } },
+        { label: '唔理佢', note: '冇任何改變' },
       ] : [
         { label: '睇醫生做身體檢查', note: `約 ${fmtMoney(doc)}`, fx: { H: 5 } },
         { label: '開始每星期做運動', fx: { H: 4, J: 1 } },
         { label: '早啲瞓、戒宵夜', fx: { H: 3 } },
-        { label: '請幾日假休息', fx: { H: 3, J: 2 } },
+        { label: '唔理佢', note: '冇任何改變' },
       ], (g2, i) => {
+        if (i === 3) return '你話自己冇事，照舊咁過。';
         if (!kid && i === 0) { g2.spend(doc, '身體檢查'); g2.add('H', 5); return '醫生幫你調整咗生活習慣，你精神咗好多。'; }
         if (i === 0) { g2.add('H', 5); return '醫生開咗藥，叮囑你要多休息。'; }
         if (i === 1) { g2.add('H', 4); g2.add('J', 1); return '頭幾日好辛苦，之後越跑越輕鬆。'; }
-        if (i === 2) { g2.add('H', 3); if (kid) g2.add('J', -1); return '瞓夠覺，成個人清醒咗。'; }
-        g2.add('H', 3); g2.add('J', 2); return '休息幾日，返工時有精神好多。';
+        g2.add('H', 3); if (kid) g2.add('J', -1); return '瞓夠覺，成個人清醒咗。';
       }, { pri: 900, def: 1, auto: 1, agui: 0, cat: '健康' });
     },
   },
   { // 快樂 ≤ 25：強制出補救選項
-    id: 'E-RESCUE-J', pri: 899, fixed: true, once: false, cool: 2, cat: '健康', ages: [6, 120],
-    when: (g) => (g.s.J <= 25 && g.s.alive ? 1 : 0),
+    id: 'E-RESCUE-J', pri: 899, fixed: true, once: false, cool: 5, cat: '健康', ages: [6, 120],
+    when: (g) => (g.s.J <= 25 && g.s.alive && rescueOk(g, 'J') ? 1 : 0),
     make: (g) => {
+      rescueMark(g, 'J');
       const kid = g.s.age < 18;
       const fee = g.p(3200);
       const c = mkCard('E-RESCUE-J', '心情好差', `你嘅快樂得返 ${Math.round(g.s.J)} 分，最近成日唔想出門口。`, kid ? [
         { label: '同爸爸媽媽傾吓', fx: { J: 4, R: 1 } },
         { label: '搵學校社工', fx: { J: 5 } },
         { label: '約同學出去玩', fx: { J: 3, R: 2 } },
+        { label: '唔理佢', note: '冇任何改變' },
       ] : [
         { label: '見輔導員傾幾次', note: `約 ${fmtMoney(fee)}`, fx: { J: 6 } },
         { label: '約朋友食飯傾偈', fx: { J: 3, R: 2 } },
-        { label: '去行山散吓心', fx: { J: 3, H: 1 } },
         { label: '打去「情緒通」18111', note: '免費，24 小時', fx: { J: 4 } },
+        { label: '唔理佢', note: '冇任何改變' },
       ], (g2, i) => {
+        if (i === 3) return '你話自己頂得順，照舊咁過。';
         if (kid) {
           if (i === 0) { g2.add('J', 4); g2.add('R', 1); return '講咗出嚟，心入面輕鬆咗。'; }
           if (i === 1) { g2.add('J', 5); return '社工姑娘教咗你幾個減壓方法。'; }
@@ -383,7 +414,6 @@ const GENERAL_EVENTS: EventDef[] = [
         }
         if (i === 0) { g2.spend(fee, '輔導'); g2.add('J', 6); return '輔導員幫你理清思緒，你慢慢搵返方向。'; }
         if (i === 1) { g2.add('J', 3); g2.add('R', 2); return '朋友聽你講咗成晚，你覺得冇咁孤單。'; }
-        if (i === 2) { g2.add('J', 3); g2.add('H', 1); return '企喺山頂吹吓風，個心靜咗落嚟。'; }
         g2.add('J', 4); return '電話另一邊嘅人好耐心咁聽你講。';
       }, { pri: 899, def: 1, auto: 1, agui: 0, cat: '健康' });
       c.hotline = true;
@@ -391,14 +421,20 @@ const GENERAL_EVENTS: EventDef[] = [
     },
   },
   {
-    id: 'E-PET', pri: 200, ages: [10, 75], cat: '生活日常',
-    when: (g) => (g.s.age >= 18 && !g.s.pets.length ? 0.03 * Math.sqrt(Mneg(g.s.J)) * (g.s.home === 'subdiv' ? 0.3 : 1) : 0),
-    make: (g) => mkCard('E-PET', '養寵物？', '朋友隻貓生咗 BB，問你要唔要領養一隻。', [
-      { label: '養貓', note: `每年約 ${fmtMoney(g.p(PET_INFO.cat.year))}`, fx: { J: 3 }, disabled: petBlock(g, 'cat') ?? undefined }, { label: '養狗', note: `每年約 ${fmtMoney(g.p(PET_INFO.dog.year))}`, fx: { J: 3 }, disabled: petBlock(g, 'dog') ?? undefined }, { label: '唔養' },
-    ], (g2, i) => {
-      if (i === 2) return '你覺得而家照顧唔到。';
-      return adoptPet(g2, i === 0 ? 'cat' : 'dog');
-    }, { pri: 200, def: 2, auto: 2, agui: 2 }),
+    id: 'E-PET', pri: 760, fixed: true, once: false, ages: [19, 80], cat: '生活日常',
+    when: (g) => (petAskDue(g) ? 1 : 0),
+    make: (g) => {
+      g.s.flags['petAskN'] = Number(g.s.flags['petAskN'] ?? 0) + 1;
+      const more = g.s.pets.length > 0;
+      return mkCard('E-PET', more ? '再養多隻寵物？' : '養唔養寵物？', more ? '朋友屋企隻寵物生咗 BB，問你要唔要多養一隻。' : '朋友屋企隻寵物生咗 BB，問你要唔要領養一隻。', [
+        { label: '養貓', note: `每年約 ${fmtMoney(g.p(PET_INFO.cat.year))}`, fx: { J: 3 }, disabled: petBlock(g, 'cat') ?? undefined },
+        { label: '養狗', note: `每年約 ${fmtMoney(g.p(PET_INFO.dog.year))}`, fx: { J: 3 }, disabled: petBlock(g, 'dog') ?? undefined },
+        { label: '唔養' },
+      ], (g2, i) => {
+        if (i === 2) return '你覺得而家照顧唔到。';
+        return adoptPet(g2, i === 0 ? 'cat' : 'dog');
+      }, { pri: 760, def: 2, auto: 2, agui: 2 });
+    },
   },
   {
     id: 'E-PETSICK', pri: 200, ages: [10, 100], once: false, cool: 3, cat: '生活日常',
@@ -622,9 +658,12 @@ function ERA_TICKS(): EventDef[] {
     [2023, '世紀黑雨，部分地舖水浸。'],
     [2024, '樓市全面撤辣，地產代理又開始忙。'],
   ];
+  // 被改寫咗嘅歷史唔再出現原本嘅字幕
+  // 字幕位置 → 改寫事件（2023 通關跟疫情）
+  const RW: Record<number, string> = { 1: '1987', 3: '1997', 5: '2003', 7: '2008', 10: '2017', 12: '2020', 13: '2020' };
   return E.map(([y, text, fx, cond], i) => ({
     id: `ERA-${y}-${i}`, pri: 90, years: [y, y] as [number, number], cat: '時代事件' as const,
-    when: (g: Game) => (cond && !cond(g) ? 0 : 1),
+    when: (g: Game) => (cond && !cond(g) ? 0 : RW[i] && rewritten(g, RW[i]) ? 0 : 1),
     tick: (g: Game) => { fx?.(g); return text; },
   }));
 }
@@ -709,7 +748,27 @@ function rollTianma(g: Game): Card | null {
 }
 
 // ---------- 抽事件（每年流程 ⑤） ----------
-export const ALL_EVENTS: EventDef[] = [...CAREER_EVENTS, ...EDU_EVENTS, ...HEALTH_EVENTS, ...FAMILY_EVENTS, ...GENERAL_EVENTS];
+/** 成年後隨機兩年問養唔養寵物，中間最少隔五年 */
+function petAskDue(g: Game) {
+  const r = streamRng(g.s.seed, 'petask', 0);
+  const a1 = r.int(19, 40);
+  const a2 = a1 + r.int(5, 15);
+  const n = Number(g.s.flags['petAskN'] ?? 0);
+  return n === 0 ? g.s.age >= a1 : n === 1 ? g.s.age >= a2 && g.s.age - a1 >= 5 : false;
+}
+
+/** 急救選項：健康 / 快樂各自一生最多兩次，中間最少隔五年 */
+function rescueOk(g: Game, k: 'H' | 'J') {
+  const n = Number(g.s.flags[`rescue${k}N`] ?? 0);
+  const last = g.s.flags[`rescue${k}Age`];
+  return n < 2 && (last === undefined || g.s.age - Number(last) >= 5);
+}
+function rescueMark(g: Game, k: 'H' | 'J') {
+  g.s.flags[`rescue${k}N`] = Number(g.s.flags[`rescue${k}N`] ?? 0) + 1;
+  g.s.flags[`rescue${k}Age`] = g.s.age;
+}
+
+export const ALL_EVENTS: EventDef[] = [...CAREER_EVENTS, ...BIZ_EVENTS, ...HISTORY_EVENTS, ...EDU_EVENTS, ...HEALTH_EVENTS, ...FAMILY_EVENTS, ...GENERAL_EVENTS];
 export const EVENTS_BY_ID: Record<string, EventDef> = Object.fromEntries(ALL_EVENTS.map((e) => [e.id, e]));
 
 const isInteractive = (c: Card) => c.kind !== 'system';

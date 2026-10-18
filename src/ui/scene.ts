@@ -228,6 +228,18 @@ function person(c: Ctx, x: number, w: Who, t: number, phase = 0, cane = false) {
   if (cane) { R(c, x + 6, GROUND - 11, 1, 11, '#7a5a3a'); R(c, x + 5, GROUND - 11, 2, 1, '#7a5a3a'); }
 }
 
+// ---------- 寵物（貓 / 狗，按數量顯示） ----------
+const PET_SPR: Record<'cat' | 'dog', string[]> = {
+  cat: ['k...k..', 'kak.ak.', 'aeaeaa.', 'aaaaa.k', '.aaaaak', '.a.a.a.'],
+  dog: ['kk......', 'kaa.....', 'aeaa...k', 'aaaaaaak', '.aaaaaa.', '.a.a.aa.', '.a.a..a.'],
+};
+const PET_COL = ['#f0a04b', '#8a6a4a', '#d9d4c7', '#444a52'];
+function pet(c: Ctx, x: number, kind: 'cat' | 'dog', i: number, t: number) {
+  const col = PET_COL[(hash(i * 31 + (kind === 'cat' ? 1 : 7)) >> 3) % PET_COL.length];
+  const bob = ((t + i * 3) >> 3) % 2;
+  drawSprite(c, PET_SPR[kind], x, GROUND, { h: col, s: col, t: col, b: col, k: '#2a2a33', m: col, a: col } as unknown as Pal, bob);
+}
+
 // ---------- 背景 ----------
 function sky(age: number) {
   if (age < 18) return { bands: ['#7cc4f2', '#9bd3f5', '#bde3f8', '#dcf1fb'], sun: '#fff1a8', stars: false, hill: '#6aa784', far: '#a9c6d6' };
@@ -307,6 +319,8 @@ export function drawScene(c: Ctx, s: State, t: number) {
   const kids = s.kids.filter((k) => !k.away && !k.emigrated && k.age < 18).slice(0, 3);
   kids.forEach((k, i) => person(c, meX - 12 - i * 10, { sex: k.sex ?? (hash(k.name.length * 7 + i) % 2 ? 'M' : 'F'), age: Math.max(1, k.age), role: 'kid' }, t, i + 1));
   person(c, meX, { sex: s.gender, age: s.age, role: 'me', status: s.status, level: s.job?.level }, t, 0, s.age >= 65 && s.H < 30);
+  // 寵物排喺右邊
+  (s.pets ?? []).slice(0, 4).forEach((pt, i) => pet(c, 127 + i * 9, pt.kind, i, t));
 }
 
 /** 頭像（結局用） */

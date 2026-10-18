@@ -68,12 +68,20 @@ export function setIns(g: Game, k: InsKind, level: 0 | 1 | 2) {
 // ---------- 開支 ----------
 const PUBLIC_RENT = [1600, 2000, 2600, 3200, 3800];
 const SUBDIV_RENT = [5000, 6000, 6800, 7500, 8200];
-const PRIVATE_RENT = [11000, 15000, 18000, 22000, 26000];
+const PRIVATE_RENT = [10000, 13000, 16000, 19000, 22000];
 const VILLAGE_RENT = [8000, 10000, 12000, 14000, 16000];
 const OWN_MGMT = [2000, 2500, 3000, 3500, 4000];
-const LIVING = [9000, 15000, 20000, 25000, 30000];
+const LIVING = [7000, 11500, 15500, 19500, 23500]; // v0.6：跟人工一齊下調
 
 export const rentFactor = (g: Game) => Math.pow(g.P, 0.55) * Math.pow(g.e.hpi, 0.45);
+
+/** 住戶每月收入（自己上年收入 + 伴侶），用嚟按負擔能力調整租盤大細、生活同仔女開支 */
+function hhMonthly(g: Game): number {
+  const s = g.s;
+  const own = Math.max(g.income(), s.status === 'work' && s.job ? s.job.salary * 12 : 0);
+  const pt = s.partner && s.married && s.partner.alive ? s.partner.income * 0.85 : 0;
+  return (own + pt) / 12;
+}
 
 export function housingCostYear(g: Game): number {
   const s = g.s;
@@ -84,7 +92,7 @@ export function housingCostYear(g: Game): number {
     case 'parents': return 0; // 交家用另計
     case 'institution': return 0;
     case 'share': m = 6500 * rentFactor(g); break;
-    case 'rent': m = (s.rentBase || PRIVATE_RENT[n]) * rentFactor(g); break;
+    case 'rent': m = (s.rentBase || PRIVATE_RENT[n]) * rentFactor(g); m = Math.min(m, Math.max(SUBDIV_RENT[n] * rentFactor(g), hhMonthly(g) * 0.35)); break; // 負擔唔起就租細啲
     case 'village': m = VILLAGE_RENT[n] * rentFactor(g); break;
     case 'subdiv': m = SUBDIV_RENT[n] * rentFactor(g); break;
     case 'public': m = PUBLIC_RENT[n] * P * (s.flags['richTenant'] ? 1.5 : 1); break;
@@ -97,6 +105,7 @@ export function housingCostYear(g: Game): number {
 export function kidCostYear(g: Game): number {
   const s = g.s;
   let t = 0;
+  let tFloor = 0;
   for (const k of s.kids) {
     if (k.age < 0 || k.away || k.job || k.emigrated) continue;
     let c = 0;
@@ -106,13 +115,16 @@ export function kidCostYear(g: Game): number {
     else if (k.age <= 17) c = [110000, 180000, 320000][k.school];
     else if (k.age <= 21 && !k.married) c = k.overseas ? (k.age <= 20 ? 420000 : 0) : 110000;
     if (s.flags['kidClasses'] && k.age >= 4 && k.age <= 10) c *= Number(s.flags['kidClasses']);
-    t += c;
+    t += c * 0.75; // v0.6：跟人工一齊下調
+    tFloor += c * 0.75 * 0.5;
   }
   const youngest = Math.min(99, ...s.kids.map((k) => k.age));
   if (youngest < 6) {
     if (s.childcare === 'helper') t += 90000;
     if (s.childcare === 'parents') t += 48000;
   }
+  // 收入低嘅家庭會揀平啲嘅選擇（最少一半），唔會超過住戶收入三成
+  t = Math.max(tFloor, Math.min(t, (hhMonthly(g) * 12 * 0.3) / g.P));
   return Math.round(t * g.P);
 }
 
@@ -123,7 +135,7 @@ export function supportCostYear(g: Game): number {
   const mod = (s.origin.parentCover === 2 ? 0.6 : 1) * (s.homeContrib >= 0.3 ? 0.8 : 1) * (s.flags['parentsHelpedHome'] ? 1.3 : 1);
   const inc = g.monthlyIncome();
   let m = 0;
-  if (s.support === 'money') m = inc < 25000 * g.W ? 5000 : inc < 50000 * g.W ? 6500 : 8000;
+  if (s.support === 'money') m = Math.max(2000, Math.min(inc < 25000 * g.W ? 5000 : inc < 50000 * g.W ? 6500 : 8000, (hhMonthly(g) * 0.12) / g.P));
   else if (s.support === 'live') m = 4000 * alive;
   else m = 14000 * alive;
   return Math.round(m * 12 * g.P * mod);
@@ -135,6 +147,8 @@ export function livingCostYear(g: Game): number {
   let adults = 1 + (s.partner && s.married && s.partner.alive ? 1 : 0) + (s.support === 'live' ? s.parents.filter((p) => p.alive).length : 0);
   let base = s.home === 'parents' ? 5000 : LIVING[Math.min(5, adults) - 1];
   base *= 12 * P;
+  // 收入低就慳啲使（最少六成），唔會超過住戶收入四成
+  if (s.age >= 18 && s.status !== 'study') base = Math.max(base * 0.6, Math.min(base, hhMonthly(g) * 12 * 0.4));
   if (s.age >= 65) base *= 0.9;
   if (s.gba) base *= 0.7;
   if (s.flags['gbaJob']) base *= 0.8;
@@ -148,6 +162,7 @@ export function livingCostYear(g: Game): number {
   if (f === '周遊列國') base += 60000 * P * (s.married && s.partner?.alive ? 1.7 : 1);
   if (f === '養生保健') base += 12000 * P;
   if (s.flags['lotterySplurge'] && Number(s.flags['splurgeUntil'] ?? 999) > s.age) base += Number(s.flags['lotterySplurge']);
+  if (s.flags['frugalUntil'] !== undefined && s.age >= Number(s.flags['frugalUntil'])) { delete s.flags['frugalUntil']; delete s.flags['recur_frugal']; }
   // 經常性開支旗標（2026 價 × P）
   for (const [k, v] of Object.entries(s.flags)) if (k.startsWith('recur_') && typeof v === 'number') base += v * P;
   if (s.partner && s.married && s.partner.alive) {
@@ -375,7 +390,7 @@ export function settleYear(g: Game) {
     s.flags['familySavings'] = fs;
     // 兼職 / 利是
     if (s.age >= 6 && s.age <= 17) {
-      const lai = (s.origin.family === '三代同堂' ? 1.5 : s.origin.family === '新移民' ? 0.7 : 1) * (s.origin.isBaoyou ? 500 / 3500 : 1) * 3500 * P * Math.pow(1.05, s.age - 6);
+      const lai = (s.origin.family === '三代同堂' ? 1.5 : s.origin.family === '新移民' ? 0.7 : 1) * (s.origin.isBaoyou ? 500 / 3500 : 1) * 1200 * P * Math.pow(1.03, s.age - 6); // v0.6：利是大幅減少
       if (s.age >= 8) {
         if (s.piggyMode === 0) s.piggy += lai;
         else if (s.piggyMode === 1) s.piggy += lai / 2;
@@ -383,7 +398,7 @@ export function settleYear(g: Game) {
     }
     if (s.focus === '做兼職' && s.age >= 15) {
       const hourly = minWage(g);
-      s.cash += hourly * (s.age >= 18 ? 16 : 12) * 40;
+      s.cash += hourly * (s.age >= 18 ? 16 : 4) * 40;
     }
     if (s.age === 18 && s.piggy > 0) { s.cash += s.piggy; g.tick(`錫錢罐轉做你嘅第一筆積蓄：${fmtMoney(s.piggy)}`); s.piggy = 0; }
     if (s.pets.length) payCost(g, petCostYear(g));
@@ -426,6 +441,18 @@ export function settleYear(g: Game) {
     gov = Math.max(gov, (s.age >= 65 ? 7000 : 6000) * 12 * P);
     if (!s.flags['cssa']) g.tick('你申請咗綜援，暫時有個底。');
     g.flag('cssa');
+  }
+  // 在職家庭津貼（2018 年起；簡化）：有返工、住戶入息低，每月 $1,000–$2,800，另加每個仔女 $1,400
+  if (s.year >= 2016 && s.age >= 18 && s.age < 65 && (s.status === 'work' || s.status === 'biz') && pay > 0) {
+    const n = g.householdSize();
+    const hm = (ownIncome + partnerNet) / 12 / P;
+    const lim = [12000, 18000, 22000, 26000, 29000][Math.min(5, n) - 1];
+    if (n >= 2 && hm < lim) {
+      const kidsN = s.kids.filter((k) => k.age < 22 && !k.job).length;
+      const wfa = ((hm < lim * 0.75 ? 2800 : 1000) + 1400 * kidsN) * 12 * P;
+      gov += wfa;
+      if (!s.flags['wfa']) { g.tick(`你申請到在職家庭津貼，每月約 ${fmtMoney(wfa / 12)}。`); g.flag('wfa'); }
+    }
   }
   if (s.year === 2020 && s.age >= 18) { gov += 10000; lines.push('政府現金發放 $10,000'); }
   if (s.year === 2021 && s.age >= 18) gov += 5000;
@@ -475,7 +502,7 @@ export function settleYear(g: Game) {
   const fincoInt = s.finco * 0.4;
   s.card += cardInt;
   s.finco += fincoInt;
-  const privInt = s.privateLoan * 0.06;
+  const privInt = s.privateLoan * (s.flags['ivaUntil'] !== undefined && s.age < Number(s.flags['ivaUntil']) ? 0.02 : 0.06); // 債務重組期間低息
   s.privateLoan += privInt;
   // 花錢面板
   const panel = Number(s.flags['panelCost'] ?? 0);
@@ -512,7 +539,9 @@ export function settleYear(g: Game) {
   }
   investReturns(g, ir);
   // MPF 回報
-  s.mpf *= 1 + mpfReturn(g, s.mpfFund, s.age);
+  const mpfR = mpfReturn(g, s.mpfFund, s.age);
+  s.mpfGain += (s.mpf * mpfR) / P;
+  s.mpf *= 1 + mpfR;
   if (s.prop && s.prop.monthsLeft > 0) amortize(g);
 
   // 收入紀錄（玩家個人稅前）
@@ -584,6 +613,7 @@ function allocateSurplus(g: Game, cf: number) {
 function investReturns(g: Game, ir: ReturnType<typeof streamRng>) {
   const s = g.s;
   const e = g.e;
+  const before = s.deposit + s.index + s.stock + s.crypto;
   s.deposit *= 1 + e.rdep;
   if (s.index > 0) s.index *= 1 + e.ridx;
   if (s.stock > 0) {
@@ -599,6 +629,7 @@ function investReturns(g: Game, ir: ReturnType<typeof streamRng>) {
     s.crypto *= 1 + clamp(R, -1, 4);
   }
   if (e.crash && s.index + s.stock > 20000) g.flag('crashYear', s.year);
+  s.investGain += (s.deposit + s.index + s.stock + s.crypto - before) / g.P;
 }
 
 function amortize(g: Game) {

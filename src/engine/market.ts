@@ -29,7 +29,7 @@ export class Market {
     for (let y = Y0; y <= Y1; y++) {
       if (y < 1975) pi[y] = 0.06;
       else if (y <= 2025) pi[y] = CPI_PI[y];
-      else pi[y] = r.uni(0.02, 0.05);
+      else pi[y] = r.uni(0.01, 0.03); // v0.6：未來通脹 1%–3%
     }
     // 物價指數
     const P: Record<number, number> = { 2026: 1 };

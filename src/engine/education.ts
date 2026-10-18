@@ -247,7 +247,7 @@ export const EDU_EVENTS: EventDef[] = [
   {
     id: 'C-SS-04', pri: 849, fixed: true, ages: [16, 16], when: () => 1,
     make: (g) => {
-      const wage = Math.round(g.p(10100));
+      const wage = Math.round(g.p(5000));
       return mkCard('C-SS-04', '暑假', '中五暑假，有兩個月時間。你點過？', [
         { label: '做暑期工', note: `賺 ${fmtMoney(wage)}`, fx: { R: 1, J: -1 } },
         { label: '參加交流團', disabled: famF(g) >= 40 ? undefined : '屋企負擔唔起', money: -g.p(15000), fx: { K: 2, J: 2, R: 1 } },

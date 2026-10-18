@@ -134,7 +134,8 @@ export function computeEnding(g: Game, agui?: Ending): Ending {
   else Rr = s.fParts.T;
   const Pbar = s.pAvg.P.length ? avg(s.pAvg.P) : 50;
   const Ebar = s.pAvg.E.length ? avg(s.pAvg.E) : 50;
-  const fin = 0.5 * Rr + 0.3 * Pbar + 0.2 * Ebar;
+  // 破產結局：理財分數直接 0
+  const fin = s.flags['bankrupt'] ? 0 : 0.5 * Rr + 0.3 * Pbar + 0.2 * Ebar;
   // 4. 健康
   const life = clamp((s.age - 40) / 55, 0, 1) * 100;
   const health = 0.6 * sp.H + 0.4 * life;

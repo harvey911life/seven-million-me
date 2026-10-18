@@ -36,6 +36,7 @@ const G: Record<string, string[]> = {
   lock: ['...kkkkk...', '..kk...kk..', '..k.....k..', '.kkkkkkkkk.', '.kyyyyyyyk.', '.kyyykyyyk.', '.kyyykyyyk.', '.kyyyyyyyk.', '.kkkkkkkkk.'],
   shield: ['.kkkkkkkkk.', 'kaaaaaaaaak', 'kaabaaaaaak', 'kabaaaaaaak', 'kaaaaaaaaak', '.kaaaaaaak.', '.kaaaaaaak.', '..kaaaaak..', '...kaaak...', '....kkk....'],
   shieldok: ['.kkkkkkkkk.', 'kaaaaaaaaak', 'kaaaaaaawak', 'kaaaaaawaak', 'kawaaawaaak', '.kawawaaak.', '.kaawaaaak.', '..kaaaaak..', '...kaaak...', '....kkk....'],
+  shop: ['kkkkkkkkkkkk', 'krwrwrwrwrwk', 'krwrwrwrwrwk', '.kkkkkkkkkk.', '.kaaaaaaaak.', '.kwwkaakwwk.', '.kwwkaakwwk.', '.kaaaaaaaak.', '.kaakkkkaak.', '.kaakyykaak.', '.kaakyykaak.', 'kkkkkkkkkkkk'],
   clock: ['...kkkkk...', '..kwwwwwk..', '.kwwwkwwwk.', 'kwwwwkwwwwk', 'kwwwwkwwwwk', 'kwwwwkkkwwk', 'kwwwwwwwwwk', '.kwwwwwwwk.', '..kwwwwwk..', '...kkkkk...'],
   dove: ['......kk....', '.....kwwk...', '..kk.kwwkk..', '.kwwkkwwwwk.', 'kwwwwwwwwwyk', '.kwwwwwwwkk.', '..kkwwwwk...', '....kkkk....'],
   cross: ['kk......kk', 'krk....krk', '.krk..krk.', '..krkkrk..', '...krrk...', '...krrk...', '..krkkrk..', '.krk..krk.', 'krk....krk', 'kk......kk'],
@@ -82,6 +83,7 @@ const MAP: Record<string, [string, string]> = {
   centenarian: ['cake', '#f29bb5'], died_young: ['lily', '#ffffff'], happy_family: ['heart', '#d6455d'], happy_single: ['cup', '#9b6a43'], filial: ['teapot', '#12706a'],
   emigrate: ['plane', '#8e1f3f'], return_hk: ['suitcase', '#12706a'], pentagon: ['star', '#f2c14e'], beat_agui: ['trophy', '#f2c14e'],
   jackpot: ['ball', '#d6455d'], lottery_vs_fund: ['ticket', '#4caf6d'], against_fate: ['rocket', '#d6455d'], gold_rush: ['nugget', '#f2c14e'], future_tip: ['hourglass', '#f2c14e'],
+  biz_start: ['shop', '#4caf6d'], biz_exit: ['coins', '#f2c14e'], history_rewrite: ['hourglass', '#8e4fd6'],
   cat_boss: ['cat', '#f08a3c'], lion_rock_astronaut: ['helmet', '#ffffff'], meteor: ['meteor', '#f08a3c'], will_matters: ['scroll', '#ffffff'], lookalike: ['camera', '#2f3b52'],
   treasure: ['chest', '#9b6a43'], duck_effect: ['duck', '#f2c14e'], blackout: ['candle', '#ffffff'], robot_gift: ['robot', '#7d8696'], rooftop_ufo: ['ufo', '#7d8696'], mars_scam: ['planet', '#d6455d'],
 };

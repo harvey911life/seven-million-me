@@ -6,6 +6,7 @@ import { streamRng, type RNG } from './rng';
 import { mkCard, firstEnabled, type Card, type EventDef } from './cards';
 import { studyYear } from './education';
 import { insActive } from './finance';
+import { bizYear } from './biz';
 
 export const jobOf = (g: Game) => (g.s.job ? JOB_BY_ID[g.s.job.id] : null);
 export const jobName = (g: Game, id: string) => jobDisplayName(JOB_BY_ID[id], g.s.year);
@@ -63,7 +64,17 @@ export function startSalary(g: Game, j: Job, level = 1, r: RNG): number {
   let sal = j.start * g.W * f * L * r.uni(0.92, 1.08);
   if (s.focus === '事業衝刺') sal *= 1.03;
   sal = Math.min(sal, capOf(j, level) * g.W);
+  if (level === 1) sal = Math.min(sal, entryCap(g, j) * g.W);
   return Math.max(Math.round(sal), minMonthly(g));
+}
+
+/** 入職起薪上限（2026 年幣值）：中學或以下 $15,000；職業 / 副學位 $20,000；學士 / 碩士 $32,000；醫生、藥劑師除外 */
+export function entryCap(g: Game, j: Job): number {
+  const e = g.s.edu;
+  if (e <= 2) return 15000;
+  if (e <= 4) return 20000;
+  if (j.majors?.some((m) => m === '醫科' || m === '藥劑')) return Infinity;
+  return 32000;
 }
 
 export function minMonthly(g: Game): number {
@@ -83,6 +94,7 @@ export function setJob(g: Game, id: string, salary: number, level = 1, firstType
     s.everEmployed = true;
     g.ach('first_salary');
     if (s.focusStage !== 'work') { s.focusStage = 'work'; g.flag('needFocus'); }
+    scheduleYoungAdult(g);
   }
   const cat = JOB_BY_ID[id].cat;
   if (prevCat && prevCat !== cat) {
@@ -90,6 +102,20 @@ export function setJob(g: Game, id: string, salary: number, level = 1, firstType
     g.flag('switchCat', cat);
   }
 }
+
+/** 入職之後嘅問題（強積金、保險、交家用、學貸、搬出去住）分散喺 18–25 歲唔同年份隨機出現，每年最多一條 */
+export const YA_KEYS = ['ya_mpf', 'ya_ins', 'ya_home', 'ya_loan', 'ya_move'] as const;
+function scheduleYoungAdult(g: Game) {
+  const s = g.s;
+  const r = streamRng(s.seed, 'ya', s.age);
+  const from = Math.max(18, s.age + 1);
+  const slots: number[] = [];
+  for (let a = from; a <= Math.max(25, from + YA_KEYS.length - 1); a++) slots.push(a);
+  const pick = [...slots];
+  for (let i = pick.length - 1; i > 0; i--) { const j = Math.floor(r() * (i + 1)); [pick[i], pick[j]] = [pick[j], pick[i]]; }
+  YA_KEYS.forEach((k, i) => { s.flags[k] = pick[i]; });
+}
+export const yaDue = (g: Game, k: (typeof YA_KEYS)[number]) => g.s.flags[k] === undefined || g.s.age >= Number(g.s.flags[k]);
 
 /** 揀出可以申請、並且擲中 P_hire 嘅職業 */
 function tryJobs(g: Game, pool: Job[], r: RNG, tries = 3, newCat = false): Job | null {
@@ -113,7 +139,7 @@ export function firstJobCard(g: Game): Card {
   const B = tryJobs(g, top(by((j) => j.promo)), r) ?? fb();
   const C = tryJobs(g, cands.filter((j) => j.hours >= -0.5), r) ?? fb();
   const picks: [Job, 'hard' | 'promo' | 'ontime', number][] = [
-    [A, 'hard', Math.round(startSalary(g, A, 1, r) * 1.12)],
+    [A, 'hard', Math.round(Math.min(startSalary(g, A, 1, r) * 1.12, Math.max(entryCap(g, A) * g.W, minMonthly(g))))],
     [B, 'promo', startSalary(g, B, 1, r)],
     [C, 'ontime', startSalary(g, C, 1, r)],
   ];
@@ -130,10 +156,7 @@ export function firstJobCard(g: Game): Card {
     setJob(g2, j.id, sal, 1, type);
     if (type === 'hard') g2.add('H', -2, '工作辛苦');
     if (type === 'ontime') g2.add('J', 2);
-    // 理財關口面板
-    g2.pushCard(insuranceGateCard(g2, 'first'), true);
-    if (g2.s.year >= 2001) g2.pushCard(mpfCard(g2), true);
-    else g2.flag('mpfPending');
+    // 強積金同保險唔再即刻問，分散喺之後幾年（scheduleYoungAdult）
     return `你成為咗${jobDisplayName(j, g2.s.year)}，第一份人工 ${fmtMoney(sal)}。`;
   }, { pri: 870, def: 1, auto: 1, agui: 1, reason, scene: 'office' });
 }
@@ -201,7 +224,7 @@ function setInsQuick(g: Game, k: 'med' | 'ci' | 'acc' | 'life', level: 0 | 1 | 2
 }
 
 export function mpfCard(g: Game): Card {
-  return mkCard('C-YA-05', '強積金基金', '你開始供強積金：你同老闆每月各供人工 5%。揀邊種基金？（遊戲模擬，不構成投資建議）', [
+  return mkCard('C-YA-05', '強積金基金', '公司寄咗強積金基金選擇表嚟：你同老闆每月各供人工 5%，暫時放喺預設嘅均衡基金。你想揀邊種？（遊戲模擬，不構成投資建議）', [
     { label: '保守', note: '穩陣，長期追唔上通脹' },
     { label: '均衡', note: '股債各半，有升有跌' },
     { label: '增長', note: '波幅大，長線回報較高' },
@@ -224,6 +247,7 @@ export function careerYear(g: Game) {
   // 進修中（被裁後進修轉行 / 創業前進修）：今年冇收入
   if (s.flags['retrainYear'] === s.year) { s.status = 'unemp'; return; }
 
+  if (s.status === 'biz' && s.biz) { bizYear(g); return; }
   if (s.status === 'unemp') { unempYear(g, r); return; }
   const job = s.job!;
   const j = JOB_BY_ID[job.id];
@@ -233,10 +257,10 @@ export function careerYear(g: Game) {
   let pay = 0;
   const mult = (s.overtime ? 1.1 : 1) * (s.expatLeft > 0 ? 1.4 : 1) * emigrantMult(g) * (s.disabled ? 0.5 : 1) * (s.diseases.some((d) => d.kind === 'kidney' && d.status !== 'remission') ? 0.7 : 1) * (s.flags['gbaJob'] ? 1.1 : 1);
   if (j.commission) {
-    const LF = [0, 0.7, 1, 1.5, 2.2][job.level];
+    const LF = [0, 0.6, 0.85, 1.15, 1.5][job.level];
     const mkt = job.id === 'J18' ? 0.8 * e.hpiD : job.id === 'J19' ? 0.5 * e.ridx : 0;
     const mu = 0.4 * Math.log(Mpos(s.R)) + 0.2 * Math.log(Mpos(s.K)) + mkt;
-    pay = Math.max(12 * j.median * g.W * LF * Math.exp(r.normal(mu, 0.4)), minMonthly(g) * 12 || 8000 * g.W * 12);
+    pay = Math.max(Math.min(12 * j.median * g.W * LF * Math.exp(r.normal(mu, 0.35)), 12 * j.top * g.W), minMonthly(g) * 12 || 8000 * g.W * 12);
     job.salary = Math.round(pay / 12);
   } else pay = job.salary * 12;
   // 病假 / 停工
@@ -301,22 +325,14 @@ export function careerYear(g: Game) {
   const realY = (pay + bonus) / g.P;
   if (realY >= 1_000_000) { g.ach('million_salary'); if (s.edu < 5) g.ach('self_made'); }
 
-  // ⑤ 加薪
+  // ⑤ 加薪：每年 0%–2.5% 隨機（經濟差嗰年凍薪），唔超過職級上限
   if (!j.commission) {
-    let gReal = r.uni(j.raise[0], j.raise[1]);
-    const ff = s.focus === '事業衝刺' ? 1.4 : s.flags['studiedLast'] === s.year - 1 ? 1.1 : s.focus === '家庭優先' ? 0.7 : s.focus === '享受當下' ? 0.8 : 1;
-    const head = Math.max(0, 1 - Math.pow(job.salary / (capOf(j, job.level) * g.W), 2));
-    gReal *= ff * head;
-    let nom = 0.8 * e.pi + gReal;
-    if (s.J > 70 && s.H > 50) nom += 0.005;
-    if (s.J < 30 || s.H < 30) nom -= 0.01;
-    if (recession) {
-      nom = Math.min(nom, 0);
-      if (!j.civil && r() < 0.25) nom = -r.uni(0.05, 0.1);
-    }
-    if (s.age >= 60 && s.retirePlan === 99) nom = e.pi - 0.02;
-    if (s.flags['foreignLabour'] && Number(s.flags['foreignLabour']) >= s.year) nom = Math.min(nom, e.pi * 0.5);
-    job.salary = Math.max(minMonthly(g), Math.round(job.salary * (1 + nom)));
+    // 通脹高過 2.5% 嗰啲年（例如九十年代）先額外追返通脹，其餘年份都係 0%–2.5%
+    let nom = recession ? 0 : r.uni(0, 0.025) + Math.max(0, e.pi - 0.025);
+    if (s.age >= 60 && s.retirePlan === 99) nom = 0;
+    if (s.flags['foreignLabour'] && Number(s.flags['foreignLabour']) >= s.year) nom = Math.min(nom, 0.01);
+    const cap = Math.max(job.salary, capOf(j, job.level) * g.W);
+    job.salary = Math.max(minMonthly(g), Math.round(Math.min(job.salary * (1 + nom), cap)));
   }
 
   // ⑥ 升職
@@ -389,7 +405,7 @@ function promoteRoll(g: Game, r: RNG) {
   const toMgr = (target: string, k: number) => {
     if (r() < p * k) {
       const t = JOB_BY_ID[target];
-      const sal = Math.min(Math.round(job.salary * r.uni(1.15, 1.25)), capOf(t, 1) * g.W * 1.2);
+      const sal = Math.min(Math.round(job.salary * r.uni(1.08, 1.15)), capOf(t, 1) * g.W * 1.2);
       const old = jobDisplayName(j, s.year);
       setJob(g, target, Math.max(sal, Math.round(t.start * g.W)), 1);
       g.add('J', 5, '升職');
@@ -406,7 +422,7 @@ function promoteRoll(g: Game, r: RNG) {
   if (r() < p) {
     job.level++;
     job.levelYears = 0;
-    job.salary = Math.round(Math.min(job.salary * r.uni(1.15, 1.25), Math.max(job.salary, capOf(j, job.level) * g.W)));
+    job.salary = Math.round(Math.min(job.salary * r.uni(1.08, 1.15), Math.max(job.salary, capOf(j, job.level) * g.W)));
     g.add('J', 5, '升職');
     g.tick(`你升咗做${LEVEL_NAME[job.level]}${jobDisplayName(j, s.year)}，人工加到 ${fmtMoney(job.salary)}。`);
   }
@@ -508,9 +524,19 @@ export const CAREER_EVENTS: EventDef[] = [
     when: (g) => (g.s.flags['needFirstJob'] ? 1 : 0),
     make: (g) => { delete g.s.flags['needFirstJob']; return firstJobCard(g); },
   },
+  { // 強積金基金（入職後隨機一年）
+    id: 'YA-MPF', pri: 845, fixed: true,
+    when: (g) => (g.s.flags['ya_mpf'] !== undefined && yaDue(g, 'ya_mpf') && g.s.status === 'work' && g.s.year >= 2001 ? 1 : 0),
+    make: (g) => { delete g.s.flags['ya_mpf']; return mpfCard(g); },
+  },
+  { // 第一份保險（入職後隨機一年）
+    id: 'YA-INS', pri: 844, fixed: true,
+    when: (g) => (g.s.flags['ya_ins'] !== undefined && yaDue(g, 'ya_ins') && (g.s.status === 'work' || g.s.status === 'biz') ? 1 : 0),
+    make: (g) => { delete g.s.flags['ya_ins']; return insuranceGateCard(g, 'first'); },
+  },
   { // 交家用
     id: 'C-YA-03', pri: 840, fixed: true,
-    when: (g) => (g.s.status === 'work' && g.s.home === 'parents' && g.s.parents.some((p) => p.alive) && (g.s.job?.years ?? 0) >= 1 ? 1 : 0),
+    when: (g) => (yaDue(g, 'ya_home') && g.s.status === 'work' && g.s.home === 'parents' && g.s.parents.some((p) => p.alive) && (g.s.job?.years ?? 0) >= 1 ? 1 : 0),
     make: (g) => mkCard('C-YA-03', '交家用', '出嚟做嘢，屋企人都等緊你交家用。你俾幾多？', [
       { label: '人工 1 成', fx: { R: 0.5 } },
       { label: '人工 3 成', fx: { R: 3 } },
@@ -525,7 +551,7 @@ export const CAREER_EVENTS: EventDef[] = [
   },
   { // 學貸
     id: 'C-YA-07', pri: 835, fixed: true,
-    when: (g) => (g.s.studentLoan && g.s.studentLoan.bal > 0 && g.s.status === 'work' && (g.s.job?.years ?? 0) >= 1 ? 1 : 0),
+    when: (g) => (yaDue(g, 'ya_loan') && g.s.studentLoan && g.s.studentLoan.bal > 0 && g.s.status === 'work' && (g.s.job?.years ?? 0) >= 1 ? 1 : 0),
     make: (g) => {
       const s = g.s;
       const low = g.monthlyIncome() < 23600 * g.W;
@@ -681,7 +707,8 @@ function hopCard(g: Game): Card {
     { label: target ? `轉行做${jobDisplayName(target, s.year)}` : '轉行', disabled: !canSwitch ? '要讀過進修課程或知識 60 以上' : !target ? '暫時冇合適嘅新行業' : undefined, fx: { K: 2 } },
   ], (g2, i) => {
     const t = g2.s;
-    const jb = t.job!;
+    if (!t.job || t.status !== 'work') return '你已經冇再打工，呢個機會放棄咗。';
+    const jb = t.job;
     if (i === 0) {
       const sal = Math.round(jb.salary * (1 + rise));
       setJob(g2, jb.id, sal, jb.level, jb.firstType);

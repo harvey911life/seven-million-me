@@ -16,7 +16,7 @@ export interface Job {
 
 const AI = { 低: 0.1, 中: 0.35, 高: 0.7, 極高: 1.0 };
 
-export const JOBS: Job[] = [
+const RAW_JOBS: Job[] = [
   { id: 'J01', name: '部門經理（企業）', cat: '經理及行政級', minEdu: 5, start: 40000, median: 58000, top: 130000, raise: [0.01, 0.04], cjob: 0.9, ai: AI.中, hours: -1, bhire: 0.35, promo: 0.08, promoteOnly: true },
   { id: 'J02', name: '銀行分行經理', cat: '經理及行政級', minEdu: 5, start: 42000, median: 62000, top: 110000, raise: [0.01, 0.03], cjob: 1.0, ai: AI.中, hours: -1, bhire: 0.3, promo: 0.08, promoteOnly: true },
   { id: 'J03', name: '餐廳經理', cat: '經理及行政級', minEdu: 2, start: 22000, median: 32000, top: 50000, raise: [0.005, 0.025], cjob: 1.4, ai: AI.低, hours: -1.5, bhire: 0.45, promo: 0.1 },
@@ -62,6 +62,9 @@ export const JOBS: Job[] = [
   { id: 'J43', name: '廚房雜工', cat: '非技術工人', minEdu: 0, start: 13000, median: 15200, top: 18000, raise: [0, 0.01], cjob: 1.5, ai: AI.中, hours: -1, bhire: 0.9, promo: 0.05 },
   { id: 'J44', name: '網上創作人', cat: '其他', minEdu: 0, start: 8000, median: 15000, top: 150000, raise: [-0.1, 0.2], cjob: 2.0, ai: AI.高, hours: -0.5, bhire: 0.6, promo: 0, needIP: 3, commission: true },
 ];
+
+// v0.6：整體人工下調（起薪 ×0.9、中位數 ×0.85、頂薪 ×0.75）
+export const JOBS: Job[] = RAW_JOBS.map((j) => ({ ...j, start: Math.round(j.start * 0.9), median: Math.round(j.median * 0.85), top: Math.round(j.top * 0.75) }));
 
 export const JOB_BY_ID: Record<string, Job> = Object.fromEntries(JOBS.map((j) => [j.id, j]));
 

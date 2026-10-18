@@ -22,6 +22,8 @@ const runs = N * modes.length;
 const out: Record<string, number> = {};
 // 未出現過嘅成就當 0.05%（天馬行空事件合計每局 ≤0.1%）
 for (const a of ACHIEVEMENTS) out[a.id] = Math.max(0.0005, Math.round(((cnt[a.id] ?? 0) / runs) * 10000) / 10000);
+// 創業要玩家自己揀，自動玩法唔會開舖；用估算值（約 3% 人生開過生意，其中約一成賣盤）
+Object.assign(out, { biz_start: Math.max(out.biz_start, 0.03), biz_exit: Math.max(out.biz_exit, 0.003) });
 writeFileSync('src/data/ach_rarity.json', JSON.stringify(out, null, 0) + '\n');
 totals.sort((a, b) => a - b);
 const q = (p: number) => totals[Math.floor(p * (totals.length - 1))];

@@ -34,6 +34,8 @@ export interface Budget { income: number; expense: number; cf: number; mpfEE: nu
 export interface LogEntry { age: number; year: number; text: string; cat?: Cat; star?: boolean; big?: boolean }
 export interface HistRow { age: number; year: number; H: number; J: number; K: number; R: number; F: number; net: number; income: number; P: number }
 
+export interface Biz { id: string; years: number; scale: number; lossStreak: number; profitStreak: number; loan: number; loanYears: number; cap: number; lastProfit: number; half: boolean; diluted: boolean; count: number }
+
 export interface State {
   seed: number; name: string; gender: 'M' | 'F'; birthYear: number; origin: Origin;
   age: number; year: number; alive: boolean; deathCause?: string; deathKind?: 'normal' | 'minor' | 'apocalypse';
@@ -69,7 +71,7 @@ export interface State {
   prop: Property | null; publicWait: number | null; saveForHome: boolean; gba: boolean; reverseMortgage: number;
 
   // 事業
-  status: 'child' | 'study' | 'work' | 'unemp' | 'retired';
+  status: 'child' | 'study' | 'work' | 'unemp' | 'retired' | 'biz';
   job: JobState | null; unempYears: number; yearsWorked: number; catExp: Record<string, number>;
   lastSalary: number; retirePlan: 60 | 65 | 99; retiredAt: number | null; partTime: number;
   incomeHist: number[]; earnReal: number; maxIncomeReal: number; homeContrib: number; everEmployed: boolean;
@@ -93,4 +95,7 @@ export interface State {
   wonder: string | null; pendingFixed: string[];
   pAvg: { P: number[]; E: number[] }; netMinEver: number;
   pets: Pet[]; budget: Budget | null;
+  biz: Biz | null; biz0: number; // 而家嘅生意；一生開過幾多盤
+  mpfGain: number; investGain: number; // 一生強積金 / 投資回報（2026 年幣值）
+  rewritten: string[]; // 改寫咗嘅歷史事件
 }

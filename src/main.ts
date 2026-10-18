@@ -8,6 +8,7 @@ import { h, clear } from './ui/dom';
 import { drawTitle, drawScene, SW, SH } from './ui/scene';
 import { store, type Settings } from './ui/store';
 import { playGame } from './ui/play';
+import { simulateParallel } from './engine/parallel';
 import { showEnding, boardTable, booking, placeOf, achGrid } from './ui/ending';
 
 const root = document.getElementById('app')!;
@@ -200,6 +201,8 @@ function originCard(g: Game, period: string | null) {
 
 function start(g: Game, period: string | null) {
   fab(false);
+  // 平行人生：等畫面出咗先喺背景行（約 0.1 秒），玩家 18 歲前一定行完
+  setTimeout(() => { g.parallel = simulateParallel(g, period); }, 300);
   playGame(root, g, settings, (gg) => { fab(true); showEnding(root, gg, period, () => { settings = store.settings(); disclaimer(); }); }, () => title());
 }
 

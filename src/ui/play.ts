@@ -6,8 +6,10 @@ import type { StatKey, InsKind } from '../engine/state';
 import { INS_NAME } from '../engine/state';
 import { focusList, PANEL } from '../engine/yearly';
 import { pickFor, autoFocus } from '../engine/agui';
+import { parallelNewsFor } from '../engine/parallel';
 import { premiumOf, canBuy, setIns, propValue, plansValue, PET_INFO, petBlock, adoptPet, petCostYear } from '../engine/finance';
 import { jobName } from '../engine/career';
+import { BIZ, bizBlock, bizName, startBiz, closeBiz } from '../engine/biz';
 import { LEVEL_NAME, EDU_NAME } from '../data/jobs';
 import { ACH_BY_ID } from '../engine/achievements';
 import type { QuizAnswer } from '../engine/quiz';
@@ -93,6 +95,7 @@ export function playGame(root: HTMLElement, g: Game, settings: Settings, onEnd: 
   const sheet = h('div', { class: 'sheet', role: 'dialog', 'aria-modal': 'true' },
     h('div', { class: 'sheet-head' }, sheetTitle, h('div', { class: 'sh-r' }, sheetOk, h('button', { class: 'x', type: 'button', 'aria-label': '收起', onclick: () => closeSheet() }, '✕'))), sheetBody);
   let pendFocus: string | null = null;
+  let pendBiz: string | null = null; // 創業：撳一下揀，再撳確認
   const shade = h('div', { class: 'shade', onclick: () => closeSheet() });
 
   root.append(h('div', { class: 'screen game' }, header, main, dock, nav, shade, sheet));
@@ -183,7 +186,7 @@ export function playGame(root: HTMLElement, g: Game, settings: Settings, onEnd: 
     const pc = h('canvas', { class: 'portrait-s', width: 24, height: 24, 'aria-hidden': 'true' });
     drawPortrait(pc.getContext('2d')!, s);
     const d = new Date(Date.UTC(o.birthYear, 0, o.birthDay));
-    const work = s.job && s.status === 'work' ? `${jobName(g, s.job.id)}・${LEVEL_NAME[s.job.level] ?? ''}` : ({ child: '—', study: '讀緊書', work: '返工', unemp: '待業', retired: '已退休' } as Record<string, string>)[s.status];
+    const work = s.job && s.status === 'work' ? `${jobName(g, s.job.id)}・${LEVEL_NAME[s.job.level] ?? ''}` : s.biz && s.status === 'biz' ? `${bizName(g, s.biz.id)}老闆` : ({ child: '—', study: '讀緊書', work: '返工', unemp: '待業', retired: '已退休', biz: '做生意' } as Record<string, string>)[s.status];
     clear(idCard).append(
       h('div', { class: 'id-h' }, h('span', null, '身分紀錄 · HKG'), h('span', null, String(o.birthYear))),
       h('div', { class: 'id-b' }, pc, h('div', { class: 'id-t' }, h('b', { class: 'id-n' }, s.name),
@@ -222,7 +225,7 @@ export function playGame(root: HTMLElement, g: Game, settings: Settings, onEnd: 
   }
 
   // ---------- 時間線（新嘅喺上面） ----------
-  function addYear(age: number, year: number, rows: { t: string; k: 'imp' | 'log' | 'tick' | 'sum' }[]) {
+  function addYear(age: number, year: number, rows: { t: string; k: 'imp' | 'log' | 'tick' | 'sum' | 'par' }[]) {
     feed.prepend(h('div', { class: 'yr' }, h('div', { class: 'yh' }, h('b', null, `${age}歲`), h('span', null, String(year))), h('ul', null, rows.map((r) => h('li', { class: r.k }, r.t)))));
     while (feed.children.length > 40) feed.lastElementChild!.remove();
   }
@@ -253,12 +256,12 @@ export function playGame(root: HTMLElement, g: Game, settings: Settings, onEnd: 
     clear(sheetBody).append(tab === 'focus' ? focusPanel() : tab === 'spend' ? spendPanel() : tab === 'money' ? moneyPanel() : profilePanel());
   }
   function openSheet(t: Tab) {
-    tab = t; pendFocus = null; renderSheet();
+    tab = t; pendFocus = null; pendBiz = null; renderSheet();
     sheet.classList.add('open'); shade.classList.add('on');
     paused.add('sheet'); renderTop();
   }
   function closeSheet() {
-    pendFocus = null;
+    pendFocus = null; pendBiz = null;
     sheet.classList.remove('open'); shade.classList.remove('on');
     paused.delete('sheet'); renderTop(); renderQuick(); nudge();
   }
@@ -289,6 +292,30 @@ export function playGame(root: HTMLElement, g: Game, settings: Settings, onEnd: 
             if (want) delete s.flags['wantHomeUntil']; else s.flags['wantHomeUntil'] = s.age + 2;
             renderSheet();
           } }, h('b', null, want ? '✓ 想買樓（撳一下取消）' : '我想買樓'), h('span', { class: 'muted' }, want ? `未來兩年（去到 ${Number(s.flags['wantHomeUntil'])} 歲）每年都會有買樓選項。` : `上車盤大約要首期 3 成。揀咗之後，未來兩年每年都會出現買樓選項。${s.status !== 'work' ? '冇穩定收入，銀行未必批按揭。' : ''}`)));
+      // 創業：撳一下揀，再撳一下確認
+      box.append(h('h4', null, '創業'));
+      if (s.biz) {
+        const b = s.biz;
+        box.append(h('p', { class: 'hint' }, `你做緊${bizName(g, b.id)}老闆，第 ${b.years + 1} 年。${b.years ? `上年${b.lastProfit >= 0 ? `賺咗 ${fmtMoney(b.lastProfit)}` : `蝕咗 ${fmtMoney(-b.lastProfit)}`}。` : ''}${b.loan > 0 ? `仲欠銀行 ${fmtMoney(b.loan)}。` : ''}`),
+          h('button', { class: `opt-card ${pendBiz === 'close' ? 'on' : ''}`, type: 'button', onclick: () => {
+            if (pendBiz !== 'close') { pendBiz = 'close'; renderSheet(); return; }
+            pendBiz = null;
+            toast(closeBiz(g, '你決定結束生意，'), 'info', 4000);
+            renderSheet(); renderStats(); renderTop();
+          } }, h('b', null, pendBiz === 'close' ? '再撳一下確認結業' : '結束生意'), h('span', { class: 'muted' }, '生財工具大約賣返一成本錢，未還嘅銀行貸款要自己還。')));
+      } else {
+        box.append(h('p', { class: 'hint' }, '自己出最少三成本錢，其餘問銀行借（年息 7%，五年還）。開咗之後唔再打工。'));
+        for (const d of BIZ) {
+          const why = bizBlock(g, d);
+          const on = pendBiz === d.id;
+          box.append(h('button', { class: `opt-card ${on ? 'on' : ''}`, type: 'button', disabled: !!why, onclick: () => {
+            if (!on) { pendBiz = d.id; renderSheet(); return; }
+            pendBiz = null;
+            toast(startBiz(g, d.id), 'info', 4000);
+            renderSheet(); renderStats(); renderTop();
+          } }, h('b', null, on ? `再撳一下確認開${bizName(g, d.id)}` : bizName(g, d.id)), h('span', { class: 'muted' }, why ?? `本錢約 ${fmtMoney(g.p(d.cap))}`)));
+        }
+      }
       // 寵物：可以養多過一隻
       box.append(h('h4', null, `寵物（每年合共 ${fmtMoney(petCostYear(g))}）`),
         s.pets.length ? h('div', { class: 'pets' }, s.pets.map((p) => h('span', { class: 'pet' }, `${p.kind === 'cat' ? '🐱' : '🐶'} ${p.name}・${p.age} 歲`))) : h('p', { class: 'hint' }, '未有養寵物。'),
@@ -301,14 +328,14 @@ export function playGame(root: HTMLElement, g: Game, settings: Settings, onEnd: 
         h('p', { class: 'fine' }, '費用參考 MoneyHero 2024 香港養寵物開支：每年約 $9,700–27,900（糧食、貓砂、針、身體檢查、美容）。'));
       box.append(h('h4', null, '興趣同消遣'));
     }
-    box.append(h('p', { class: 'hint' }, `每年最多揀 2 項，會每年照做，直到你取消。已揀 ${s.panel.length} / 2`));
+    box.append(h('p', { class: 'hint' }, `每年最多揀 5 項，會每年照做，直到你取消。已揀 ${s.panel.length} / 5`));
     for (const p of avail) {
       const on = s.panel.includes(p.id);
       const cost = p.cost(g);
-      const full = !on && s.panel.length >= 2;
+      const full = !on && s.panel.length >= 5;
       box.append(h('label', { class: `spend ${on ? 'on' : ''} ${full ? 'dis' : ''}` },
         h('input', { type: 'checkbox', id: `sp-${p.id}`, checked: on, disabled: full, onchange: () => {
-          if (on) s.panel = s.panel.filter((x) => x !== p.id); else if (s.panel.length < 2) s.panel = [...s.panel, p.id];
+          if (on) s.panel = s.panel.filter((x) => x !== p.id); else if (s.panel.length < 5) s.panel = [...s.panel, p.id];
           renderSheet();
         } }),
         h('span', { class: 'sp-t' }, h('b', null, p.name), h('span', { class: 'muted' }, p.desc)),
@@ -363,7 +390,8 @@ export function playGame(root: HTMLElement, g: Game, settings: Settings, onEnd: 
     rows.push(['出身', `${o.subArea}・${o.housing}${o.family ? `・${o.family}` : ''}`]);
     rows.push(['學歷', s.age < 18 ? (s.age < 6 ? '未入學' : s.age < 12 ? '小學' : '中學') : EDU_NAME[s.edu] + (s.major ? `（${s.major}）` : '')]);
     if (s.job && s.status === 'work') rows.push(['工作', `${jobName(g, s.job.id)}・${LEVEL_NAME[s.job.level] ?? ''}・月薪 ${fmtMoney(s.job.salary)}`]);
-    else rows.push(['工作', { child: '細路', study: '讀緊書', work: '返工', unemp: '待業', retired: '已退休' }[s.status]]);
+    else if (s.biz && s.status === 'biz') rows.push(['工作', `${bizName(g, s.biz.id)}老闆・第 ${s.biz.years + 1} 年${s.biz.loan > 0 ? `・欠銀行 ${fmtMoney(s.biz.loan)}` : ''}`]);
+    else rows.push(['工作', { child: '細路', study: '讀緊書', work: '返工', unemp: '待業', retired: '已退休', biz: '做生意' }[s.status]]);
     rows.push(['住屋', { parents: '同父母住', share: '合租', rent: '租樓', public: '公屋', subdiv: '劏房', own: '自置物業', village: '村屋', institution: '院舍' }[s.home]]);
     if (s.partner && s.partner.alive) rows.push([s.married ? '伴侶' : '拍拖', `${s.partner.name}（${s.partner.age} 歲，${s.partner.job || '冇返工'}）`]);
     if (s.kids.length) rows.push(['子女', s.kids.map((k) => `${k.name} ${k.age} 歲`).join('、')]);
@@ -613,15 +641,19 @@ export function playGame(root: HTMLElement, g: Game, settings: Settings, onEnd: 
     while (g.queue.length && guard++ < 40 && !ended) await resolveCard(g.queue.shift()!);
     if (ended) return;
     const end = g.endYear();
-    const rows: { t: string; k: 'imp' | 'log' | 'tick' | 'sum' }[] = [];
+    const rows: { t: string; k: 'imp' | 'log' | 'tick' | 'sum' | 'par' }[] = [];
     const seen = new Set<string>();
     for (const l of s.log) if (l.age === s.age && !seen.has(l.text)) { seen.add(l.text); rows.push({ t: l.text, k: l.big ? 'imp' : 'log' }); }
     for (const t of g.ticker) if (!seen.has(t)) { seen.add(t); rows.push({ t, k: 'tick' }); }
+    const par = g.parallel ? parallelNewsFor(g.parallel, s.year, g.parMinor) : [];
+    for (const n of par) rows.push({ t: n.text, k: 'par' });
     if (end.summary) rows.push({ t: end.summary, k: 'sum' });
     addYear(s.age, s.year, rows);
     renderStats(); renderTop(); renderQuick();
     for (const id of s.achNew) { const a = ACH_BY_ID[id]; if (a) toast(`★ 成就解鎖：${a.name}`, 'ach'); }
     s.achNew = [];
+    const bigPar = par.filter((n) => n.key);
+    if (bigPar.length && !end.dead) toast(bigPar.map((n) => n.text.replace('【平行人生】', '')).join('；'), 'info', 3000);
     if (end.dead) {
       ended = true;
       document.removeEventListener('keydown', onKey);

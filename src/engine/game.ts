@@ -1,10 +1,11 @@
 // 遊戲核心：狀態 + 每年流程（第 3 章 3.2、第 4 章 4.4）
 import { Market, type YearEcon } from './market';
 import { rollOrigin, type Origin } from './origin';
+import type { ParallelLife } from './parallel';
 import { streamRng, type RNG } from './rng';
 import { clamp, fmtMoney } from './util';
 import type { State, StatKey, Cat, LogEntry } from './state';
-import { settleYear, computeF, payCost, netWorth, liquidAssets, petsYear } from './finance';
+import { settleYear, computeF, payCost, netWorth, liquidAssets, propEquity, petsYear } from './finance';
 import { focusEffects, naturalChanges, panelEffects } from './yearly';
 import { drawEvents } from './events';
 import { capOptions, type Card } from './cards';
@@ -13,6 +14,7 @@ import { scheduleQuizzes } from './quiz';
 import { checkAchievementsYear } from './achievements';
 import { updateFamilyYear, buyCard } from './family';
 import { careerYear } from './career';
+import { rollRewrites } from './history';
 
 export interface YearStart { cards: Card[]; ticker: string[]; stageChange?: string; needFocus?: boolean }
 export interface YearEnd { dead: boolean; summary: string; deltas: Record<StatKey, number>; saved: number }
@@ -30,11 +32,14 @@ export class Game {
   yearReasons: Partial<Record<StatKey, string>> = {};
   cashStart = 0;
   autoPick = false;
+  parallel: ParallelLife[] | null = null; // 平行人生（開局後喺背景行好）
+  parMinor = { y: -99 };
 
-  constructor(seed: number, period: string | null = null) {
+  constructor(seed: number, period: string | null = null, force?: { year: number; day: number }) {
     this.m = new Market(seed);
-    const o = rollOrigin(seed, this.m, period);
+    const o = rollOrigin(seed, this.m, period, force);
     this.s = initState(seed, o, this.m);
+    this.s.rewritten = rollRewrites(seed, o.birthYear, this.m);
     scheduleQuizzes(this);
     this.er = streamRng(seed, 'events', 0);
     computeF(this);
@@ -148,8 +153,8 @@ export class Game {
 
   endYear(): YearEnd {
     const s = this.s;
-    // ⑦ 死亡判定
-    const dead = deathCheck(this);
+    // ⑦ 死亡判定；未死就睇有冇破產（負債過多 → 強制結算）
+    const dead = deathCheck(this) || bankruptCheck(this);
     // ⑧ 總結
     computeF(this);
     checkAchievementsYear(this);
@@ -164,6 +169,42 @@ export class Game {
     c = capOptions(c, this.er);
     if (front) this.queue.unshift(c); else this.queue.push(c);
   }
+}
+
+/** 負債過多：第一次先彈「財困」卡（縮皮 / 債務重組 / 唔理）；有寬限期，寬限期後仍然資不抵債就破產，遊戲強制結算 */
+export function debtOver(g: Game): number {
+  const s = g.s;
+  // 65 歲以上有綜援同長者津貼保障，唔會被入稟破產
+  if (s.age < 18 || s.age >= 65 || s.flags['planner']) return 0;
+  const debt = s.card + s.finco + s.privateLoan + (s.biz?.loan ?? 0);
+  const minPay = s.card * 0.36 + s.finco / 3 + s.privateLoan / 5;
+  const over = debt > 300000 * g.P && debt > liquidAssets(g) + propEquity(g) + 4 * Math.max(0, householdIncomeY(g)) && s.cash + s.deposit < minPay;
+  return over ? debt : 0;
+}
+const householdIncomeY = (g: Game) => g.income() + (g.s.partner && g.s.married && g.s.partner.alive ? g.s.partner.income * 0.85 : 0);
+function bankruptCheck(g: Game): boolean {
+  const s = g.s;
+  const debt = debtOver(g);
+  if (!debt) {
+    // 脫離財困兩年之後，下次再欠債會重新警告
+    if (s.flags['debtWarned'] && s.age >= Number(s.flags['debtGrace'] ?? 0) + 2) delete s.flags['debtWarned'];
+    return false;
+  }
+  const grace = Number(s.flags['debtGrace'] ?? 0);
+  if (!s.flags['debtWarned']) {
+    s.flags['debtWarned'] = true;
+    s.flags['debtGrace'] = s.age + 1;
+    g.flag('debtCardDue');
+    g.log(`負債警告：你欠落 ${fmtMoney(debt)}，連最低還款都俾唔起。`, '財務衝擊', true);
+    return false;
+  }
+  if (s.age < grace) return false;
+  s.alive = false;
+  s.flags['bankrupt'] = true;
+  s.deathCause = '破產';
+  s.deathKind = 'normal';
+  g.log(`你欠落 ${fmtMoney(debt)}，債權人入稟，你被頒令破產。人生遊戲提早結算。`, '財務衝擊', true);
+  return true;
 }
 
 function buildSummary(g: Game, saved: number): string {
@@ -228,6 +269,6 @@ function initState(seed: number, o: Origin, m: Market): State {
     cool: {}, once: [], tragedies: 0, childAdversity: 0,
     will: false, epa: false, emigrated: false,
     log: [], hist: [], ach: [], achNew: [],
-    wonder: null, pendingFixed: [], pAvg: { P: [], E: [] }, netMinEver: 0, pets: [], budget: null,
+    wonder: null, pendingFixed: [], pAvg: { P: [], E: [] }, netMinEver: 0, pets: [], budget: null, biz: null, biz0: 0, mpfGain: 0, investGain: 0, rewritten: [],
   };
 }

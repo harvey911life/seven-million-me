@@ -188,6 +188,7 @@ a { color: var(--teal); }
 .yr li { font-size: 15px; overflow-wrap: anywhere; line-height: 1.65; }
 .yr li.imp { font-family: var(--serif); font-weight: 700; font-size: 16px; }
 .yr li.tick { color: var(--teal); font-size: 14px; }
+.yr li.par { color: var(--purple, #8a6bd1); font-size: 14px; }
 .yr li.sum { color: var(--muted); font-size: 13px; }
 
 .idcard { overflow: hidden; }
@@ -464,3 +465,27 @@ a { color: var(--teal); }
 .sc-list .dot { color: var(--muted); }
 .sc-list .new { color: var(--accent); font-weight: 700; }
 .sc-list small { font-size: 11px; color: var(--muted); }
+
+/* 平行人生 */
+.plist { display: flex; flex-direction: column; gap: 8px; margin: 10px 0; }
+.pl-row { display: flex; align-items: center; gap: 10px; padding: 10px 12px; border-radius: 14px; background: var(--card); border: 1px solid var(--line); }
+.pl-row.me { border: 2px solid var(--accent); }
+.pl-rank { font-weight: 700; color: var(--muted); width: 16px; text-align: center; }
+.pl-main { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 2px; }
+.pl-main small { color: var(--muted); font-size: 12px; line-height: 1.4; }
+.pl-main small.pl-mo { color: var(--ink); }
+.pl-name { display: flex; gap: 6px; align-items: baseline; }
+.pl-name em { font-style: normal; font-size: 11px; padding: 1px 6px; border-radius: 99px; background: var(--line); color: var(--ink); }
+.pl-row.me .pl-name em { background: var(--accent); color: #fff; }
+.pl-score { display: flex; flex-direction: column; align-items: center; gap: 2px; }
+.pl-score b { font-size: 20px; }
+.pl-score .lgc { font-size: 13px; min-width: 28px; text-align: center; padding: 1px 6px; border-radius: 8px; color: #fff; background: var(--accent); }
+.pl-score .lg-Ap { background: linear-gradient(135deg, #e0ac2b, #8e4fd6); }
+.pl-score .lg-A { background: #e0ac2b; } .pl-score .lg-B { background: var(--teal); } .pl-score .lg-C { background: #5aa9e6; }
+.pl-score .lg-D { background: #9aa7b4; } .pl-score .lg-E { background: #b07a5a; } .pl-score .lg-F { background: #555c66; }
+.money-sum dd.up { color: var(--green, #2f8f4e); }
+.money-sum dd.dn { color: var(--red, #c0392b); }
+.shareimg { max-width: 440px; width: 100%; box-sizing: border-box; display: grid; gap: 10px; position: relative; background: var(--card); border-radius: 22px; padding: 16px; max-height: calc(100dvh - 32px); overflow-y: auto; }
+.shareimg img { width: 100%; height: auto; border-radius: 14px; display: block; margin-top: 28px; }
+.shareimg a.btn { text-align: center; text-decoration: none; display: block; height: auto; box-sizing: border-box; }
+.shareimg { align-content: start; grid-auto-rows: max-content; }

@@ -30,6 +30,8 @@ export const ACHIEVEMENTS: AchDef[] = [
     ['million_salary', '百萬年薪', '年收入 ≥ $100 萬（2026 幣值）', 3],
     ['expat', '外派戰士', '接受公司外派', 3],
     ['gba_5y', '北上打拼', '喺大灣區工作滿 5 年', 3],
+    ['biz_start', '老闆夢', '開咗自己第一盤生意', 2],
+    ['biz_exit', '賣盤套現', '盤生意俾人收購', 5],
     ['layoff_ready', '被裁也不怕', '被裁嗰年有 6 個月備用金', 2],
   ]),
   ...A('理財', [
@@ -60,6 +62,7 @@ export const ACHIEVEMENTS: AchDef[] = [
     ['died_young', '英年早逝', '40 歲前離世', 0],
     ['happy_family', '幸福家庭', '結婚生仔，婚後平均快樂 ≥ 80', 3],
     ['happy_single', '單身貴族', '一生單身而平均快樂 > 70', 3],
+    ['history_rewrite', '另一個時空', '經歷一次被改寫嘅歷史', 3, true],
     ['filial', '孝順仔女', '照顧父母直到佢哋離世', 2],
     ['emigrate', '移居海外', '移民或移居外地', 2],
     ['return_hk', '回流香港', '移民後回流', 3],

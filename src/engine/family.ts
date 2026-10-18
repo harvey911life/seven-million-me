@@ -4,7 +4,7 @@ import type { Kid, Partner } from './state';
 import { clamp, interp, Mneg, Mpos, fmtMoney } from './util';
 import { streamRng, type RNG } from './rng';
 import { mkCard, type Card, type EventDef } from './cards';
-import { insuranceGateCard } from './career';
+import { insuranceGateCard, yaDue } from './career';
 import { qHK } from './health';
 import { pmtOf, propEquity, liquidAssets } from './finance';
 import { tragedyHit } from './yearly';
@@ -711,7 +711,7 @@ function housingCard(g: Game, single: boolean): Card {
     if (i === 1) { if (s2.married && s2.home === 'parents') { s2.home = 'rent'; s2.rentBase = 0; } return '租樓靈活啲，遲啲先算。'; }
     g2.pushCard(buyCard(g2), true);
     return '你哋開始周圍睇樓。';
-  }, { pri: 760, def: 1, auto: canSave ? 2 : eligible ? 0 : 1, agui: 2, cat: '人生抉擇', scene: 'home' });
+  }, { pri: 760, def: 1, auto: canSave ? 2 : eligible ? 0 : 1, agui: canSave ? 2 : eligible ? 0 : 1, cat: '人生抉擇', scene: 'home' });
 }
 
 export function buyCard(g: Game): Card {
@@ -998,7 +998,7 @@ function willCard(g: Game): Card {
 export const FAMILY_EVENTS: EventDef[] = [
   { // 住屋（初出社會）
     id: 'C-YA-04', pri: 760, fixed: true,
-    when: (g) => (g.s.age >= 20 && g.s.status === 'work' && g.s.home === 'parents' ? 1 : 0),
+    when: (g) => (g.s.age >= 20 && yaDue(g, 'ya_move') && g.s.status === 'work' && g.s.home === 'parents' ? 1 : 0),
     make: (g) => mkCard('C-YA-04', '搬出去住？', '出嚟做咗一排嘢，你諗緊要唔要搬出去住。', [
       { label: '留喺屋企', note: '住屋開支 0，儲首期最快' },
       { label: '同朋友夾租', money: -g.p(6500 * 12), note: '每月約 $6,500', fx: { J: 2, R: 2 } },
