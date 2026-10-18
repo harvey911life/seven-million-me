@@ -781,7 +781,7 @@ function ERA_TICKS(): EventDef[] {
 }
 
 // ---------- 天馬行空（11.17，一生合共 ≤ 0.05%） ----------
-const P_TIANMA_YEAR = 5e-4; // v1.0：一生合共約 4%（用家指定）
+const P_TIANMA_YEAR = 6e-4; // v1.2：一生合共約 5%（用家指定）
 interface Tianma { id: string; ach: string; name: string; ok: (g: Game) => boolean; card?: (g: Game) => Card; tick?: (g: Game) => string }
 /** 測試用：指定某個年齡一定出某件天馬行空 */
 export const TIANMA_FORCE: { id: string | null; age: number } = { id: null, age: 0 };
