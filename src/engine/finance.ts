@@ -206,8 +206,10 @@ export function adoptPet(g: Game, kind: 'cat' | 'dog'): string {
   const pt: Pet = { kind, name, age: 1, since: s.age };
   // v1.1 彩蛋：養貓各有約 3% 機會，過一兩年之後變超巨型 / 開口講嘢
   if (kind === 'cat') {
-    if (r() < 0.03) pt.giantAt = s.age + r.int(1, 3);
-    if (r() < 0.03) pt.talkAt = s.age + r.int(1, 3);
+    // v1.2：屋企貓越多，機會越高（每多一隻 +1%，最高 6%）
+    const pEgg = Math.min(0.06, 0.03 + 0.01 * s.pets.filter((p) => p.kind === 'cat').length);
+    if (r() < pEgg) pt.giantAt = s.age + r.int(1, 3);
+    if (r() < pEgg) pt.talkAt = s.age + r.int(1, 3);
   }
   s.pets.push(pt);
   const t = payCost(g, g.p(info.once));

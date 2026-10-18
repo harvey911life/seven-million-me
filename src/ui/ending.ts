@@ -140,7 +140,15 @@ export function showEnding(root: HTMLElement, g: Game, period: string | null, on
     [['expat'], '事業衝刺嘅人，有機會被公司派去外國。'],
     [['biz_exit'], '自己做老細做得好，可能有人想收購你盤生意。'],
     [['jackpot'], '六星彩頭獎機會好微，但遊戲入面……唔係零。'],
-    [['rooftop_ufo', 'meteor', 'duck_effect', 'treasure'], '香港上空偶然會出現一啲解釋唔到嘅嘢。'],
+    [['meteor', 'duck_effect'], '香港上空偶然會出現一啲解釋唔到嘅嘢。'],
+    [['cat_boss'], '養貓嘅人，有時會覺得隻貓聽得明人話。'],
+    [['rooftop_ufo'], '有自己層樓，記得間中上天台望吓天。'],
+    [['treasure'], '多啲培養嗜好，或者會發掘到寶物。'],
+    [['lookalike'], '人緣好嘅人，比較容易被人認錯。'],
+    [['lion_rock_astronaut'], '身體同頭腦都夠好，可能會被選中做一份好特別嘅工。'],
+    [['will_matters'], '立好遺囑，可能會有意想不到嘅收穫。'],
+    [['future_tip'], '有投資習慣嘅人，可能會收到來自未來嘅訊息。'],
+    [['mars_scam'], '鍾意買六星彩嘅人，特別容易遇到「好到難以置信」嘅機會。'],
   ];
   const known = new Set(store.achs());
   const hintPool = HINTS.filter(([ids]) => ids.some((id) => !known.has(id))).map(([, t]) => t);
@@ -218,7 +226,7 @@ export function showEnding(root: HTMLElement, g: Game, period: string | null, on
       e.wonder ? h('p', { class: 'wonder' }, `天馬行空奇遇 +${e.wonder}`) : null,
       h('div', { class: 'total' }, h('span', null, '總分'), h('b', null, String(e.total)), h('small', null, '/ 1,000')),
       h('div', { class: `lgrade lg-${grade.replace('+', 'p')}` }, h('span', null, '人生評級'), h('b', null, grade)),
-      h('p', { class: 'fine' }, GRADE_CUTS.slice(0, -1).map(([g, t]) => `${g} ≥ ${t}`).join('・') + '・F < 300'),
+      h('p', { class: 'fine' }, GRADE_CUTS.slice(0, -1).map(([g, t]) => `${g} ≥ ${t}`).join('・') + `・F < ${GRADE_CUTS[GRADE_CUTS.length - 2][1]}`),
       h('p', { class: beat ? 'lead good' : 'lead' }, beat ? `你贏咗某某人！（某某人 ${Math.round(ag.total)} 分）` : `某某人有 ${Math.round(ag.total)} 分。下一世再試吓贏佢。`));
   });
   P('earn', () => h('div', { class: 'epage' }, h('h2', null, '賺錢榜'),

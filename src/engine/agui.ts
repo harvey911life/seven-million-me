@@ -15,7 +15,8 @@ export function pickFor(c: Card, mode: Policy): number {
 export function aguiYear(g: Game) {
   const s = g.s;
   const list = focusList(g).map((f) => f.id);
-  const want = s.focusStage === 'student' ? (s.age >= 15 && s.age <= 17 ? '發奮圖強' : '平衡人生')
+  // v1.2：某某人讀書時期由 10 歲起發奮，令佢成為真正嘅對手
+  const want = s.focusStage === 'student' ? (s.age >= 10 ? '發奮圖強' : '平衡人生')
     : s.focusStage === 'work' ? (s.age < 35 ? '精打細算' : s.age < 45 ? '平衡人生' : '強身健體')
       : '養生保健';
   if (list.includes(want)) s.focus = want;
@@ -31,7 +32,8 @@ export function aguiYear(g: Game) {
     s.flags['ivaUntil'] = s.age + 5;
   }
   s.mpfFund = s.age < 45 ? '增長' : s.age < 60 ? '均衡' : '保守';
-  s.panel = s.age >= 40 ? ['checkup', 'dinner'] : s.age >= 18 ? ['dinner'] : [];
+  s.panel = s.age >= 40 ? ['checkup', 'dinner', 'give'] : s.age >= 18 ? ['dinner', 'course', 'give'] : s.age >= 15 ? ['give'] : [];
+  if (s.age >= 15) s.givePick = '義工';
 }
 
 /** v1.1 自動揀：幫玩家設定理財（資產分配、投資比例、備用金、強積金）同最少一項消遣；玩家自己改過嘅就唔郁 */

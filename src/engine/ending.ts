@@ -145,7 +145,8 @@ export function computeEnding(g: Game, agui?: Ending): Ending {
   const achPts = s.ach.filter((id) => !SPECIAL_ACH.has(id)).reduce((a, id) => a + (ACH_BY_ID[id]?.pts ?? 0), 0);
   const achScore = Math.min(100, (achPts / 25) * 100);
   // 8. 身後安排
-  const after = minor ? 50 : fpi.band === '低' ? 100 : fpi.band === '中' ? 50 : 15;
+  // v1.2：家人壓力低只係基本分，要立好遺囑先拎滿分
+  const after = minor ? 50 : (fpi.band === '低' ? 70 : fpi.band === '中' ? 35 : 10) + (s.will ? 30 : 0);
   // 9. 逆境翻身
   const od = clamp(s.origin.difficulty + Math.min(20, s.childAdversity * 10), 0, 100);
   const os = (fin + earn + sp.K + sp.J) / 4;
@@ -210,8 +211,9 @@ export function spiderLine(me: Spider, ag: Spider): string {
   return `某某人喺每一方面都贏你少少，最大分別係${N[worst.k]}。`;
 }
 
-/** 人生排行榜評級：A+ 最高，F 低於 300 分 */
-export const GRADE_CUTS: [string, number][] = [['A+', 780], ['A', 700], ['B', 600], ['C', 500], ['D', 400], ['E', 300], ['F', -Infinity]];
+/** 人生排行榜評級：A+ 最高，F 低於 470 分 */
+// v1.2：收緊評級（試玩 100 局有 57% A+，太易）
+export const GRADE_CUTS: [string, number][] = [['A+', 850], ['A', 790], ['B', 720], ['C', 640], ['D', 560], ['E', 470], ['F', -Infinity]];
 export const lifeGrade = (total: number) => GRADE_CUTS.find(([, t]) => total >= t)![0];
 
 /** 收入最高嘅一年（按 2026 年幣值比較） */

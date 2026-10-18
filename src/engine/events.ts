@@ -5,6 +5,7 @@ import { streamRng } from './rng';
 import { mkCard, firstEnabled, capOptions, type Card, type EventDef } from './cards';
 import { CAREER_EVENTS, insuranceGateCard, jobOf } from './career';
 import { EDU_EVENTS } from './education';
+import { MIDLIFE_EVENTS } from './midlife';
 import { TRAGEDY_EVENTS } from './tragedy';
 import { BIZ_EVENTS } from './biz';
 import { HISTORY_EVENTS, rewritten } from './history';
@@ -886,10 +887,30 @@ const TIANMA: Tianma[] = [
   },
 ];
 
-function tianmaAt(seed: number, age: number, elig: Tianma[]): Tianma | null {
+// v1.2：一般奇遇（唔包三個隱藏結局）會跟玩家狀態加權，等玩家有方向追成就；總機率仍然係一生約 4%
+const ENDINGS = ['TM-ALIEN', 'TM-ZOMBIE', 'TM-REDO'];
+const TM_WEIGHT: Record<string, (g: Game) => number> = {
+  'TM-CAT': (g) => (g.s.pets.some((p) => p.kind === 'cat') ? 6 : 1),
+  'TM-UFO': (g) => (g.s.home === 'own' ? 3 : 1),
+  'TM-ANTIQUE': (g) => (g.s.focus === '培養嗜好' || g.s.K >= 70 ? 4 : 1),
+  'TM-STAR': (g) => (g.s.R >= 70 ? 4 : 1),
+  'TM-ASTRO': (g) => (g.s.H >= 75 && g.s.K >= 75 ? 6 : 1),
+  'TM-UNCLE': (g) => (g.s.will ? 5 : 1),
+  'TM-FUTURE': (g) => (g.s.investRatio > 0 ? 3 : 1),
+  'TM-MARS': (g) => (g.s.lottery ? 4 : 1),
+};
+function tianmaAt(seed: number, age: number, elig: Tianma[], g?: Game): Tianma | null {
   if (TIANMA_FORCE.id) return TIANMA_FORCE.age === age ? elig.find((t) => t.id === TIANMA_FORCE.id) ?? null : null;
   if (!elig.length || streamRng(seed, 'tianma', 'gate', age)() >= P_TIANMA_YEAR) return null;
-  return streamRng(seed, 'tianma', 'pick', age).pick(elig);
+  const r = streamRng(seed, 'tianma', 'pick', age);
+  const first = r.pick(elig);
+  // 隱藏結局照舊均勻抽（開局預測「返到 10 年前」要準）；其餘按狀態加權重抽
+  if (!g || ENDINGS.includes(first.id)) return first;
+  const pool = elig.filter((t) => !ENDINGS.includes(t.id));
+  const w = pool.map((t) => TM_WEIGHT[t.id]?.(g) ?? 1);
+  let x = r() * w.reduce((a, b) => a + b, 0);
+  for (let i = 0; i < pool.length; i++) { x -= w[i]; if (x < 0) return pool[i]; }
+  return pool[pool.length - 1];
 }
 
 /** 開局預先睇吓呢一世第一件天馬行空係咩（「返到 10 年前」要預早存低 10 年前嘅狀態） */
@@ -905,7 +926,7 @@ export function tianmaPlan(seed: number, birthYear: number): { age: number; id: 
 function rollTianma(g: Game): Card | null {
   const s = g.s;
   if (s.wonder || g.noTianma) return null;
-  const t = tianmaAt(s.seed, s.age, TIANMA.filter((x) => x.ok(g)));
+  const t = tianmaAt(s.seed, s.age, TIANMA.filter((x) => x.ok(g)), g);
   if (!t) return null;
   if (t.id === 'TM-REDO' && !g.redoSnap) return null; // 冇 10 年前嘅紀錄（理論上唔會發生）
   s.wonder = t.name;
@@ -937,7 +958,7 @@ function rescueMark(g: Game, k: 'H' | 'J') {
   g.s.flags[`rescue${k}Age`] = g.s.age;
 }
 
-export const ALL_EVENTS: EventDef[] = [...CAREER_EVENTS, ...BIZ_EVENTS, ...TRAGEDY_EVENTS, ...HISTORY_EVENTS, ...EDU_EVENTS, ...HEALTH_EVENTS, ...FAMILY_EVENTS, ...GENERAL_EVENTS];
+export const ALL_EVENTS: EventDef[] = [...CAREER_EVENTS, ...BIZ_EVENTS, ...TRAGEDY_EVENTS, ...HISTORY_EVENTS, ...EDU_EVENTS, ...HEALTH_EVENTS, ...FAMILY_EVENTS, ...GENERAL_EVENTS, ...MIDLIFE_EVENTS];
 export const EVENTS_BY_ID: Record<string, EventDef> = Object.fromEntries(ALL_EVENTS.map((e) => [e.id, e]));
 
 const isInteractive = (c: Card) => c.kind !== 'system';
@@ -1026,7 +1047,9 @@ export function drawEvents(g: Game) {
   let randomUsed = 0;
   const cap = s.age < 6 ? 0 : 2;
   // 隨機互動事件唔好年年都有：每年最多 1 張，仲要過一道閘（大約每 3 年 1 張）
-  const gateOpen = streamRng(s.seed, 'gate', s.age)() < (s.flags['lastRandomCard'] === s.age - 1 ? 0.15 : 0.4);
+  // v1.2：40 歲後閘門放寬啲，減少中晚年長時間冇嘢揀
+  const gBase = s.age >= 65 ? 0.7 : s.age >= 40 ? 0.55 : 0.4, gAfter = s.age >= 65 ? 0.4 : s.age >= 40 ? 0.25 : 0.15;
+  const gateOpen = streamRng(s.seed, 'gate', s.age)() < (s.flags['lastRandomCard'] === s.age - 1 ? gAfter : gBase);
   for (const h of hits) {
     const c = h.c;
     if (!isInteractive(c)) {

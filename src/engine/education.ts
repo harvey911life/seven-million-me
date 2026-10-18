@@ -228,6 +228,9 @@ function laiseeCard(g: Game, id: string): Card {
   }, { def: 1, auto: 0, agui: 0, scene: 'home', cat: '生活日常' });
 }
 
+// v1.2：以前每局必出嘅童年卡，改做每一世按機率決定出唔出（同一世固定）
+const maybe = (g: Game, id: string, p: number) => (streamRng(g.s.seed, 'skel', id)() < p ? 1 : 0);
+
 export const EDU_EVENTS: EventDef[] = [
   { id: 'QUIZ', pri: 860, once: false, fixed: true, when: (g) => (g.s.quizAges.includes(g.s.age) && g.s.status === 'study' && !g.s.flags['quizDone' + g.s.age] ? 1 : 0), make: (g) => { g.flag('quizDone' + g.s.age); return quizCard(g); } },
   {
@@ -236,7 +239,7 @@ export const EDU_EVENTS: EventDef[] = [
     make: (g) => { delete g.s.flags['retakeAt']; return examCard(g, (g2) => g2.pushCard(routeCard(g2), true)); },
   },
   {
-    id: 'C-CH-01', pri: 850, fixed: true, ages: [6, 7], when: () => 1,
+    id: 'C-CH-01', pri: 850, fixed: true, ages: [6, 7], when: (g) => maybe(g, 'C-CH-01', 0.65),
     make: (g) => {
       const inst = g.s.origin.housing === '保幼局院舍';
       const p = (n: number) => (inst ? '院舍免費活動' : `家庭開支每月 ${fmtMoney(g.p(n))}`);
@@ -254,12 +257,12 @@ export const EDU_EVENTS: EventDef[] = [
     },
   },
   {
-    id: 'C-CH-02', pri: 850, fixed: true, ages: [8, 9], when: () => 1,
+    id: 'C-CH-02', pri: 850, fixed: true, ages: [8, 9], when: (g) => maybe(g, 'C-CH-02', 0.6),
     make: (g) => laiseeCard(g, 'C-CH-02'),
   },
   { // v0.7：之後啲新年再有機會揀過
     id: 'E-LAISEE', pri: 300, ages: [10, 17], once: false, cool: 3, cat: '生活日常',
-    when: (g) => (g.s.once.includes('C-CH-02') ? 0.3 : 0),
+    when: (g) => (g.s.once.includes('C-CH-02') ? 0.3 : 0.12),
     make: (g) => laiseeCard(g, 'E-LAISEE'),
   },
   {
@@ -332,7 +335,7 @@ export const EDU_EVENTS: EventDef[] = [
     }, { def: 1, auto: g.s.K >= 60 ? 0 : 1, agui: 1, scene: 'school' }),
   },
   {
-    id: 'C-SS-04', pri: 849, fixed: true, ages: [16, 16], when: () => 1,
+    id: 'C-SS-04', pri: 849, fixed: true, ages: [16, 16], when: (g) => maybe(g, 'C-SS-04', 0.6),
     make: (g) => {
       const wage = Math.round(g.p(5000));
       return mkCard('C-SS-04', '暑假', '中五暑假，有兩個月時間。你點過？', [
@@ -349,7 +352,7 @@ export const EDU_EVENTS: EventDef[] = [
     },
   },
   {
-    id: 'C-SS-05', pri: 848, fixed: true, ages: [16, 17], when: (g) => (g.s.partner ? 0 : 1),
+    id: 'C-SS-05', pri: 848, fixed: true, ages: [16, 17], when: (g) => (g.s.partner ? 0 : maybe(g, 'C-SS-05', 0.5)),
     make: (g) => mkCard('C-SS-05', '有人向你表白', '放學後，隔籬班個同學遞咗封信俾你。', [
       { label: '一齊', fx: { J: 5, R: 3 } },
       { label: '做朋友', fx: { R: 1, J: -1 } },
