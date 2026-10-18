@@ -5,7 +5,7 @@ import { clamp, Mneg, Mpos, fmtMoney } from './util';
 import { streamRng, type RNG } from './rng';
 import { mkCard, firstEnabled, type Card, type EventDef } from './cards';
 import { studyYear } from './education';
-import { insActive } from './finance';
+import { insActive, premiumOf } from './finance';
 import { bizYear } from './biz';
 
 export const jobOf = (g: Game) => (g.s.job ? JOB_BY_ID[g.s.job.id] : null);
@@ -174,11 +174,11 @@ export function insuranceGateCard(g: Game, why: 'first' | 'marry' | 'baby' | 'ag
   const [title, text] = T[why];
   const deps = (s.married && s.partner?.alive) || s.kids.some((k) => k.age < 22) || !!s.support || !!(s.prop && s.prop.mortgage > 0);
   const opts = why === 'first'
-    ? [{ label: '暫時唔買', note: '保費 $0' }, { label: '基本保障', note: '醫療、危疾、意外各一份基本' }, { label: '充足保障', note: '醫療、危疾充足，意外基本' }]
+    ? [{ label: '暫時唔買' }, { label: '基本保障', note: '醫療、危疾、意外各一份基本' }, { label: '充足保障', note: '醫療、危疾充足，意外基本' }]
     : why === 'retire'
-      ? [{ label: '繼續交' }, { label: '減保', note: '每種降一級' }, { label: '停保', note: '保費 $0，之後有病全部自己頂' }]
+      ? [{ label: '繼續交' }, { label: '減保', note: '每種降一級' }, { label: '停保', note: '之後有病全部自己頂' }]
       : [{ label: '加保', note: '每種升一級（用而家年齡計保費）' }, { label: '維持' }, { label: '減保慳錢', note: '每種降一級' }];
-  const run = (g2: Game, i: number) => {
+  const apply = (g2: Game, i: number) => {
     const kinds = ['med', 'ci', 'acc', 'life'] as const;
     if (why === 'first') {
       if (i === 1) { for (const k of ['med', 'ci', 'acc'] as const) setInsQuick(g2, k, 1); if (deps) setInsQuick(g2, 'life', 1); }
@@ -192,6 +192,19 @@ export function insuranceGateCard(g: Game, why: 'first' | 'marry' | 'baby' | 'ag
         if (i === 2) setInsQuick(g2, k, Math.max(0, g2.s.ins[k].level - 1) as 0 | 1 | 2);
       }
     }
+  };
+  // v0.7：每個選項顯示之後每年保費（試算完還原）
+  const yearly = (i: number) => {
+    const keep = { ins: JSON.parse(JSON.stringify(s.ins)), ach: [...s.ach], achNew: [...s.achNew] };
+    apply(g, i);
+    const t = (['med', 'ci', 'acc', 'life'] as const).reduce((a, k) => a + premiumOf(g, k), 0);
+    s.ins = keep.ins; s.ach = keep.ach; s.achNew = keep.achNew;
+    return t;
+  };
+  opts.forEach((o: { label: string; note?: string }, i) => { const t = yearly(i); o.note = `${o.note ? o.note + '；' : ''}每年保費約 ${fmtMoney(t)}`; });
+  const run = (g2: Game, i: number) => {
+    const kinds = ['med', 'ci', 'acc', 'life'] as const;
+    apply(g2, i);
     if (kinds.every((k) => g2.s.ins[k].level === 2)) g2.ach('full_armor');
     if (g2.s.age < 25 && kinds.every((k) => g2.s.ins[k].level >= 1)) g2.ach('buy_early');
   };
@@ -538,8 +551,8 @@ export const CAREER_EVENTS: EventDef[] = [
     id: 'C-YA-03', pri: 840, fixed: true,
     when: (g) => (yaDue(g, 'ya_home') && g.s.status === 'work' && g.s.home === 'parents' && g.s.parents.some((p) => p.alive) && (g.s.job?.years ?? 0) >= 1 ? 1 : 0),
     make: (g) => mkCard('C-YA-03', '交家用', '出嚟做嘢，屋企人都等緊你交家用。你俾幾多？', [
-      { label: '人工 1 成', fx: { R: 0.5 } },
-      { label: '人工 3 成', fx: { R: 3 } },
+      { label: '人工 1 成', note: `每月約 ${fmtMoney((g.s.job?.salary ?? 0) * 0.1)}`, fx: { R: 0.5 } },
+      { label: '人工 3 成', note: `每月約 ${fmtMoney((g.s.job?.salary ?? 0) * 0.3)}`, fx: { R: 3 } },
       { label: '唔交', fx: { J: 1, R: -3 } },
     ], (g2, i) => {
       const s = g2.s;
@@ -639,7 +652,7 @@ export const CAREER_EVENTS: EventDef[] = [
     make: (g) => mkCard('C-MA-07', '公司搬去大灣區', '公司宣佈將部門搬去深圳。你點揀？', [
       { label: '跟去', note: '人工 +10%，生活開支 ×0.8', fx: { J: -1, R: -2 } },
       { label: '辭職', fx: { J: 1 } },
-      { label: '每星期兩地走', note: '每年健康、快樂、人際 −1' },
+      { label: '每星期兩地走', note: `交通每年約 ${fmtMoney(g.p(18000))}；每年健康、快樂、人際 −1` },
     ], (g2, i) => {
       const s = g2.s;
       if (i === 0) { g2.flag('gbaJob'); g2.add('J', -1); return '深圳嘅新辦公室好大，但夜晚得你一個。'; }
@@ -696,13 +709,14 @@ function hopCard(g: Game): Card {
   const job = s.job!;
   const j = JOB_BY_ID[job.id];
   const r = streamRng(s.seed, 'hop', s.age);
-  const lo = s.flags['jobhunt'] === s.year - 1 ? 0.2 : 0.15;
-  const rise = r.uni(lo, 0.25);
+  // v0.7：轉工加幅調低（8%–15%；之前搵緊工嘅 12%–18%）
+  const [lo, hi] = s.flags['jobhunt'] === s.year - 1 ? [0.12, 0.18] : [0.08, 0.15];
+  const rise = r.uni(lo, hi);
   const canSwitch = s.CP >= 2 || s.K >= 60;
   const others = JOBS.filter((x) => x.cat !== j.cat && eduOk(g, x) && x.median > j.median * 0.9).sort((a, b) => b.median - a.median);
   const target = others[0];
   const c = mkCard('C-YA-08', '跳槽機會', '獵頭打嚟，話有間公司想請你。', [
-    { label: '跳槽加人工', note: `人工 +${Math.round(rise * 100)}%`, fx: { J: 1 } },
+    { label: '跳槽加人工', note: `人工 +${Math.round(rise * 100)}%（月薪約 ${fmtMoney(job.salary * (1 + rise))}）`, fx: { J: 1 } },
     { label: '留低等升職', fx: { R: 1 } },
     { label: target ? `轉行做${jobDisplayName(target, s.year)}` : '轉行', disabled: !canSwitch ? '要讀過進修課程或知識 60 以上' : !target ? '暫時冇合適嘅新行業' : undefined, fx: { K: 2 } },
   ], (g2, i) => {

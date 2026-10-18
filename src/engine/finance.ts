@@ -66,9 +66,9 @@ export function setIns(g: Game, k: InsKind, level: 0 | 1 | 2) {
 }
 
 // ---------- 開支 ----------
-const PUBLIC_RENT = [1600, 2000, 2600, 3200, 3800];
+export const PUBLIC_RENT = [1600, 2000, 2600, 3200, 3800];
 const SUBDIV_RENT = [5000, 6000, 6800, 7500, 8200];
-const PRIVATE_RENT = [10000, 13000, 16000, 19000, 22000];
+export const PRIVATE_RENT = [10000, 13000, 16000, 19000, 22000];
 const VILLAGE_RENT = [8000, 10000, 12000, 14000, 16000];
 const OWN_MGMT = [2000, 2500, 3000, 3500, 4000];
 const LIVING = [7000, 11500, 15500, 19500, 23500]; // v0.6：跟人工一齊下調
@@ -81,6 +81,12 @@ function hhMonthly(g: Game): number {
   const own = Math.max(g.income(), s.status === 'work' && s.job ? s.job.salary * 12 : 0);
   const pt = s.partner && s.married && s.partner.alive ? s.partner.income * 0.85 : 0;
   return (own + pt) / 12;
+}
+
+/** 今年收到嘅利是（v0.6 已大幅減少） */
+export function laiOf(g: Game): number {
+  const s = g.s;
+  return (s.origin.family === '三代同堂' ? 1.5 : s.origin.family === '新移民' ? 0.7 : 1) * (s.origin.isBaoyou ? 500 / 3500 : 1) * 1200 * g.P * Math.pow(1.03, s.age - 6);
 }
 
 export function housingCostYear(g: Game): number {
@@ -390,8 +396,9 @@ export function settleYear(g: Game) {
     s.flags['familySavings'] = fs;
     // 兼職 / 利是
     if (s.age >= 6 && s.age <= 17) {
-      const lai = (s.origin.family === '三代同堂' ? 1.5 : s.origin.family === '新移民' ? 0.7 : 1) * (s.origin.isBaoyou ? 500 / 3500 : 1) * 1200 * P * Math.pow(1.03, s.age - 6); // v0.6：利是大幅減少
-      if (s.age >= 8) {
+      const lai = laiOf(g);
+      // v0.7：新年利是事件有兩成機會俾父母「幫你儲起佢先」，嗰年利是冇咗
+      if (s.age >= 8 && s.flags['laiTaken'] !== s.age) {
         if (s.piggyMode === 0) s.piggy += lai;
         else if (s.piggyMode === 1) s.piggy += lai / 2;
       }

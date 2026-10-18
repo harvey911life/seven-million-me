@@ -1,5 +1,21 @@
 // 分享卡圖片：1080×1350 PNG（適合 IG / WhatsApp），用 canvas 畫，唔經任何伺服器
+/** 分享卡底部金句（每世隨機一句） */
+export const QUOTES = [
+  '同一個起點，有冇規劃，結局差好遠。',
+  '人生冇得重嚟，但可以早啲準備。',
+  '複息係時間送俾有耐性嘅人嘅禮物。',
+  '今日慳落嘅一蚊，係將來自由嘅一步。',
+  '意外唔會預先通知，備用金會。',
+  '賺得多唔等於夠用，識用先係本事。',
+  '健康同家人，係最值錢嘅資產。',
+  '唔使同人比起跑線，同昨日嘅自己比。',
+  '每一個選擇，都喺度寫緊你嘅結局。',
+  '計清楚數，先至瀟灑得起。',
+];
+export const quoteFor = (seed: number) => QUOTES[(Math.imul(seed, 2654435761) >>> 0) % QUOTES.length];
+
 export interface ShareImgInput {
+  quote: string;
   scene: HTMLCanvasElement; // SW×SH 像素場景
   name: string;
   line: string; // 「我在…出世，享年…」
@@ -87,7 +103,7 @@ export function makeShareImage(d: ShareImgInput): HTMLCanvasElement {
 
   // 底部
   c.strokeStyle = 'rgba(142,31,63,.2)'; c.lineWidth = 2; c.beginPath(); c.moveTo(60, 1200); c.lineTo(W - 60, 1200); c.stroke();
-  c.fillStyle = '#15232b'; c.font = `700 32px ${SERIF}`; c.fillText('同一個起點，有冇規劃，結局差好遠。', 60, 1256);
+  c.fillStyle = '#15232b'; c.fillText(fitText(c, d.quote, 960, 32, '700', SERIF), 60, 1256);
   c.fillStyle = '#637277'; c.font = `500 24px ${FONT}`; c.fillText('內容為模擬，不構成投資建議', 60, 1300);
   c.textAlign = 'right'; c.fillText('你又會點過？', W - 60, 1300); c.textAlign = 'left';
   return cv;

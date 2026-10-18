@@ -179,21 +179,36 @@ function bizBuyoutCard(g: Game, r: RNG): Card {
 /** 打工定創業：25–45 歲隨機一年（有本錢先會問） */
 export const BIZ_EVENTS: EventDef[] = [
   {
-    id: 'BIZ-OFFER', pri: 500, ages: [25, 45], cat: '人生抉擇',
+    // v0.7：25–40 歲之間最少問一次（按 seed 抽一個歲數；嗰年唔啱就順延，40 歲一定問）；問過之後每年 6% 再有機會
+    id: 'BIZ-OFFER', pri: 500, ages: [25, 45], once: false, cool: 3, fixed: true, cat: '人生抉擇',
     when: (g) => {
       const s = g.s;
-      if (s.biz || s.biz0 || s.status !== 'work') return 0;
+      if (s.biz || s.status === 'retired' || s.flags['bankrupt']) return 0;
+      if (!s.flags['bizAsked']) {
+        if (s.biz0) return 0; // 自己喺花錢頁開過舖，當已經有過機會
+        const due = streamRng(s.seed, 'bizask', 0).int(25, 38);
+        if (s.age >= 40 && s.status !== 'study') return 1;
+        return s.age >= due && (s.status === 'work' || s.status === 'unemp') ? 1 : 0;
+      }
+      if (s.biz0 || s.status !== 'work') return 0;
       return BIZ.some((d) => !bizBlock(g, d)) ? 0.06 : 0;
     },
     make: (g) => {
-      const r = streamRng(g.s.seed, 'bizoffer', g.s.age);
+      const s = g.s;
+      if (!s.flags['bizAsked']) g.flag('bizAsked', s.age);
+      const r = streamRng(s.seed, 'bizoffer', s.age);
+      // 夠錢開嘅排先；唔夠錢都照列出嚟，灰色寫明差幾多
       const ok = BIZ.filter((d) => !bizBlock(g, d));
+      const no = BIZ.filter((d) => bizBlock(g, d) && !d.need?.(g));
       const pick: BizDef[] = [];
       while (pick.length < 3 && ok.length) pick.push(ok.splice(Math.floor(r() * ok.length), 1)[0]);
-      return mkCard('BIZ-OFFER', '打工定創業？', '舊同學搵你一齊做生意，話而家係好時機。你想唔想自己做老闆？', [
-        { label: '繼續打工', note: '穩定有人工' },
-        ...pick.map((d) => ({ label: `開${bizName(g, d.id)}`, note: `本錢約 ${fmtMoney(g.p(d.cap))}${g.p(d.cap) > g.s.cash + g.s.deposit + g.s.index + g.s.stock ? '，唔夠要借銀行' : ''}` })),
-      ], (g2, i) => (i === 0 ? '你決定繼續打工，夢想留返第日先。' : startBiz(g2, pick[i - 1].id)), { pri: 500, def: 0, auto: 0, agui: 0, cat: '人生抉擇', scene: 'office' });
+      no.sort((a, b) => a.cap - b.cap);
+      while (pick.length < 3 && no.length) pick.push(no.shift()!);
+      const work = s.status === 'work';
+      return mkCard('BIZ-OFFER', '打工定創業？', `舊同學搵你一齊做生意，話而家係好時機。你想唔想自己做老闆？（自己出最少三成本錢，其餘借銀行，年息 7%）`, [
+        { label: work ? '繼續打工' : '唔創業', note: work ? '穩定有人工' : '繼續搵工' },
+        ...pick.map((d) => ({ label: `開${bizName(g, d.id)}`, disabled: bizBlock(g, d) ?? undefined, note: `本錢約 ${fmtMoney(g.p(d.cap))}${g.p(d.cap) > s.cash + s.deposit + s.index + s.stock ? `，要借銀行約 ${fmtMoney(g.p(d.cap) - (s.cash + s.deposit + s.index + s.stock))}` : ''}` })),
+      ], (g2, i) => (i === 0 ? '你決定唔做生意，夢想留返第日先。' : startBiz(g2, pick[i - 1].id)), { pri: 500, def: 0, auto: 0, agui: 0, cat: '人生抉擇', scene: 'office' });
     },
   },
 ];

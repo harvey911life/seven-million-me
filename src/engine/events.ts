@@ -141,9 +141,9 @@ function rateHikeCard(g: Game): Card {
   const s = g.s;
   const p = s.prop!;
   return mkCard('E-RATE', '加息，供樓開支上升', `按揭利率升到 ${(g.e.rmort * 100).toFixed(1)}%，每月供 ${fmtMoney(p.pmt)}，已經食咗家庭收入一半。`, [
-    { label: '削減開支', fx: { J: -3 } },
-    { label: '用備用金頂' },
-    { label: '賣樓' },
+    { label: '削減開支', note: '取消旅行、少啲出街食飯', fx: { J: -3 } },
+    { label: '用備用金頂', note: `備用金要頂得住每月 ${fmtMoney(p.pmt)}` },
+    { label: '賣樓', note: `樓價約 ${fmtMoney(p.price0 * (g.e.hpi / p.hpi0))}，扣按揭套現約 ${fmtMoney(p.price0 * (g.e.hpi / p.hpi0) * 0.97 - p.mortgage)}` },
   ], (g2, i) => {
     const s2 = g2.s;
     if (i === 0) { g2.add('J', -3, '慳住過'); g2.flag('cutback', s2.year); return '你哋取消咗旅行，出街食飯都少咗。'; }
@@ -170,7 +170,7 @@ function negEquityCard(g: Game): Card {
   const s = g.s;
   const gap = -propEquity(g);
   return mkCard('E-NEG', '負資產', `樓價跌咗，你層樓而家值少過欠銀行嘅錢 ${fmtMoney(gap)}。`, [
-    { label: '繼續供' }, { label: '賣樓止蝕' }, { label: '同銀行商量延長年期', note: '月供減少，總利息增加' },
+    { label: '繼續供', note: `每月照供 ${fmtMoney(s.prop?.pmt ?? 0)}` }, { label: '賣樓止蝕', note: `賣咗都仲欠銀行約 ${fmtMoney(gap + (s.prop ? s.prop.price0 * (g.e.hpi / s.prop.hpi0) * 0.03 : 0))}` }, { label: '同銀行商量延長年期', note: '月供減少，總利息增加' },
   ], (g2, i) => {
     const s2 = g2.s;
     if (i === 1) { g2.add('J', -5); return sellHome(g2, 0.97); }
@@ -315,8 +315,12 @@ const GENERAL_EVENTS: EventDef[] = [
   {
     id: 'E-RENT', pri: 200, ages: [18, 100], once: false, cool: 2, cat: '生活日常',
     when: (g) => (g.s.home === 'rent' ? 0.06 * Math.sqrt(Mneg(g.s.F)) : 0),
-    make: (g) => mkCard('E-RENT', '業主加租', '業主話約滿要加租 15%，唔接受就要搬。', [
-      { label: '接受加租', note: '租金 +15%' }, { label: '搬細啲', fx: { J: -2 } }, { label: '搬遠啲', fx: { J: -1 } },
+    make: (g) => {
+      const now = (g.s.rentBase || [11000, 15000, 18000, 22000, 26000][Math.min(4, g.householdSize() - 1)]) * g.P;
+      return mkCard('E-RENT', '業主加租', '業主話約滿要加租 15%，唔接受就要搬。', [
+      { label: '接受加租', note: `租金 +15%，每月多約 ${fmtMoney(now * 0.15)}` },
+      { label: '搬細啲', note: `搬屋使費約 ${fmtMoney(g.p(15000))}，月租平約 ${fmtMoney(now * 0.15)}`, fx: { J: -2 } },
+      { label: '搬遠啲', note: `搬屋使費約 ${fmtMoney(g.p(15000))}，月租平約 ${fmtMoney(now * 0.1)}`, fx: { J: -1 } },
     ], (g2, i) => {
       const s = g2.s;
       const base = s.rentBase || [11000, 15000, 18000, 22000, 26000][Math.min(4, g2.householdSize() - 1)];
@@ -325,7 +329,8 @@ const GENERAL_EVENTS: EventDef[] = [
       s.rentBase = Math.round(base * (i === 1 ? 0.85 : 0.9));
       g2.add('J', i === 1 ? -2 : -1);
       return i === 1 ? '新屋細咗，但租金平返啲。' : '返工遠咗，每日多咗一個鐘車程。';
-    }, { pri: 200, def: 0, auto: 1, agui: 0 }),
+    }, { pri: 200, def: 0, auto: 1, agui: 0 });
+    },
   },
   { // 負債過多警告（破產前最後機會）
     id: 'E-DEBT', pri: 905, fixed: true, once: false, cat: '財務衝擊', ages: [18, 120],
@@ -457,7 +462,7 @@ const GENERAL_EVENTS: EventDef[] = [
     make: (g) => {
       const c = g.p(20000);
       return mkCard('E-IMPULSE', '衝動消費', '心情差，行過名店見到個新手袋 / 新手機，好想買嚟獎勵自己。', [
-        { label: '買', money: -c, fx: { J: 3 } }, { label: '唔買' }, { label: '分期買', note: '入卡數' },
+        { label: '買', money: -c, fx: { J: 3 } }, { label: '唔買' }, { label: '分期買', note: `${fmtMoney(c)} 入卡數` },
       ], (g2, i) => {
         if (i === 0) { g2.spend(c, '購物'); g2.add('J', 3); return '開心咗幾日。'; }
         if (i === 2) { g2.s.card += c; g2.add('J', 3); return '「免息分期」，但卡數又多咗。'; }
@@ -469,7 +474,9 @@ const GENERAL_EVENTS: EventDef[] = [
     id: 'E-CARDMAX', pri: 300, ages: [18, 85], once: false, cool: 2, cat: '生活陷阱',
     when: (g) => (g.s.card + g.s.finco > g.monthlyIncome() * 3 && g.s.card + g.s.finco > 10000 * g.P ? 0.3 * Mneg(g.s.F) : 0),
     make: (g) => mkCard('E-CARDMAX', '卡數失控，被追數', `你欠咗卡數同財務公司 ${fmtMoney(g.s.card + g.s.finco)}，日日有人打嚟追。`, [
-      { label: '債務重組', note: '利息降低，但之後難借按揭' }, { label: '搵家人幫', fx: { R: -5 } }, { label: '繼續拖', fx: { J: -8 } },
+      { label: '債務重組', note: '利息降低，但之後難借按揭' },
+      { label: '搵家人幫', note: `家人幫你還最多 ${fmtMoney(Math.min(g.s.card, 100000 * g.P))}，之後要還返`, fx: { R: -5 } },
+      { label: '繼續拖', note: `利息令卡數多三成（約 ${fmtMoney(g.s.card * 0.3)}）`, fx: { J: -8 } },
     ], (g2, i) => {
       const s = g2.s;
       if (i === 0) { s.privateLoan += s.card + s.finco; s.card = 0; s.finco = 0; g2.flag('iva', s.year); return '你簽咗債務重組，利息降低，每月定額還款。'; }
@@ -501,7 +508,7 @@ const GENERAL_EVENTS: EventDef[] = [
     make: (g) => {
       const c = g.p(streamRng(g.s.seed, 'repair').uni(80000, 200000));
       return mkCard('E-REPAIR', '大廈大維修', `法團通過大維修，每戶要夾 ${fmtMoney(c)}。`, [
-        { label: '用備用金', money: -c }, { label: '借錢分期', note: '入卡數' }, { label: '申請資助', disabled: g.s.age >= 60 || g.income() < 200000 * g.W ? undefined : '要 60 歲或低收入' },
+        { label: '用備用金', money: -c }, { label: '借錢分期', note: `${fmtMoney(c * 1.05)} 入卡數（連手續費）` }, { label: '申請資助', note: `一半機會批，批咗自付 ${fmtMoney(c / 2)}；唔批要俾足 ${fmtMoney(c)}`, disabled: g.s.age >= 60 || g.income() < 200000 * g.W ? undefined : '要 60 歲或低收入' },
       ], (g2, i) => {
         if (i === 1) { g2.s.card += c * 1.05; return '你簽咗分期。'; }
         if (i === 2 && g2.er() < 0.5) { g2.spend(c / 2, '維修'); return '資助批咗，政府幫你俾一半。'; }
@@ -520,7 +527,7 @@ const GENERAL_EVENTS: EventDef[] = [
     make: (g) => {
       const amt = Math.round(g.s.cash * 0.3);
       return mkCard('E-IPO', '新股熱潮', '同事個個都話抽新股，一手中簽即刻賺。（遊戲模擬，不構成投資建議）', [
-        { label: '抽', money: -amt }, { label: '唔抽' }, { label: '借孖展抽', note: '盈虧放大 5 倍' },
+        { label: '抽', money: -amt }, { label: '唔抽' }, { label: '借孖展抽', note: `本金 ${fmtMoney(amt)}，盈虧放大 5 倍` },
       ], (g2, i) => {
         if (i === 1) return '你冇跟風。';
         const r = streamRng(g2.s.seed, 'ipo', g2.s.age);
@@ -614,7 +621,7 @@ const GENERAL_EVENTS: EventDef[] = [
       const s = g.s;
       const val = s.prop!.price0 * (g.e.hpi / s.prop!.hpi0);
       return mkCard('C-MA-02', '中年住屋', `你層樓而家值大約 ${fmtMoney(val)}。要唔要換樓？`, [
-        { label: '換大屋', note: '樓價 ×1.6，再供多啲年', fx: { J: 3 } }, { label: '留原址' }, { label: '賣樓套現', note: '之後租樓', fx: { J: -2 } },
+        { label: '換大屋', note: `新樓約 ${fmtMoney(val * 1.6)}，使費約 ${fmtMoney(val * 1.6 * 0.05)}，再供多啲年`, fx: { J: 3 } }, { label: '留原址' }, { label: '賣樓套現', note: `套現約 ${fmtMoney(val * 0.98 - s.prop!.mortgage)}，之後租樓`, fx: { J: -2 } },
       ], (g2, i) => {
         const s2 = g2.s;
         if (i === 1) return '住慣咗，街坊都識晒。';
@@ -668,8 +675,8 @@ function ERA_TICKS(): EventDef[] {
   }));
 }
 
-// ---------- 天馬行空（11.17，一生合共 ≤ 0.1%） ----------
-const P_TIANMA_YEAR = 1.25e-5;
+// ---------- 天馬行空（11.17，一生合共 ≤ 0.05%） ----------
+const P_TIANMA_YEAR = 6.25e-6; // v0.7：一生合共約 0.05%
 interface Tianma { id: string; ach: string; name: string; ok: (g: Game) => boolean; card?: (g: Game) => Card; tick?: (g: Game) => string }
 const TIANMA: Tianma[] = [
   { id: 'TM-GOLD', ach: 'gold_rush', name: '淘金熱', ok: (g) => g.s.age >= 5, tick: (g) => { g.add('J', 5); g.spend(g.p(500), '買鏟'); return '香港發現海底金礦！全港市民去海灘掘金，你最後只掘到蜆。'; } },

@@ -6,6 +6,7 @@ import { clamp, Mneg, Mpos, fmtMoney } from './util';
 import { mkCard, firstEnabled, type Card, type EventDef } from './cards';
 import { examCard, quizCard } from './quiz';
 import { firstJobCard } from './career';
+import { laiOf } from './finance';
 
 const famF = (g: Game) => g.s.F; // 童年時 F = 家庭財務健康
 
@@ -135,6 +136,28 @@ function majorCard(g: Game): Card {
 }
 
 // ---------- 固定抉擇 ----------
+/** 新年利是：無論揀咩，都有兩成機會俾父母收起（攞唔返） */
+function laiseeCard(g: Game, id: string): Card {
+  const amt = laiOf(g);
+  return mkCard(id, '新年利是', `農曆新年，你今年收到大約 ${fmtMoney(amt)} 利是。你點處理？`, [
+    { label: '全部儲落錫錢罐', note: `儲 ${fmtMoney(amt)}，18 歲先拎出嚟` },
+    { label: '一半儲一半使', note: `儲 ${fmtMoney(amt / 2)}，使 ${fmtMoney(amt / 2)}`, fx: { J: 1 } },
+    { label: '全部買玩具', note: `使晒 ${fmtMoney(amt)}`, fx: { J: 3 } },
+  ], (g2, i) => {
+    const s = g2.s;
+    s.piggyMode = i as 0 | 1 | 2;
+    s.FL += [2, 1, 0][i];
+    if (streamRng(s.seed, 'laitaken', s.age)() < 0.2) {
+      g2.flag('laiTaken', s.age);
+      g2.add('J', -2, '利是俾阿媽收咗');
+      return `阿媽：「我幫你儲起佢先。」${fmtMoney(amt)} 利是就咁冇咗下文，之後都冇再見過。`;
+    }
+    if (i === 1) g2.add('J', 1);
+    if (i === 2) { g2.add('J', 3, '買玩具'); g2.flag('toyRegret', s.age + 1); }
+    return ['錫錢罐重到你抱唔起。', '你買咗一盒心儀嘅模型，其餘留低。', '玩具玩咗兩個星期就擺埋一邊。'][i];
+  }, { def: 1, auto: 0, agui: 0, scene: 'home', cat: '生活日常' });
+}
+
 export const EDU_EVENTS: EventDef[] = [
   { id: 'QUIZ', pri: 860, once: false, fixed: true, when: (g) => (g.s.quizAges.includes(g.s.age) && g.s.status === 'study' && !g.s.flags['quizDone' + g.s.age] ? 1 : 0), make: (g) => { g.flag('quizDone' + g.s.age); return quizCard(g); } },
   {
@@ -162,18 +185,12 @@ export const EDU_EVENTS: EventDef[] = [
   },
   {
     id: 'C-CH-02', pri: 850, fixed: true, ages: [8, 9], when: () => 1,
-    make: (g) => mkCard('C-CH-02', '利是錢點處理', '農曆新年收到好多利是。你點處理？', [
-      { label: '全部儲落錫錢罐' },
-      { label: '一半儲一半使', fx: { J: 1 } },
-      { label: '全部買玩具', fx: { J: 3 } },
-    ], (g2, i) => {
-      const s = g2.s;
-      s.piggyMode = i as 0 | 1 | 2;
-      s.FL += [2, 1, 0][i];
-      if (i === 1) g2.add('J', 1);
-      if (i === 2) { g2.add('J', 3, '買玩具'); g2.flag('toyRegret', s.age + 1); }
-      return ['錫錢罐重到你抱唔起。', '你買咗一盒心儀嘅模型，其餘留低。', '玩具玩咗兩個星期就擺埋一邊。'][i];
-    }, { def: 1, auto: 0, agui: 0, scene: 'home' }),
+    make: (g) => laiseeCard(g, 'C-CH-02'),
+  },
+  { // v0.7：之後啲新年再有機會揀過
+    id: 'E-LAISEE', pri: 300, ages: [10, 17], once: false, cool: 3, cat: '生活日常',
+    when: (g) => (g.s.once.includes('C-CH-02') ? 0.3 : 0),
+    make: (g) => laiseeCard(g, 'E-LAISEE'),
   },
   {
     id: 'C-CH-03', pri: 850, fixed: true, ages: [10, 11],

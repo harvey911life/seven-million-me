@@ -6,7 +6,7 @@ import { streamRng, type RNG } from './rng';
 import { mkCard, type Card, type EventDef } from './cards';
 import { insuranceGateCard, yaDue } from './career';
 import { qHK } from './health';
-import { pmtOf, propEquity, liquidAssets } from './finance';
+import { pmtOf, propEquity, liquidAssets, PRIVATE_RENT, PUBLIC_RENT } from './finance';
 import { tragedyHit } from './yearly';
 import { GIVEN } from '../data/origin';
 
@@ -697,9 +697,10 @@ function housingCard(g: Game, single: boolean): Card {
   const s = g.s;
   const eligible = householdMonthly(g) <= publicLimit(g) && liquidAssets(g) < 600000 * g.P;
   const canSave = mortgageOf(g, starterPrice(g), 0.7).stress && g.s.F >= 40;
+  const hn = Math.min(5, g.householdSize()) - 1;
   return mkCard('C-FM-02', single ? '35 歲，住屋點算？' : '成家住屋', single ? '你 35 歲，仲係租樓或者同屋企人住。之後點打算？' : '結咗婚，你哋要諗住邊。', [
-    { label: eligible ? '申公屋' : '抽居屋', note: eligible ? '平均約 5 年上樓，期間租樓' : '入息超出公屋限額，每年約 8% 中籤' },
-    { label: s.home === 'parents' ? '留喺屋企' : '繼續租樓', note: '靈活，冇樓價風險' },
+    { label: eligible ? '申公屋' : '抽居屋', note: eligible ? `平均約 5 年上樓（公屋月租約 ${fmtMoney(g.p(PUBLIC_RENT[hn]))}），期間租樓` : '入息超出公屋限額，每年約 8% 中籤' },
+    { label: s.home === 'parents' ? '留喺屋企' : '繼續租樓', note: s.home === 'parents' && !s.married ? '住屋開支 0，交家用照舊' : `月租約 ${fmtMoney(g.p(PRIVATE_RENT[hn]))}，靈活，冇樓價風險` },
     { label: '買樓上車', note: `上車盤約 ${fmtMoney(starterPrice(g))}` },
   ], (g2, i) => {
     const s2 = g2.s;
@@ -856,11 +857,12 @@ function crisisCard(g: Game, kind: 'div' | 'self' | 'partner' | 'partner2'): Car
     partner2: ['另一半再犯', `${p.name}又再同嗰個人聯絡。`],
   }[kind];
   const counselCost = g.p(15000);
+  const agreeNote = `律師費約 ${fmtMoney(g.p(30000))}–${fmtMoney(g.p(50000))}，婚後積蓄同物業對半分`;
   const opts = kind === 'div'
-    ? [{ label: '協議離婚' }, { label: '嘗試婚姻輔導', money: -counselCost }, { label: '爭取到底（打官司）', note: '律師費 $15–40 萬' }]
+    ? [{ label: '協議離婚', note: agreeNote }, { label: '嘗試婚姻輔導', money: -counselCost }, { label: '爭取到底（打官司）', note: `律師費約 ${fmtMoney(g.p(150000))}–${fmtMoney(g.p(400000))}，分到四至六成` }]
     : kind === 'self'
-      ? [{ label: '認錯求原諒' }, { label: '一齊做婚姻輔導', money: -counselCost }, { label: '離婚' }]
-      : [{ label: '原諒佢', disabled: kind === 'partner2' ? '上次已經原諒過' : undefined }, { label: '一齊做婚姻輔導', money: -counselCost }, { label: '離婚' }];
+      ? [{ label: '認錯求原諒', note: `對方唔原諒就要離婚（${agreeNote}）` }, { label: '一齊做婚姻輔導', money: -counselCost }, { label: '離婚', note: agreeNote }]
+      : [{ label: '原諒佢', disabled: kind === 'partner2' ? '上次已經原諒過' : undefined }, { label: '一齊做婚姻輔導', money: -counselCost }, { label: '離婚', note: agreeNote }];
   return mkCard(kind === 'div' ? 'E-DIV' : kind === 'self' ? 'E-FM-AF1C' : 'E-FM-AF2', T[0], T[1], opts, (g2, i) => {
     const s2 = g2.s;
     const r = streamRng(s2.seed, 'crisis', s2.age, kind);

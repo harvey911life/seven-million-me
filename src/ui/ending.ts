@@ -10,8 +10,9 @@ import { store } from './store';
 import { drawPortrait, drawScene, SW, SH } from './scene';
 import QR from '../assets/ig-qr.png';
 import { emblem, rarityOf, rateText, tierOf } from './emblem';
-import { makeShareImage, shareImage } from './shareimg';
+import { makeShareImage, shareImage, quoteFor } from './shareimg';
 
+const rateLine = (id: string) => { const t = rateText(id); return `${t.startsWith('少於') ? '' : '大約 '}${t} 嘅人生會解鎖`; };
 const GRADE_COLOR: Record<string, string> = { 'A+': '#b07ad6', A: '#e0ac2b', B: '#12706a', C: '#5aa9e6', D: '#9aa7b4', E: '#b07a5a', F: '#555c66' };
 
 const HOUSE_DESC: Record<string, string> = { 公屋: '公屋', 資助出售: '居屋', 私樓自置: '自置私樓', 私樓租住: '租嚟嘅私樓', 劏房: '劏房', 村屋: '村屋', 跨境: '', 保幼局院舍: '保幼局', 寄養家庭: '寄養家庭' };
@@ -203,7 +204,7 @@ export function showEnding(root: HTMLElement, g: Game, period: string | null, on
         emblem(top.id, 120),
         h('b', null, top.name),
         h('span', null, top.desc),
-        h('small', null, `大約 ${rateText(top.id)} 嘅人生會解鎖`),
+        h('small', null, rateLine(top.id)),
         fresh.includes(top.id) ? h('i', { class: 'sc-new' }, 'NEW') : null)
         : h('div', { class: 'sc-star' }, h('b', null, '呢一世未解鎖成就'), h('span', null, '下一世再嚟過。')),
       h('div', { class: 'sc-nums' },
@@ -213,7 +214,7 @@ export function showEnding(root: HTMLElement, g: Game, period: string | null, on
       rest.length ? h('div', { class: 'sc-list' }, h('h4', null, '其他成就'),
         h('p', null, shown.flatMap((a, i) => [i ? h('span', { class: 'dot' }, '・') : null, h('span', { class: fresh.includes(a.id) ? 'new' : '' }, a.name)])),
         rest.length > shown.length ? h('small', null, `仲有 ${rest.length - shown.length} 個`) : null) : null,
-      h('div', { class: 'sc-foot' }, h('span', null, '同一個起點，有冇規劃，結局差好遠。'), h('span', null, '內容為模擬')));
+      h('div', { class: 'sc-foot' }, h('span', null, quoteFor(s.seed)), h('span', null, '內容為模擬')));
     const shareText = `我喺「七百萬分之我」做咗${s.name}，${bankrupt ? `${s.age} 歲破產收場` : `活到 ${s.age} 歲`}，人生評級 ${grade}（${e.total} 分），解鎖咗 ${mine.length} 個成就${top ? `，最稀有係「${top.name}」` : ''}。你又會點過？`;
     const note = h('small', { class: 'copied' }, '');
     return h('div', { class: 'epage achpage' }, card,
@@ -224,8 +225,8 @@ export function showEnding(root: HTMLElement, g: Game, period: string | null, on
           const sc = h('canvas', { width: SW, height: SH });
           drawScene(sc.getContext('2d')!, s, 0);
           const img = makeShareImage({
-            scene: sc, name: s.name, line, grade, gradeColor: GRADE_COLOR[grade] ?? '#8e1f3f', total: e.total, achCount: mine.length,
-            star: top ? { emblem: emblem(top.id, 120), name: top.name, tier: `最稀有成就・${tier!.name}`, desc: top.desc, rate: `大約 ${rateText(top.id)} 嘅人生會解鎖` } : null,
+            scene: sc, quote: quoteFor(s.seed), name: s.name, line, grade, gradeColor: GRADE_COLOR[grade] ?? '#8e1f3f', total: e.total, achCount: mine.length,
+            star: top ? { emblem: emblem(top.id, 120), name: top.name, tier: `最稀有成就・${tier!.name}`, desc: top.desc, rate: rateLine(top.id) } : null,
             spider: spiderCanvas(e.spider, ag.spider, 3),
           });
           note.textContent = await shareImage(img, shareText, root);

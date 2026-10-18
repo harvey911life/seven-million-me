@@ -1,5 +1,6 @@
 // 像素場景：160 × 64 原圖，只畫背景同人物（其他 UI 用普通網頁元素）
 import type { State } from '../engine/state';
+import { HARBOUR_NIGHT } from '../assets/harbour';
 
 export const SW = 160;
 export const SH = 64;
@@ -298,8 +299,19 @@ function home(c: Ctx, kind: State['home'], night: boolean) {
   }
 }
 
+// 維港夜景相：有相先載入；每世 1% 機會（s.flags.harbourNight）喺夜晚場景代替像素背景
+let harbour: HTMLImageElement | null = null;
+if (HARBOUR_NIGHT && typeof Image !== 'undefined') { const im = new Image(); im.onload = () => { harbour = im; }; im.src = HARBOUR_NIGHT; }
+
 export function drawScene(c: Ctx, s: State, t: number) {
   const sk = sky(s.age);
+  if (sk.stars && harbour && s.flags['harbourNight']) {
+    c.imageSmoothingEnabled = true;
+    c.drawImage(harbour, 0, 0, harbour.width, harbour.height, 0, 0, SW, GROUND);
+    ground(c, t);
+    people(c, s, t);
+    return;
+  }
   const bh = Math.ceil(GROUND / sk.bands.length);
   sk.bands.forEach((col, i) => R(c, 0, i * bh, SW, bh + 1, col));
   if (sk.stars) for (let i = 0; i < 20; i++) { const r = hash(i * 97); if ((t + i) % 17 !== 0) R(c, r % SW, (r >> 8) % 28, 1, 1, '#fff6d0'); }
@@ -309,10 +321,17 @@ export function drawScene(c: Ctx, s: State, t: number) {
   for (let i = 0; i < 12; i++) { const r = hash(i * 13 + 5); const w = 7 + (r % 6); const hh = 8 + (r >> 4) % 16; R(c, 62 + i * 8, GROUND - hh, w, hh, sk.far); }
   home(c, s.home, sk.stars);
   if (s.year >= 2035) { const fx = (t * 2) % (SW + 20) - 10; R(c, fx, 14, 5, 2, '#7ff0ff'); }
-  // 地面
+  ground(c, t);
+  people(c, s, t);
+}
+
+function ground(c: Ctx, t: number) {
   R(c, 0, GROUND, SW, 2, '#b9b6ad'); R(c, 0, GROUND + 2, SW, SH - GROUND - 2, '#5a5d66');
   for (let i = 0; i < SW; i += 14) R(c, (i + (t % 14)) % SW, SH - 3, 7, 1, '#e3d98a');
-  // 人物：自己、伴侶、細路
+}
+
+/** 人物：自己、伴侶、細路、寵物 */
+function people(c: Ctx, s: State, t: number) {
   const meX = 104;
   const p = s.partner;
   if (p && p.alive && (s.married || s.datingYears > 0) && s.age >= 15) person(c, meX + 13, { sex: p.sex, age: Math.max(18, p.age), role: 'partner' }, t, 3);

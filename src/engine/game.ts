@@ -40,6 +40,7 @@ export class Game {
     const o = rollOrigin(seed, this.m, period, force);
     this.s = initState(seed, o, this.m);
     this.s.rewritten = rollRewrites(seed, o.birthYear, this.m);
+    if (streamRng(seed, 'harbour')() < 0.01) this.s.flags['harbourNight'] = true; // 1%：夜晚場景用維港夜景相
     scheduleQuizzes(this);
     this.er = streamRng(seed, 'events', 0);
     computeF(this);
