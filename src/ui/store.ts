@@ -1,5 +1,5 @@
 // 本地儲存：設定、局數、本機排行榜、累積成就（讀唔到就當冇）
-export interface Settings { speed: 1 | 2 | 4 | 8; autoPick: boolean; period: string }
+export interface Settings { speed: 1 | 2 | 4 | 8 | 16; autoPick: boolean; period: string }
 export interface BoardRow { nick: string; score: number; age: number; born: number; place: string; date: string }
 
 const K = { settings: '7m:settings', runs: '7m:runs', board: '7m:board', ach: '7m:ach' };

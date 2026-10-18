@@ -154,15 +154,62 @@ export function livingCostYear(g: Game): number {
     if (s.partner.traits.includes('節儉')) base *= 0.92;
     if (s.partner.traits.includes('大使')) base *= 1.1;
   }
-  if (s.flags['pet']) base += 10000 * P;
   return Math.round(base);
+}
+
+// ---------- 寵物（參考 MoneyHero 2024：每年約 $9,700–27,900） ----------
+export const PET_INFO = {
+  cat: { name: '貓', year: 13000, once: 3000, life: [12, 18] as [number, number], names: ['豆豆', '咪咪', '肥仔', '忌廉', '芝麻', '布甸', '橙仔', '雪糕'] },
+  dog: { name: '狗', year: 18000, once: 5000, life: [10, 15] as [number, number], names: ['旺財', '波波', '豆腐', '啤啤', '旺旺', '小白', '朱古力', '多多'] },
+};
+export function petCostYear(g: Game): number {
+  return Math.round(g.s.pets.reduce((a, p) => a + PET_INFO[p.kind].year, 0) * g.P);
+}
+export function petBlock(g: Game, kind: 'cat' | 'dog'): string | null {
+  const s = g.s;
+  if (s.age < 18) return '18 歲先可以自己養';
+  if (s.pets.length >= 4) return '最多養 4 隻';
+  if (kind === 'dog' && s.home === 'public') return '公屋唔准養狗';
+  if (s.home === 'institution') return '院舍唔養得';
+  return null;
+}
+/** 領養一隻寵物：一次過開支（絕育、針、用品），返回描述 */
+export function adoptPet(g: Game, kind: 'cat' | 'dog'): string {
+  const s = g.s;
+  const info = PET_INFO[kind];
+  const used = s.pets.map((p) => p.name);
+  const r = streamRng(s.seed, 'pet', s.age * 10 + s.pets.length);
+  const left = info.names.filter((n) => !used.includes(n));
+  const name = left.length ? r.pick(left) : `${info.name}${s.pets.length + 1}號`;
+  s.pets.push({ kind, name, age: kind === 'cat' ? 1 : 1, since: s.age });
+  const t = payCost(g, g.p(info.once));
+  g.add('J', 3);
+  g.log(`領養咗一隻${info.name}，叫「${name}」。`, '生活日常', true);
+  return `你領養咗一隻${info.name}，叫「${name}」。一次過開支約 ${fmtMoney(g.p(info.once))}${t}，之後每年約 ${fmtMoney(g.p(info.year))}。`;
+}
+/** 寵物每年：老一歲，有機會離開 */
+export function petsYear(g: Game) {
+  const s = g.s;
+  if (!s.pets.length) return;
+  const r = streamRng(s.seed, 'petyear', s.age);
+  for (const p of [...s.pets]) {
+    p.age++;
+    const [a, b] = PET_INFO[p.kind].life;
+    const die = p.age < a ? 0.01 : p.age >= b ? 0.6 : 0.08 + (0.4 * (p.age - a)) / (b - a);
+    if (r() < die) {
+      s.pets = s.pets.filter((x) => x !== p);
+      g.add('J', -6, '寵物離開');
+      g.log(`陪咗你 ${s.age - p.since} 年嘅${PET_INFO[p.kind].name}「${p.name}」離開咗。`, '生活日常', true);
+    }
+  }
+  if (s.pets.length) g.add('J', Math.min(2, s.pets.length));
 }
 
 /** 每年必要開支（備用金計算用） */
 export function needYear(g: Game): number {
   const s = g.s;
   if (s.status === 'child' || (s.status === 'study' && !s.everEmployed)) return familyNeedMonthly(g) * 12;
-  const base = housingCostYear(g) + livingCostYear(g) * (s.focus === '享受當下' ? 0.8 : 1) + kidCostYear(g) + supportCostYear(g) + premiums(g) + s.card * 0.36 + s.finco * 0.4;
+  const base = housingCostYear(g) + livingCostYear(g) * (s.focus === '享受當下' ? 0.8 : 1) + petCostYear(g) + kidCostYear(g) + supportCostYear(g) + premiums(g) + s.card * 0.36 + s.finco * 0.4;
   return Math.max(base + (s.home === 'parents' ? g.income() * s.homeContrib : 0), 1);
 }
 
@@ -339,7 +386,9 @@ export function settleYear(g: Game) {
       s.cash += hourly * (s.age >= 18 ? 16 : 12) * 40;
     }
     if (s.age === 18 && s.piggy > 0) { s.cash += s.piggy; g.tick(`錫錢罐轉做你嘅第一筆積蓄：${fmtMoney(s.piggy)}`); s.piggy = 0; }
+    if (s.pets.length) payCost(g, petCostYear(g));
     s.incomeHist.push(0);
+    s.budget = null;
     investReturns(g, ir);
     return;
   }
@@ -437,8 +486,15 @@ export function settleYear(g: Game) {
   let planPay = 0;
   for (const p of s.plans) if (p.years < 5) { planPay += p.annual; }
 
-  const expense = tax + housing + living + kids + support + prem + homeC + study + loanPay + panel + lot + planPay;
+  const pets = petCostYear(g);
+  const expense = tax + housing + living + pets + kids + support + prem + homeC + study + loanPay + panel + lot + planPay;
   const cf = income - mpfEE - expense;
+  const items: [string, number][] = [
+    [s.home === 'own' ? '供樓同管理費' : s.home === 'parents' ? '交家用' : '租金', s.home === 'parents' ? homeC : housing],
+    ['食飯同日常', living], ['寵物', pets], ['仔女', kids], ['供養父母', support], ['保險', prem], ['交稅', tax],
+    ['學費', study], ['還學債', loanPay], ['興趣同消遣', panel], ['六星彩', lot], ['儲蓄計劃', planPay], ['強積金（自己供）', mpfEE],
+  ];
+  s.budget = { income: Math.round(income), expense: Math.round(expense + mpfEE), cf: Math.round(cf), mpfEE: Math.round(mpfEE), items: items.filter(([, v]) => v > 0).map(([k, v]) => [k, Math.round(v)]) };
   // 稅：今年入息，明年交
   if (pay + bonus > 0) s.taxDue = salaryTax(g, pay + bonus, mpfEE);
 

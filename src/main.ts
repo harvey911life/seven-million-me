@@ -90,7 +90,7 @@ function disclaimer() {
 function setup() {
   fab(true);
   const second = store.runs() >= 1;
-  const speedSeg = h('div', { class: 'seg' }, ([1, 2, 4, 8] as const).map((v) => h('button', {
+  const speedSeg = h('div', { class: 'seg' }, ([1, 2, 4, 8, 16] as const).map((v) => h('button', {
     type: 'button', class: settings.speed === v ? 'on' : '', onclick: (e: Event) => {
       settings.speed = v;
       (e.currentTarget as HTMLElement).parentElement!.querySelectorAll('button').forEach((b) => b.classList.toggle('on', b.textContent === `${v}×`));

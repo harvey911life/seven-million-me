@@ -6,7 +6,7 @@ import { ACHIEVEMENTS, ACH_BY_ID } from '../engine/achievements';
 import { fmtMoney } from '../engine/util';
 import { h, clear, copyText } from './dom';
 import { store } from './store';
-import { drawPortrait } from './scene';
+import { drawPortrait, drawScene, SW, SH } from './scene';
 import QR from '../assets/ig-qr.png';
 
 const HOUSE_DESC: Record<string, string> = { 公屋: '公屋', 資助出售: '居屋', 私樓自置: '自置私樓', 私樓租住: '租嚟嘅私樓', 劏房: '劏房', 村屋: '村屋', 跨境: '', 保幼局院舍: '保幼局', 寄養家庭: '寄養家庭' };
@@ -27,7 +27,7 @@ function moments(g: Game): string[] {
 function spiderCanvas(me: Spider, ag: Spider): HTMLCanvasElement {
   const size = 280;
   const dpr = Math.min(3, Math.max(1, Math.round(devicePixelRatio || 1)));
-  const cv = h('canvas', { class: 'spider', width: size * dpr, height: size * dpr, 'aria-label': '蜘蛛網圖：你同阿規' });
+  const cv = h('canvas', { class: 'spider', width: size * dpr, height: size * dpr, 'aria-label': '蜘蛛網圖：你同某某人' });
   cv.style.width = `${size}px`;
   cv.style.height = `${size}px`;
   const c = cv.getContext('2d')!;
@@ -97,13 +97,13 @@ export function showEnding(root: HTMLElement, g: Game, period: string | null, on
         reached ? [h('dt', null, '65 歲可動用資產'), h('dd', null, `${fmtMoney(r.aRet65!)}（2026 年幣值）`)] : null,
         r.monthly65 !== null ? [h('dt', null, '每月可以安全咁用'), h('dd', null, fmtMoney(r.monthly65))] : null,
         h('dt', null, '錢用到'), h('dd', null, r.M >= 100 ? '100 歲以上' : `${r.M} 歲`),
-        h('dt', null, '阿規嘅錢用到'), h('dd', null, ag.retire.M >= 100 ? '100 歲以上' : `${ag.retire.M} 歲`)),
+        h('dt', null, '某某人嘅錢用到'), h('dd', null, ag.retire.M >= 100 ? '100 歲以上' : `${ag.retire.M} 歲`)),
       h('p', { class: 'fine' }, '每月可用金額按 4% 提取法估算。內容為模擬，不構成投資建議。'));
   });
-  P('spider', () => h('div', { class: 'epage' }, h('h2', null, '你 vs 阿規'),
-    h('p', { class: 'muted' }, '阿規同你同一個出身，但每一步都有規劃：每月投資一成、留六個月備用金、買夠保險。'),
+  P('spider', () => h('div', { class: 'epage' }, h('h2', null, '你 vs 某某人'),
+    h('p', { class: 'muted' }, '某某人同你同一個出身，但每一步都有規劃：每月投資一成、留六個月備用金、買夠保險。'),
     spiderCanvas(e.spider, ag.spider),
-    h('div', { class: 'legend' }, h('span', { class: 'lg me' }, '你'), h('span', { class: 'lg ag' }, '阿規')),
+    h('div', { class: 'legend' }, h('span', { class: 'lg me' }, '你'), h('span', { class: 'lg ag' }, '某某人')),
     h('p', { class: 'lead' }, spiderLine(e.spider, ag.spider))));
   P('score', () => {
     const rows = e.items.map((it) => h('div', { class: 'srow' }, h('span', null, it.name), h('span', { class: 'sbar' }, h('span', { style: `width:${Math.round(it.v)}%` })), h('b', null, String(Math.round(it.v)))));
@@ -111,11 +111,11 @@ export function showEnding(root: HTMLElement, g: Game, period: string | null, on
     return h('div', { class: 'epage' }, h('h2', null, '人生排行榜計分'), h('div', { class: 'scores' }, rows),
       e.wonder ? h('p', { class: 'wonder' }, `天馬行空奇遇 +${e.wonder}`) : null,
       h('div', { class: 'total' }, h('span', null, '總分'), h('b', null, String(e.total)), h('small', null, '/ 1,000')),
-      h('p', { class: beat ? 'lead good' : 'lead' }, beat ? `你贏咗阿規！（阿規 ${Math.round(ag.total)} 分）` : `阿規有 ${Math.round(ag.total)} 分。下一世再試吓贏佢。`));
+      h('p', { class: beat ? 'lead good' : 'lead' }, beat ? `你贏咗某某人！（某某人 ${Math.round(ag.total)} 分）` : `某某人有 ${Math.round(ag.total)} 分。下一世再試吓贏佢。`));
   });
   P('earn', () => h('div', { class: 'epage' }, h('h2', null, '賺錢榜'),
     h('div', { class: 'total' }, h('span', null, '一生收入'), h('b', null, fmtMoney(s.earnReal)), h('small', null, '2026 年幣值')),
-    h('p', { class: 'lead' }, `阿規一生賺咗 ${fmtMoney(ag.earnReal)}。${s.earnReal > ag.earnReal ? '你賺得比佢多，但賺得多唔等於夠用。' : '賺得少唔緊要，規劃先係關鍵。'}`)));
+    h('p', { class: 'lead' }, `某某人一生賺咗 ${fmtMoney(ag.earnReal)}。${s.earnReal > ag.earnReal ? '你賺得比佢多，但賺得多唔等於夠用。' : '賺得少唔緊要，規劃先係關鍵。'}`)));
   P('board', () => {
     const box = h('div', { class: 'epage' }, h('h2', null, '上榜'));
     if (!boardDone) {
@@ -136,10 +136,41 @@ export function showEnding(root: HTMLElement, g: Game, period: string | null, on
     return box;
   });
   P('ach', () => {
+    // 成就卡：設計成適合截圖分享
     const mine = s.ach.map((id) => ACH_BY_ID[id]).filter(Boolean);
-    return h('div', { class: 'epage' }, h('h2', null, `成就（${mine.length} 個）`),
-      h('div', { class: 'achs' }, mine.map((a) => h('div', { class: `ach ${fresh.includes(a.id) ? 'new' : ''}` }, h('b', null, a.name), h('span', null, a.desc), a.pts ? h('em', null, `${a.pts} 分`) : null))),
-      h('p', { class: 'muted' }, `累積解鎖 ${store.achs().filter((id) => ACH_BY_ID[id]).length} / ${ACHIEVEMENTS.length} 個成就。`));
+    const ICON: Record<string, string> = { 出身: '🏠', 學業: '🎓', 事業: '💼', 理財: '💰', 保障: '🛡️', 人生: '🌱', 特殊: '✨' };
+    const rare = (a: (typeof mine)[number]) => a.hidden || a.pts >= 5;
+    const sorted = [...mine].sort((x, y) => Number(rare(y)) - Number(rare(x)) || y.pts - x.pts);
+    const sp = e.spider;
+    const keys = ['H', 'J', 'K', 'R', 'F'] as const;
+    const best = keys.reduce((m, k) => (sp[k] > sp[m] ? k : m), 'H' as (typeof keys)[number]);
+    const TITLE = { H: '健康達人', J: '開心果', K: '知識份子', R: '萬人迷', F: '理財高手' };
+    const title = s.ach.includes('pentagon') ? '五邊形戰士' : minor ? '小天使' : TITLE[best];
+    const cv = h('canvas', { class: 'sc-scene', width: SW, height: SH, 'aria-hidden': 'true' });
+    drawScene(cv.getContext('2d')!, s, 0);
+    const shown = sorted.slice(0, 9);
+    const card = h('div', { class: 'sharecard' },
+      h('div', { class: 'sc-top' }, h('span', { class: 'sc-logo' }, '七百萬分之', h('em', null, '我')), h('span', { class: 'sc-tag' }, '人生成就卡')),
+      h('div', { class: 'sc-hero' }, cv, h('span', { class: 'sc-title' }, title)),
+      h('div', { class: 'sc-who' }, h('b', null, s.name), h('span', null, `${s.birthYear}–${s.year} · 享年 ${s.age} 歲 · ${s.origin.district}出世`)),
+      h('div', { class: 'sc-nums' },
+        h('div', null, h('b', null, String(e.total)), h('span', null, '人生總分')),
+        h('div', null, h('b', null, String(mine.length)), h('span', null, '解鎖成就')),
+        h('div', null, h('b', null, e.nine > ag.nine ? '勝' : '負'), h('span', null, '對某某人'))),
+      h('div', { class: 'sc-badges' }, shown.map((a) => h('div', { class: `sc-b ${rare(a) ? 'rare' : ''} ${fresh.includes(a.id) ? 'new' : ''}` },
+        h('i', null, ICON[a.cat] ?? '★'), h('span', null, a.name)))),
+      mine.length > shown.length ? h('p', { class: 'sc-more' }, `仲有 ${mine.length - shown.length} 個成就`) : null,
+      h('div', { class: 'sc-foot' }, h('span', null, '同一個起點，有冇規劃，結局差好遠。'), h('span', null, '內容為模擬')));
+    const best1 = sorted[0];
+    const shareText = `我喺「七百萬分之我」做咗${s.name}，活到 ${s.age} 歲，人生總分 ${e.total}，解鎖咗 ${mine.length} 個成就${best1 ? `（最難得：${best1.name}）` : ''}。你又會點過？`;
+    const note = h('small', { class: 'copied' }, '');
+    return h('div', { class: 'epage achpage' }, card,
+      h('div', { class: 'row2' },
+        h('button', { class: 'btn', type: 'button', onclick: async () => { note.textContent = (await copyText(shareText)) ? '已複製，可以貼俾朋友' : shareText; } }, '複製分享文字'),
+        h('button', { class: 'btn ghost', type: 'button', onclick: () => { note.textContent = '手機截圖就可以分享呢張卡。'; card.scrollIntoView({ block: 'center' }); } }, '點樣分享')),
+      note,
+      h('details', { class: 'allach' }, h('summary', null, `全部成就（累積 ${store.achs().filter((id) => ACH_BY_ID[id]).length} / ${ACHIEVEMENTS.length}）`),
+        h('div', { class: 'achs' }, mine.map((a) => h('div', { class: `ach ${fresh.includes(a.id) ? 'new' : ''}` }, h('b', null, a.name), h('span', null, a.desc), a.pts ? h('em', null, `${a.pts} 分`) : null)))));
   });
   P('last', () => {
     const lines = ['同一個起點，有冇規劃，結局差好遠。', '下一世，你想點過？', '人生唔可以重嚟，但遊戲可以。'];

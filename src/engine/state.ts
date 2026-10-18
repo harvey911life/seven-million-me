@@ -29,6 +29,8 @@ export interface JobState {
   firstType?: 'hard' | 'promo' | 'ontime'; firstYears: number; hopCool: number; promoBoost: number; promoBoostYears: number;
 }
 
+export interface Pet { kind: 'cat' | 'dog'; name: string; age: number; since: number }
+export interface Budget { income: number; expense: number; cf: number; mpfEE: number; items: [string, number][] }
 export interface LogEntry { age: number; year: number; text: string; cat?: Cat; star?: boolean; big?: boolean }
 export interface HistRow { age: number; year: number; H: number; J: number; K: number; R: number; F: number; net: number; income: number; P: number }
 
@@ -90,4 +92,5 @@ export interface State {
   log: LogEntry[]; hist: HistRow[]; ach: string[]; achNew: string[];
   wonder: string | null; pendingFixed: string[];
   pAvg: { P: number[]; E: number[] }; netMinEver: number;
+  pets: Pet[]; budget: Budget | null;
 }

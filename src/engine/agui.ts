@@ -1,4 +1,4 @@
-// 阿規（有規劃嘅普通人）同自動揀：無畫面跑完一生
+// 某某人（有規劃嘅普通人）同自動揀：無畫面跑完一生
 import { Game } from './game';
 import { firstEnabled, type Card } from './cards';
 import { computeEnding, endAchievements, type Ending } from './ending';
@@ -11,7 +11,7 @@ export function pickFor(c: Card, mode: Policy): number {
   return firstEnabled(c, want);
 }
 
-/** 阿規嘅年度設定：焦點、理財 */
+/** 某某人嘅年度設定：焦點、理財 */
 export function aguiYear(g: Game) {
   const s = g.s;
   const list = focusList(g).map((f) => f.id);

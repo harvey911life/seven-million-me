@@ -4,14 +4,14 @@ import { rollOrigin, type Origin } from './origin';
 import { streamRng, type RNG } from './rng';
 import { clamp, fmtMoney } from './util';
 import type { State, StatKey, Cat, LogEntry } from './state';
-import { settleYear, computeF, payCost, netWorth, liquidAssets } from './finance';
+import { settleYear, computeF, payCost, netWorth, liquidAssets, petsYear } from './finance';
 import { focusEffects, naturalChanges, panelEffects } from './yearly';
 import { drawEvents } from './events';
 import { capOptions, type Card } from './cards';
 import { deathCheck } from './health';
 import { scheduleQuizzes } from './quiz';
 import { checkAchievementsYear } from './achievements';
-import { updateFamilyYear } from './family';
+import { updateFamilyYear, buyCard } from './family';
 import { careerYear } from './career';
 
 export interface YearStart { cards: Card[]; ticker: string[]; stageChange?: string; needFocus?: boolean }
@@ -113,6 +113,7 @@ export class Game {
     // ② 收支結算（包括事業、家庭年度更新）
     careerYear(this);
     updateFamilyYear(this);
+    petsYear(this);
     settleYear(this);
     computeF(this);
     // ③ 焦點 + 花錢面板
@@ -122,6 +123,10 @@ export class Game {
     naturalChanges(this);
     // ⑤ 抽事件
     drawEvents(this);
+    // 花錢面板揀咗「想買樓」：之後兩年每年都有買樓選項
+    const wantTill = Number(s.flags['wantHomeUntil'] ?? 0);
+    if (wantTill && (s.prop || s.age > wantTill)) delete s.flags['wantHomeUntil'];
+    else if (wantTill && s.age >= 18 && !s.saveForHome && !this.queue.some((c) => c.id === 'C-FM-03')) this.pushCard(buyCard(this));
     const needFocus = !!stageChange || (s.focus === null && s.age >= 6) || s.flags['needFocus'] === true;
     if (needFocus) { delete s.flags['needFocus']; stageChange = stageChange ?? s.focusStage; }
     return { cards: this.queue, ticker: this.ticker, stageChange, needFocus };
@@ -223,6 +228,6 @@ function initState(seed: number, o: Origin, m: Market): State {
     cool: {}, once: [], tragedies: 0, childAdversity: 0,
     will: false, epa: false, emigrated: false,
     log: [], hist: [], ach: [], achNew: [],
-    wonder: null, pendingFixed: [], pAvg: { P: [], E: [] }, netMinEver: 0,
+    wonder: null, pendingFixed: [], pAvg: { P: [], E: [] }, netMinEver: 0, pets: [], budget: null,
   };
 }

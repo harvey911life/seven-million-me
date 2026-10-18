@@ -120,7 +120,7 @@ export function spiderOf(g: Game): Spider {
   };
 }
 
-/** 結局計分；agui 係同一個 seed 嘅阿規人生（可選） */
+/** 結局計分；agui 係同一個 seed 嘅某某人人生（可選） */
 export function computeEnding(g: Game, agui?: Ending): Ending {
   const s = g.s;
   const minor = s.age < 18;
@@ -199,12 +199,12 @@ export function spiderLine(me: Spider, ag: Spider): string {
   const d = ks.map((k) => ({ k, d: me[k] - ag[k], r: me[k] / Math.max(ag[k], 1) }));
   const best = d.reduce((a, b) => (b.d > a.d ? b : a));
   const worst = d.reduce((a, b) => (b.d < a.d ? b : a));
-  if (d.every((x) => Math.abs(x.d) < 5)) return '你同阿規幾乎一樣，原來你都係一個有規劃嘅人。';
+  if (d.every((x) => Math.abs(x.d) < 5)) return '你同某某人幾乎一樣，原來你都係一個有規劃嘅人。';
   if (best.d >= 5 && worst.d <= -5) {
     const r = worst.r;
     const w = r < 0.35 ? '三成' : r < 0.45 ? '四成' : r < 0.55 ? '一半' : r < 0.65 ? '六成' : r < 0.75 ? '七成' : r < 0.85 ? '八成' : '九成';
-    return `你嘅${N[best.k]}比阿規高，但${N[worst.k]}只有佢${w}。`;
+    return `你嘅${N[best.k]}比某某人高，但${N[worst.k]}只有佢${w}。`;
   }
-  if (d.every((x) => x.d >= -5)) return `你喺每一方面都唔輸阿規，${N[best.k]}仲贏佢 ${Math.round(best.d)} 分。`;
-  return `阿規喺每一方面都贏你少少，最大分別係${N[worst.k]}。`;
+  if (d.every((x) => x.d >= -5)) return `你喺每一方面都唔輸某某人，${N[best.k]}仲贏佢 ${Math.round(best.d)} 分。`;
+  return `某某人喺每一方面都贏你少少，最大分別係${N[worst.k]}。`;
 }

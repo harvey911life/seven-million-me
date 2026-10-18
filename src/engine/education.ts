@@ -136,9 +136,9 @@ function majorCard(g: Game): Card {
 
 // ---------- 固定抉擇 ----------
 export const EDU_EVENTS: EventDef[] = [
-  { id: 'QUIZ', pri: 860, once: false, when: (g) => (g.s.quizAges.includes(g.s.age) && g.s.status === 'study' && !g.s.flags['quizDone' + g.s.age] ? 1 : 0), make: (g) => { g.flag('quizDone' + g.s.age); return quizCard(g); } },
+  { id: 'QUIZ', pri: 860, once: false, fixed: true, when: (g) => (g.s.quizAges.includes(g.s.age) && g.s.status === 'study' && !g.s.flags['quizDone' + g.s.age] ? 1 : 0), make: (g) => { g.flag('quizDone' + g.s.age); return quizCard(g); } },
   {
-    id: 'EXAM', pri: 865, once: false,
+    id: 'EXAM', pri: 865, once: false, fixed: true,
     when: (g) => (g.s.status === 'study' && ((g.s.age === 17 && !g.s.examTries) || g.s.flags['retakeAt'] === g.s.age) ? 1 : 0),
     make: (g) => { delete g.s.flags['retakeAt']; return examCard(g, (g2) => g2.pushCard(routeCard(g2), true)); },
   },

@@ -6,7 +6,7 @@ import type { StatKey, InsKind } from '../engine/state';
 import { INS_NAME } from '../engine/state';
 import { focusList, PANEL } from '../engine/yearly';
 import { pickFor, autoFocus } from '../engine/agui';
-import { premiumOf, canBuy, setIns, propValue, plansValue } from '../engine/finance';
+import { premiumOf, canBuy, setIns, propValue, plansValue, PET_INFO, petBlock, adoptPet, petCostYear } from '../engine/finance';
 import { jobName } from '../engine/career';
 import { LEVEL_NAME, EDU_NAME } from '../data/jobs';
 import { ACH_BY_ID } from '../engine/achievements';
@@ -21,7 +21,7 @@ const CAT_CLASS: Record<string, string> = {
   人生抉擇: 'c-yellow', 生活日常: 'c-green', 財務衝擊: 'c-red', 時代事件: 'c-purple', 國際都會: 'c-blue', 悲劇: 'c-grey',
   生活陷阱: 'c-orange', 政策衍生: 'c-cyan', 天馬行空: 'c-gold', 健康: 'c-pink',
 };
-const SPEEDS: Settings['speed'][] = [1, 2, 4, 8];
+const SPEEDS: Settings['speed'][] = [1, 2, 4, 8, 16];
 const YEAR_MS = 45000; // 1 倍速：一年約 45 秒
 const CHILD_MS = 6000; // 0–5 歲（未有得揀）快啲行
 
@@ -67,18 +67,18 @@ export function playGame(root: HTMLElement, g: Game, settings: Settings, onEnd: 
   const placeEl = h('p', { class: 'place' });
   const scene = h('section', { class: 'card scene-card' }, h('div', { class: 'scene-wrap' }, canvas, cashEl), placeEl);
   const statsEl = h('section', { class: 'card stats' });
+  const moneyCard = h('section', { class: 'card money' });
+  let moneyOpen = false;
   const feed = h('div', { class: 'feed', 'aria-live': 'polite' });
   const logCard = h('section', { class: 'card log' }, h('div', { class: 'card-h' }, h('h3', null, '人生紀錄'), h('span', null, '最新的在前')), feed);
   const idCard = h('section', { class: 'card idcard' });
   const famCard = h('section', { class: 'card fam' });
   const mapGrid = h('div', { class: 'lmap' });
   const mapCard = h('section', { class: 'card' }, h('div', { class: 'card-h' }, h('h3', null, '人生地圖'), h('span', null, '一格 = 一年，顏色係快樂程度')), mapGrid);
-  const main = h('main', { class: 'g-main' }, scene, statsEl, logCard, idCard, famCard, mapCard);
+  const main = h('main', { class: 'g-main' }, scene, statsEl, moneyCard, logCard, idCard, famCard, mapCard);
 
-  const quick = h('div', { class: 'quick' });
-  const idle = h('div', { class: 'idle' }, quick);
-  const event = h('div', { class: 'event', hidden: true });
-  const dock = h('section', { class: 'dock' }, idle, event);
+  const event = h('div', { class: 'event' });
+  const dock = h('section', { class: 'dock', hidden: true }, event);
 
   const nav = h('nav', { class: 'nav' },
     h('button', { class: 'nav-b', type: 'button', onclick: () => openSheet('focus') }, h('i', null, '◎'), h('span', null, '焦點')),
@@ -89,8 +89,10 @@ export function playGame(root: HTMLElement, g: Game, settings: Settings, onEnd: 
 
   const sheetTitle = h('h3');
   const sheetBody = h('div', { class: 'sheet-body' });
+  const sheetOk = h('button', { class: 'btn small', type: 'button', hidden: true, onclick: () => { if (pendFocus) s.focus = pendFocus; pendFocus = null; closeSheet(); toast(`人生焦點：${s.focus}`, 'info', 1800); } }, '確認');
   const sheet = h('div', { class: 'sheet', role: 'dialog', 'aria-modal': 'true' },
-    h('div', { class: 'sheet-head' }, sheetTitle, h('button', { class: 'x', type: 'button', 'aria-label': '收起', onclick: () => closeSheet() }, '✕')), sheetBody);
+    h('div', { class: 'sheet-head' }, sheetTitle, h('div', { class: 'sh-r' }, sheetOk, h('button', { class: 'x', type: 'button', 'aria-label': '收起', onclick: () => closeSheet() }, '✕'))), sheetBody);
+  let pendFocus: string | null = null;
   const shade = h('div', { class: 'shade', onclick: () => closeSheet() });
 
   root.append(h('div', { class: 'screen game' }, header, main, dock, nav, shade, sheet));
@@ -129,10 +131,47 @@ export function playGame(root: HTMLElement, g: Game, settings: Settings, onEnd: 
     }
     prevStats = { H: Math.round(s.H), J: Math.round(s.J), K: Math.round(s.K), R: Math.round(s.R), F: Math.round(s.F) };
     renderSide();
+    renderMoney();
     if (s.age >= 18) clear(cashEl).append(h('span', null, '現金同存款 '), h('b', null, fmtMoney(s.cash + s.deposit)));
     else if (s.age >= 6) clear(cashEl).append(h('span', null, '錫錢罐 '), h('b', null, fmtMoney(s.piggy)));
     else clear(cashEl);
   }
+  // ---------- 每月收支卡：每月收入、使費、剩幾多、負債 ----------
+  const debtOf = () => s.card + s.finco + s.privateLoan + (s.studentLoan?.bal ?? 0);
+  function budgetRows(): HTMLElement {
+    const b = s.budget!;
+    return h('div', { class: 'bd' },
+      h('div', { class: 'bd-r in' }, h('span', null, '收入（連伴侶、津貼）'), h('b', null, fmtMoney(b.income / 12))),
+      b.items.map(([k, v]) => h('div', { class: 'bd-r' }, h('span', null, k), h('b', null, `−${fmtMoney(v / 12)}`))),
+      h('div', { class: `bd-r tot ${b.cf >= 0 ? 'up' : 'dn'}` }, h('span', null, b.cf >= 0 ? '每月剩低' : '每月唔夠'), h('b', null, fmtMoney(Math.abs(b.cf) / 12))));
+  }
+  function renderMoney() {
+    clear(moneyCard);
+    const head = h('button', { class: 'card-h mh', type: 'button', 'aria-expanded': moneyOpen ? 'true' : 'false', onclick: () => { moneyOpen = !moneyOpen; renderMoney(); } },
+      h('h3', null, '每月收支'), h('span', null, s.budget ? (moneyOpen ? '收起 ▴' : '睇明細 ▾') : ''));
+    if (!s.budget) {
+      const fi = Number(s.flags['familyIncome'] ?? 0);
+      moneyCard.append(head, h('div', { class: 'mrow' },
+        h('div', null, h('span', null, '屋企每月收入'), h('b', null, fi ? fmtMoney(fi) : '—')),
+        h('div', null, h('span', null, s.age >= 6 ? '錫錢罐' : '你嘅使費'), h('b', null, s.age >= 6 ? fmtMoney(s.piggy) : '屋企人負責')),
+        h('div', null, h('span', null, '負債'), h('b', null, debtOf() > 0 ? fmtMoney(debtOf()) : '$0'))),
+        h('p', { class: 'mnote' }, '出嚟做嘢之後，呢度會顯示你每月嘅收入同使費。'));
+      return;
+    }
+    const b = s.budget;
+    const debt = debtOf();
+    moneyCard.append(head, h('div', { class: 'mrow' },
+      h('div', null, h('span', null, '每月收入'), h('b', null, fmtMoney(b.income / 12))),
+      h('div', null, h('span', null, '每月使費'), h('b', null, fmtMoney(b.expense / 12))),
+      h('div', null, h('span', null, b.cf >= 0 ? '每月剩低' : '每月唔夠'), h('b', { class: b.cf >= 0 ? 'up' : 'dn' }, fmtMoney(Math.abs(b.cf) / 12)))),
+      h('div', { class: 'mrow sub' },
+        h('div', null, h('span', null, '負債'), h('b', { class: debt > 0 ? 'dn' : '' }, fmtMoney(debt))),
+        h('div', null, h('span', null, '按揭'), h('b', null, s.prop ? fmtMoney(s.prop.mortgage) : '$0')),
+        h('div', null, h('span', null, '備用金夠用'), h('b', { class: s.fParts.m < 3 ? 'dn' : '' }, `${s.fParts.m.toFixed(1)} 個月`))),
+      moneyOpen ? budgetRows() : '',
+      b.cf < 0 ? h('p', { class: 'mnote dn' }, '入不敷支：會先用積蓄，唔夠就要碌卡或者借錢，利息好貴。') : '');
+  }
+
   // ---------- 下面幾張資料卡（場景地點、身分紀錄、家人、人生地圖） ----------
   const HOME_NAME: Record<string, string> = { parents: '同父母住', share: '合租', rent: '租樓', public: '公屋', subdiv: '劏房', own: '自置物業', village: '村屋', institution: '院舍' };
   const mapCells: number[] = [];
@@ -201,16 +240,8 @@ export function playGame(root: HTMLElement, g: Game, settings: Settings, onEnd: 
     return wrap;
   }
   const RATIOS = [0, 0.05, 0.1, 0.2, 0.3];
-  function renderQuick() {
-    clear(quick);
-    if (s.age < 6) { quick.append(h('p', { class: 'muted' }, '仲細，由屋企人照顧。6 歲入學之後就可以揀人生焦點。')); return; }
-    const focusRow = h('button', { class: 'qrow', type: 'button', onclick: () => openSheet('focus') }, h('span', null, '人生焦點'), h('b', null, s.focus ?? '未揀'), h('i', null, '›'));
-    if (s.age < 18) { quick.append(focusRow); return; }
-    quick.append(
-      h('div', { class: 'qline' }, h('span', null, '每月投資'), seg(['唔投', '5%', '10%', '20%', '30%'], Math.max(0, RATIOS.indexOf(s.investRatio)), (i) => { s.investRatio = RATIOS[i]; })),
-      h('div', { class: 'qline' }, h('span', null, '強積金'), seg(['保守', '均衡', '增長'], ['保守', '均衡', '增長'].indexOf(s.mpfFund), (i) => { s.mpfFund = (['保守', '均衡', '增長'] as const)[i]; })),
-      focusRow);
-  }
+  // 投資同強積金只喺「理財」度改，下面唔再長期顯示
+  function renderQuick() { /* 保留介面：v0.4 起下面冇快捷面板 */ }
 
   // ---------- 底部抽屜（焦點 / 理財 / 花錢 / 資料） ----------
   type Tab = 'focus' | 'spend' | 'money' | 'profile';
@@ -218,14 +249,16 @@ export function playGame(root: HTMLElement, g: Game, settings: Settings, onEnd: 
   const TAB_NAME: Record<Tab, string> = { focus: '人生焦點', money: '理財', spend: '每年花錢', profile: '人生資料' };
   function renderSheet() {
     sheetTitle.textContent = TAB_NAME[tab];
+    sheetOk.hidden = !(tab === 'focus' && pendFocus && pendFocus !== s.focus);
     clear(sheetBody).append(tab === 'focus' ? focusPanel() : tab === 'spend' ? spendPanel() : tab === 'money' ? moneyPanel() : profilePanel());
   }
   function openSheet(t: Tab) {
-    tab = t; renderSheet();
+    tab = t; pendFocus = null; renderSheet();
     sheet.classList.add('open'); shade.classList.add('on');
     paused.add('sheet'); renderTop();
   }
   function closeSheet() {
+    pendFocus = null;
     sheet.classList.remove('open'); shade.classList.remove('on');
     paused.delete('sheet'); renderTop(); renderQuick(); nudge();
   }
@@ -234,9 +267,9 @@ export function playGame(root: HTMLElement, g: Game, settings: Settings, onEnd: 
   function focusPanel(): HTMLElement {
     if (s.age < 6) return h('p', { class: 'muted' }, '仲細，未有得揀。6 歲入學之後就可以揀每年嘅人生焦點。');
     return h('div', { class: 'list' },
-      h('p', { class: 'hint' }, '揀咗即刻記住，下一年開始生效。'),
-      focusList(g).map((f) => h('button', { class: `opt-card ${s.focus === f.id ? 'on' : ''}`, type: 'button', onclick: () => { s.focus = f.id; renderSheet(); } },
-        h('b', null, f.id), h('span', { class: 'fx' }, fxText(f.fx)), h('span', { class: 'muted' }, f.desc))));
+      h('p', { class: 'hint' }, `而家：${s.focus ?? '未揀'}。揀一個新焦點，再撳上面「確認」，下一年開始生效。`),
+      focusList(g).map((f) => h('button', { class: `opt-card ${(pendFocus ?? s.focus) === f.id ? 'on' : ''}`, type: 'button', onclick: () => { pendFocus = f.id; renderSheet(); } },
+        h('b', null, f.id, s.focus === f.id ? h('small', { class: 'now' }, '而家') : null), h('span', { class: 'fx' }, fxText(f.fx)), h('span', { class: 'muted' }, f.desc))));
   }
   function spendPanel(): HTMLElement {
     if (s.age < 15) {
@@ -245,7 +278,30 @@ export function playGame(root: HTMLElement, g: Game, settings: Settings, onEnd: 
         h('p', { class: 'muted' }, '15 歲起可以用花錢面板。'));
     }
     const avail = PANEL.filter((p) => s.age >= p.minAge && (s.age >= 18 || p.teen));
-    const box = h('div', { class: 'list' }, h('p', { class: 'hint' }, `每年最多揀 2 項，會每年照做，直到你取消。已揀 ${s.panel.length} / 2`));
+    const box = h('div', { class: 'list' });
+    if (s.age >= 18) {
+      // 想買樓：之後兩年每年都會出現買樓選項
+      const want = Number(s.flags['wantHomeUntil'] ?? 0) >= s.age;
+      box.append(h('h4', null, '買樓'),
+        s.prop ? h('p', { class: 'hint' }, `你已經有物業，欠按揭 ${fmtMoney(s.prop.mortgage)}。`)
+          : s.saveForHome ? h('p', { class: 'hint' }, '你喺「儲首期模式」，夠錢就會自動買。')
+          : h('button', { class: `opt-card ${want ? 'on' : ''}`, type: 'button', onclick: () => {
+            if (want) delete s.flags['wantHomeUntil']; else s.flags['wantHomeUntil'] = s.age + 2;
+            renderSheet();
+          } }, h('b', null, want ? '✓ 想買樓（撳一下取消）' : '我想買樓'), h('span', { class: 'muted' }, want ? `未來兩年（去到 ${Number(s.flags['wantHomeUntil'])} 歲）每年都會有買樓選項。` : `上車盤大約要首期 3 成。揀咗之後，未來兩年每年都會出現買樓選項。${s.status !== 'work' ? '冇穩定收入，銀行未必批按揭。' : ''}`)));
+      // 寵物：可以養多過一隻
+      box.append(h('h4', null, `寵物（每年合共 ${fmtMoney(petCostYear(g))}）`),
+        s.pets.length ? h('div', { class: 'pets' }, s.pets.map((p) => h('span', { class: 'pet' }, `${p.kind === 'cat' ? '🐱' : '🐶'} ${p.name}・${p.age} 歲`))) : h('p', { class: 'hint' }, '未有養寵物。'),
+        h('div', { class: 'row2' }, (['cat', 'dog'] as const).map((k) => {
+          const why = petBlock(g, k);
+          return h('button', { class: 'opt-card', type: 'button', disabled: !!why, onclick: () => { toast(adoptPet(g, k), 'info', 4000); renderSheet(); renderStats(); } },
+            h('b', null, k === 'cat' ? '🐱 養一隻貓' : '🐶 養一隻狗'),
+            h('span', { class: 'muted' }, why ?? `開始約 ${fmtMoney(g.p(PET_INFO[k].once))}，之後每年約 ${fmtMoney(g.p(PET_INFO[k].year))}`));
+        })),
+        h('p', { class: 'fine' }, '費用參考 MoneyHero 2024 香港養寵物開支：每年約 $9,700–27,900（糧食、貓砂、針、身體檢查、美容）。'));
+      box.append(h('h4', null, '興趣同消遣'));
+    }
+    box.append(h('p', { class: 'hint' }, `每年最多揀 2 項，會每年照做，直到你取消。已揀 ${s.panel.length} / 2`));
     for (const p of avail) {
       const on = s.panel.includes(p.id);
       const cost = p.cost(g);
@@ -272,6 +328,7 @@ export function playGame(root: HTMLElement, g: Game, settings: Settings, onEnd: 
     ];
     const aIdx = ALLOC.findIndex(([, a]) => JSON.stringify(a) === JSON.stringify(s.alloc));
     const box = h('div', { class: 'list' },
+      s.budget ? [h('h4', null, '每月收支（上年）'), budgetRows()] : null,
       h('div', { class: 'tiles' },
         h('div', null, h('span', null, '流動資產'), h('b', null, fmtMoney(g.liquid))),
         h('div', null, h('span', null, '淨資產'), h('b', null, fmtMoney(g.net))),
@@ -334,26 +391,18 @@ export function playGame(root: HTMLElement, g: Game, settings: Settings, onEnd: 
   function showEvent(...kids: (Node | null)[]) {
     paused.add('card');
     clear(event).append(...kids.filter((k): k is Node => !!k));
-    idle.hidden = true; event.hidden = false;
-    event.scrollTop = 0;
+    dock.hidden = false;
+    dock.scrollTop = 0;
     main.scrollTo({ top: 0, behavior: 'smooth' });
     dock.classList.add('busy');
   }
   function hideEvent() {
     paused.delete('card');
-    clear(event); event.hidden = true; idle.hidden = false;
+    clear(event); dock.hidden = true;
     dock.classList.remove('busy');
     renderQuick();
   }
-  function deltaChips(d?: Record<StatKey, number>, money = 0): HTMLElement {
-    const box = h('div', { class: 'chips' });
-    if (d) for (const k of ['H', 'J', 'K', 'R'] as StatKey[]) {
-      const v = Math.round(d[k]);
-      if (v) box.append(h('span', { class: `chip ${v > 0 ? 'up' : 'dn'}` }, `${STAT_NAME[k]} ${v > 0 ? '+' : ''}${v}`));
-    }
-    if (Math.abs(money) >= 1000) box.append(h('span', { class: `chip ${money > 0 ? 'up' : 'dn'}` }, `錢 ${money > 0 ? '+' : ''}${fmtMoney(money)}`));
-    return box;
-  }
+
 
   function cardEvent(c: Card): Promise<void> {
     return new Promise((done) => {
@@ -375,11 +424,13 @@ export function playGame(root: HTMLElement, g: Game, settings: Settings, onEnd: 
         const before = g.liquid;
         const text = g.choose(c, i);
         const money = g.liquid - before;
-        clear(opts);
-        const btn = h('button', { class: 'btn', type: 'button', onclick: () => finish() }, '繼續');
-        body.append(h('div', { class: 'cres' }, h('p', { class: 'picked' }, `你揀咗「${c.options[i]?.label ?? ''}」`), text ? h('p', null, text) : null, deltaChips(c.resultDeltas, money)), btn);
-        keyEnter = finish;
+        // 揀完即刻繼續，結果用通知顯示，同時記入人生紀錄
+        const d = c.resultDeltas;
+        const fx = d ? (['H', 'J', 'K', 'R'] as StatKey[]).filter((k) => Math.round(d[k])).map((k) => `${STAT_NAME[k]}${d[k] > 0 ? '+' : ''}${Math.round(d[k])}`) : [];
+        if (Math.abs(money) >= 1000) fx.push(`錢${money > 0 ? '+' : '−'}${fmtMoney(Math.abs(money))}`);
+        toast(`「${c.options[i]?.label ?? ''}」${text ? ` ${text}` : ''}${fx.length ? `（${fx.join('、')}）` : ''}`, 'info', settings.speed >= 8 ? 1800 : 3200);
         renderStats();
+        finish();
       };
       const finish = () => { keyEnter = null; hideEvent(); done(); };
       c.options.forEach((o, i) => {
@@ -450,11 +501,9 @@ export function playGame(root: HTMLElement, g: Game, settings: Settings, onEnd: 
         keyEnter = null;
         (c as Card & { answers?: QuizAnswer[] }).answers = answers;
         const text = g.choose(c, 0);
-        clear(box).append(h('div', { class: 'ctop' }, h('span', { class: 'tag c-cyan' }, exam ? '放榜' : '測驗完'), h('span', { class: 'muted' }, `${s.age} 歲`)),
-          h('h3', null, exam ? '公開試成績' : '測驗成績'), h('p', { class: 'ctext' }, text), deltaChips(c.resultDeltas),
-          h('button', { class: 'btn', type: 'button', onclick: () => fin() }, '繼續'));
-        keyEnter = fin;
+        toast(`${exam ? '公開試放榜' : '測驗完'}：${text}`, 'info', exam ? 5000 : 3000);
         renderStats();
+        fin();
       };
       const fin = () => { keyEnter = null; hideEvent(); done(); };
       intro();
@@ -465,11 +514,15 @@ export function playGame(root: HTMLElement, g: Game, settings: Settings, onEnd: 
     return new Promise((done) => {
       const title = s.focusStage === 'student' ? '入學喇！揀你嘅人生焦點' : s.focusStage === 'work' ? '出嚟做嘢，揀新嘅人生焦點' : '退休喇，揀新嘅人生焦點';
       const list = focusList(g).slice(0, 4);
+      let pick: string | null = null;
+      const ok = h('button', { class: 'btn small', type: 'button', hidden: true, onclick: () => { if (!pick) return; s.focus = pick; keyEnter = null; keyPick = null; hideEvent(); renderTop(); done(); } }, '確認');
+      const choose = (id: string) => { pick = id; ok.hidden = false; box.querySelectorAll('.copt').forEach((b, j) => b.classList.toggle('sel', list[j].id === id)); keyEnter = () => ok.click(); };
+      keyPick = (n) => { if (list[n]) choose(list[n].id); };
       const box = h('div', { class: 'ecard' },
-        h('div', { class: 'ctop' }, h('span', { class: 'tag c-yellow' }, '人生焦點'), h('span', { class: 'muted' }, `${s.age} 歲`)),
+        h('div', { class: 'ctop' }, h('span', { class: 'tag c-yellow' }, '人生焦點'), ok),
         h('h3', null, title),
-        h('p', { class: 'muted' }, '之後隨時可以喺底部「焦點」改，嗰度仲有其他選擇。'),
-        h('div', { class: 'copts' }, list.map((f, i) => h('button', { class: 'copt', type: 'button', onclick: () => { s.focus = f.id; hideEvent(); renderTop(); done(); } },
+        h('p', { class: 'muted' }, '揀一個，再撳上面「確認」。之後隨時可以喺底部「焦點」改，嗰度仲有其他選擇。'),
+        h('div', { class: 'copts' }, list.map((f, i) => h('button', { class: 'copt', type: 'button', onclick: () => choose(f.id) },
           h('span', { class: 'cn' }, String(i + 1)),
           h('span', { class: 'ol' }, f.id, h('small', null, `${fxText(f.fx)}・${f.desc}`))))));
       showEvent(box);

@@ -7,7 +7,7 @@ import { CAREER_EVENTS, insuranceGateCard, jobOf } from './career';
 import { EDU_EVENTS } from './education';
 import { HEALTH_EVENTS, healthYear } from './health';
 import { FAMILY_EVENTS, householdMonthly } from './family';
-import { liquidAssets, propEquity, premiums, retireAssets } from './finance';
+import { liquidAssets, propEquity, premiums, retireAssets, PET_INFO, petBlock, adoptPet } from './finance';
 
 export type { Card, EventDef } from './cards';
 
@@ -338,26 +338,26 @@ const GENERAL_EVENTS: EventDef[] = [
   },
   {
     id: 'E-PET', pri: 200, ages: [10, 75], cat: '生活日常',
-    when: (g) => (g.s.age >= 18 ? 0.03 * Math.sqrt(Mneg(g.s.J)) * (g.s.home === 'subdiv' ? 0.3 : 1) : 0),
+    when: (g) => (g.s.age >= 18 && !g.s.pets.length ? 0.03 * Math.sqrt(Mneg(g.s.J)) * (g.s.home === 'subdiv' ? 0.3 : 1) : 0),
     make: (g) => mkCard('E-PET', '養寵物？', '朋友隻貓生咗 BB，問你要唔要領養一隻。', [
-      { label: '養貓', note: '每年約 $1 萬', fx: { J: 3 } }, { label: '養狗', note: '每年約 $1 萬', fx: { J: 3 } }, { label: '唔養' },
+      { label: '養貓', note: `每年約 ${fmtMoney(g.p(PET_INFO.cat.year))}`, fx: { J: 3 }, disabled: petBlock(g, 'cat') ?? undefined }, { label: '養狗', note: `每年約 ${fmtMoney(g.p(PET_INFO.dog.year))}`, fx: { J: 3 }, disabled: petBlock(g, 'dog') ?? undefined }, { label: '唔養' },
     ], (g2, i) => {
       if (i === 2) return '你覺得而家照顧唔到。';
-      g2.flag('pet', i === 0 ? 'cat' : 'dog'); g2.flag('petSince', g2.s.age); g2.add('J', 3);
-      return i === 0 ? '佢第一晚就瞓喺你枕頭隔離。' : '佢日日喺門口等你返屋企。';
+      return adoptPet(g2, i === 0 ? 'cat' : 'dog');
     }, { pri: 200, def: 2, auto: 2, agui: 2 }),
   },
   {
     id: 'E-PETSICK', pri: 200, ages: [10, 100], once: false, cool: 3, cat: '生活日常',
-    when: (g) => (g.s.flags['pet'] ? 0.04 : 0),
+    when: (g) => (g.s.pets.length ? 0.04 * Math.min(2, g.s.pets.length) : 0),
     make: (g) => {
       const c = g.p(40000);
-      return mkCard('E-PETSICK', '寵物急病', '獸醫話要做大手術，要成 $4 萬。', [
+      const pet = g.s.pets[Math.floor(g.er() * g.s.pets.length)] ?? g.s.pets[0];
+      return mkCard('E-PETSICK', `${pet ? `「${pet.name}」` : '寵物'}急病`, `獸醫話要做大手術，要成 ${fmtMoney(c)}。`, [
         { label: '救', money: -c }, { label: '唔救', fx: { J: -10 } }, { label: '揀平啲療程', money: -Math.round(c / 3) },
       ], (g2, i) => {
         if (i === 0) { g2.spend(c, '獸醫'); return '手術成功，佢又可以喺屋企跑嚟跑去。'; }
         if (i === 2) { g2.spend(Math.round(c / 3), '獸醫'); if (g2.er() < 0.5) return '平啲嘅療程都救返佢。'; }
-        delete g2.s.flags['pet']; g2.add('J', -10, '寵物離開'); return '佢最後都離開咗你。';
+        g2.s.pets = g2.s.pets.filter((x) => x !== pet); g2.add('J', -10, '寵物離開'); return '佢最後都離開咗你。';
       }, { pri: 200, def: 0, auto: 0, agui: 0 });
     },
   },
@@ -580,7 +580,7 @@ const P_TIANMA_YEAR = 1.25e-5;
 interface Tianma { id: string; ach: string; name: string; ok: (g: Game) => boolean; card?: (g: Game) => Card; tick?: (g: Game) => string }
 const TIANMA: Tianma[] = [
   { id: 'TM-GOLD', ach: 'gold_rush', name: '淘金熱', ok: (g) => g.s.age >= 5, tick: (g) => { g.add('J', 5); g.spend(g.p(500), '買鏟'); return '香港發現海底金礦！全港市民去海灘掘金，你最後只掘到蜆。'; } },
-  { id: 'TM-CAT', ach: 'cat_boss', name: '貓老闆', ok: () => true, tick: (g) => { g.add('K', 3); g.add('J', 5); g.flag('pet', 'cat'); return '屋企隻貓突然識講嘢，佢教你：「唔好追高殺低。」'; } },
+  { id: 'TM-CAT', ach: 'cat_boss', name: '貓老闆', ok: () => true, tick: (g) => { g.add('K', 3); g.add('J', 5); if (!g.s.pets.some((p) => p.kind === 'cat')) g.s.pets.push({ kind: 'cat', name: '貓老闆', age: 3, since: g.s.age }); return '屋企隻貓突然識講嘢，佢教你：「唔好追高殺低。」'; } },
   { id: 'TM-METEOR', ach: 'meteor', name: '天降橫財', ok: () => true, tick: (g) => { g.add('R', 8); g.add('J', 3); return '一粒隕石落喺你屋苑平台，變咗地標，成個屋苑都識你。'; } },
   { id: 'TM-DUCK', ach: 'duck_effect', name: '鴨鴨效應', ok: () => true, tick: (g) => { g.add('J', 5); g.add('R', 2); return '維港出現巨型充氣鴨仔群，全港打卡熱潮！'; } },
   { id: 'TM-BLACKOUT', ach: 'blackout', name: '黑暗一星期', ok: () => true, tick: (g) => { const m = (g.s.cash + g.s.deposit) / Math.max(1, Number(g.s.flags['lastNeed'] ?? 1) / 12); if (m < 1 && g.s.age >= 18) g.add('J', -5); return m >= 3 ? '全港停電一星期，你有備用金，淡定應對。' : '全港停電一星期，你手頭緊，過得好狼狽。'; } },

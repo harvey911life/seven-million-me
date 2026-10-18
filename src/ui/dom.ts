@@ -39,6 +39,8 @@ export function toast(text: string, kind: 'ach' | 'info' = 'info', ms = 2600) {
   let host = $('#toasts');
   if (!host) { host = h('div', { id: 'toasts', 'aria-live': 'polite' }); document.body.append(host); }
   const t = h('div', { class: `toast ${kind}` }, text);
+  // 最多同時顯示 2 個，舊嘅即刻收起，避免遮住畫面
+  while (host.children.length >= 2) host.firstElementChild!.remove();
   host.append(t);
   setTimeout(() => { t.classList.add('out'); setTimeout(() => t.remove(), 400); }, ms);
 }

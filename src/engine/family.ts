@@ -729,7 +729,7 @@ export function buyCard(g: Game): Card {
     { label: '暫時唔買', note: '繼續租樓，遲啲再諗' },
   ], (g2, i) => {
     const s2 = g2.s;
-    if (i === 3) { if (s2.home === 'parents' && s2.married) { s2.home = 'rent'; s2.rentBase = 0; } return '你決定暫時唔買，繼續租樓。'; }
+    if (i === 3) { delete s2.flags['wantHomeUntil']; if (s2.home === 'parents' && s2.married) { s2.home = 'rent'; s2.rentBase = 0; } return '你決定暫時唔買，繼續租樓。'; }
     if (i === 0) {
       const res = buyHome(g2, price, 0.7, '私樓', false);
       if (res.ok) return res.text;

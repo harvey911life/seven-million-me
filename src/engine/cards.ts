@@ -23,7 +23,7 @@ export interface Card {
   options: Opt[];
   def: number; // 預設選項（過期 / 冇時間諗）
   auto?: number; // 自動揀（安全規則）
-  agui?: number; // 阿規會揀
+  agui?: number; // 某某人會揀
   run: (g: Game, idx: number) => string | void;
   kind?: CardKind;
   pri: number;
