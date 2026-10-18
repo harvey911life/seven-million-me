@@ -176,13 +176,25 @@ export function playGame(root: HTMLElement, g: Game, settings: Settings, onEnd: 
   }
 
   // ---------- 下面幾張資料卡（場景地點、身分紀錄、家人、人生地圖） ----------
+  const HOUSE_ORIGIN: Record<string, string> = { 公屋: '公屋', 資助出售: '居屋', 私樓自置: '自置私樓', 私樓租住: '租住私樓', 劏房: '劏房', 村屋: '村屋', 跨境: '跨境', 保幼局院舍: '保幼局院舍', 寄養家庭: '寄養家庭' };
   const HOME_NAME: Record<string, string> = { parents: '同父母住', share: '合租', rent: '租樓', public: '公屋', subdiv: '劏房', own: '自置物業', village: '村屋', institution: '院舍' };
   const mapCells: number[] = [];
   function eduNow() { return s.age < 6 ? '學前' : s.status === 'study' && s.age < 12 ? '小學' : s.status === 'study' && s.age < 18 ? '中學' : EDU_NAME[s.edu] ?? '—'; }
   function renderSide() {
     const o = s.origin;
-    const withWho = s.home === 'institution' ? '住院舍' : s.home === 'parents' || s.age < 18 ? '與家人同住' : s.married && s.partner?.alive ? (s.kids.length ? '與伴侶同子女同住' : '與伴侶同住') : '自己住';
-    placeEl.textContent = `${o.district}${o.subArea && o.subArea !== o.district ? o.subArea : ''} · ${HOME_NAME[s.home] ?? s.home} · ${withWho}`;
+    // 而家住喺邊、同邊個住（v0.7）：未搬出屋企就用出世地區；搬咗就淨係講住屋類型
+    const atFamily = s.home === 'parents' || s.age < 18;
+    const homeType = atFamily ? (s.age < 18 || s.home === 'parents' ? HOUSE_ORIGIN[o.housing] ?? '屋企' : HOME_NAME[s.home]) : HOME_NAME[s.home] ?? s.home;
+    const where = atFamily ? `${o.district}${o.subArea && o.subArea !== o.district ? o.subArea : ''}・${homeType}` : homeType;
+    const mates: string[] = [];
+    if (atFamily && s.home !== 'institution') for (const p of s.parents) if (p.alive) mates.push(p.role === '父' ? '爸爸' : '媽媽');
+    if (atFamily && s.siblings > 0 && s.age < 25) mates.push(s.siblings > 1 ? `${s.siblings} 個兄弟姊妹` : '兄弟姊妹');
+    if (s.partner?.alive && (s.married || (s.home !== 'parents' && s.datingYears >= 3 && s.flags['cohabit']))) mates.push(s.partner.name);
+    for (const k of s.kids) if (!k.away && !k.emigrated && !k.married && k.age < 30) mates.push(k.name);
+    if (s.support === 'live') for (const p of s.parents) if (p.alive && !atFamily) mates.push(p.role === '父' ? '爸爸' : '媽媽');
+    for (const pt of s.pets ?? []) mates.push(`${pt.kind === 'cat' ? '貓' : '狗'}「${pt.name}」`);
+    const withWho = s.home === 'institution' ? '院舍' : mates.length ? mates.join('、') : '自己一個';
+    placeEl.textContent = `${where} · 同住：${withWho}`;
     const pc = h('canvas', { class: 'portrait-s', width: 24, height: 24, 'aria-hidden': 'true' });
     drawPortrait(pc.getContext('2d')!, s);
     const d = new Date(Date.UTC(o.birthYear, 0, o.birthDay));
@@ -195,7 +207,9 @@ export function playGame(root: HTMLElement, g: Game, settings: Settings, onEnd: 
           h('dt', null, '出生'), h('dd', null, `${o.birthYear}年${d.getUTCMonth() + 1}月 · ${o.district}`),
           h('dt', null, '出身'), h('dd', null, WEALTH_DOTS(o.wealthTier)),
           h('dt', null, '學歷'), h('dd', null, eduNow()),
-          h('dt', null, '工作'), h('dd', null, work)))));
+          h('dt', null, '工作'), h('dd', null, work),
+          h('dt', null, '住喺'), h('dd', null, where),
+          h('dt', null, '同住'), h('dd', null, withWho)))));
     const rows: [string, string, string?][] = [];
     for (const p of s.parents) rows.push([p.role === '父' ? '爸爸' : '媽媽', p.alive ? `${p.age}歲` : '已離世', p.alive ? (p.role === '父' ? o.father : o.mother)?.job : undefined]);
     if (!s.parents.length) rows.push(['照顧者', o.isBaoyou ? '保幼局' : '—']);

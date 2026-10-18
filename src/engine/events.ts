@@ -5,11 +5,12 @@ import { streamRng } from './rng';
 import { mkCard, firstEnabled, capOptions, type Card, type EventDef } from './cards';
 import { CAREER_EVENTS, insuranceGateCard, jobOf } from './career';
 import { EDU_EVENTS } from './education';
+import { TRAGEDY_EVENTS } from './tragedy';
 import { BIZ_EVENTS } from './biz';
 import { HISTORY_EVENTS, rewritten } from './history';
 import { HEALTH_EVENTS, healthYear } from './health';
-import { FAMILY_EVENTS, householdMonthly } from './family';
-import { liquidAssets, propEquity, premiums, retireAssets, PET_INFO, petBlock, adoptPet, livingCostYear } from './finance';
+import { FAMILY_EVENTS, householdMonthly, buyCard, starterPrice } from './family';
+import { PRIVATE_RENT, rentFactor, liquidAssets, propEquity, premiums, retireAssets, PET_INFO, petBlock, adoptPet, livingCostYear } from './finance';
 const livingNow = (g: Game) => livingCostYear(g);
 
 export type { Card, EventDef } from './cards';
@@ -316,14 +317,14 @@ const GENERAL_EVENTS: EventDef[] = [
     id: 'E-RENT', pri: 200, ages: [18, 100], once: false, cool: 2, cat: '生活日常',
     when: (g) => (g.s.home === 'rent' ? 0.06 * Math.sqrt(Mneg(g.s.F)) : 0),
     make: (g) => {
-      const now = (g.s.rentBase || [11000, 15000, 18000, 22000, 26000][Math.min(4, g.householdSize() - 1)]) * g.P;
+      const now = (g.s.rentBase || PRIVATE_RENT[Math.min(4, g.householdSize() - 1)]) * rentFactor(g);
       return mkCard('E-RENT', '業主加租', '業主話約滿要加租 15%，唔接受就要搬。', [
       { label: '接受加租', note: `租金 +15%，每月多約 ${fmtMoney(now * 0.15)}` },
       { label: '搬細啲', note: `搬屋使費約 ${fmtMoney(g.p(15000))}，月租平約 ${fmtMoney(now * 0.15)}`, fx: { J: -2 } },
       { label: '搬遠啲', note: `搬屋使費約 ${fmtMoney(g.p(15000))}，月租平約 ${fmtMoney(now * 0.1)}`, fx: { J: -1 } },
     ], (g2, i) => {
       const s = g2.s;
-      const base = s.rentBase || [11000, 15000, 18000, 22000, 26000][Math.min(4, g2.householdSize() - 1)];
+      const base = s.rentBase || PRIVATE_RENT[Math.min(4, g2.householdSize() - 1)];
       if (i === 0) { s.rentBase = Math.round(base * 1.15); return '你咬咬牙續約。'; }
       g2.spend(g2.p(15000), '搬屋');
       s.rentBase = Math.round(base * (i === 1 ? 0.85 : 0.9));
@@ -614,6 +615,55 @@ const GENERAL_EVENTS: EventDef[] = [
     when: (g) => ([40, 50, 60].includes(g.s.age) && g.s.investRatio > 0 ? 1 : 0),
     make: investAdjustCard,
   },
+  { // v0.7：返工兩年後，間中諗買樓或者搬去租樓（最少隔 3 年，一世最多 4 次）
+    id: 'E-HOUSE', pri: 480, ages: [20, 75], once: false, cool: 3, fixed: true, cat: '人生抉擇',
+    when: (g) => {
+      const s = g.s;
+      if (s.yearsWorked < 2 || Number(s.flags['houseAskN'] ?? 0) >= 4 || s.flags['bankrupt'] || s.emigrated) return 0;
+      if (s.home === 'institution') return 0;
+      return 0.12;
+    },
+    make: (g) => {
+      const s = g.s;
+      g.flag('houseAskN', Number(s.flags['houseAskN'] ?? 0) + 1);
+      const n = Math.min(5, g.householdSize()) - 1;
+      const r = streamRng(s.seed, 'houseask', s.age);
+      const newRent = Math.round(PRIVATE_RENT[n] * r.uni(0.85, 1.15));
+      const rentNow = newRent * rentFactor(g);
+      const move = g.p(15000);
+      if (s.prop) {
+        const val = s.prop.price0 * (g.e.hpi / s.prop.hpi0);
+        const net = val * 0.98 - s.prop.mortgage;
+        return mkCard('E-HOUSE', '諗住搬屋', `住咗呢度一段時間，你諗緊要唔要換個環境。你層樓而家值大約 ${fmtMoney(val)}。（遊戲模擬，不構成投資建議）`, [
+          { label: '維持現狀' },
+          { label: '賣樓，轉租樓住', note: `套現約 ${fmtMoney(net)}；之後月租約 ${fmtMoney(rentNow)}，搬屋使費約 ${fmtMoney(move)}` },
+        ], (g2, i) => {
+          if (i === 0) return '住慣咗，暫時唔搬。';
+          const t = sellHome(g2, 0.98);
+          g2.s.rentBase = newRent;
+          g2.spend(move, '搬屋');
+          return t;
+        }, { pri: 480, def: 0, auto: 0, agui: 0, cat: '人生抉擇', scene: 'home' });
+      }
+      const price = starterPrice(g);
+      const where = s.home === 'rent' ? '轉租另一個單位' : '搬出去租樓';
+      return mkCard('E-HOUSE', '諗住買樓定租樓', `返工幾年，你諗緊住屋嘅下一步。上車盤樓價大約 ${fmtMoney(price)}。（遊戲模擬，不構成投資建議）`, [
+        { label: '維持現狀', note: s.home === 'parents' ? '繼續同屋企人住' : undefined },
+        { label: '睇樓買樓', note: `七成按揭首期連使費約 ${fmtMoney(price * 0.34)}` },
+        { label: where, note: `月租約 ${fmtMoney(rentNow)}，搬屋使費約 ${fmtMoney(move)}${s.home === 'public' ? '；要交還公屋' : ''}` },
+      ], (g2, i) => {
+        const t = g2.s;
+        if (i === 0) return '你覺得而家咁住都OK。';
+        if (i === 1) { g2.pushCard(buyCard(g2), true); return '你開始周圍睇樓。'; }
+        if (t.home === 'public') t.publicWait = null;
+        t.home = 'rent';
+        t.rentBase = newRent;
+        g2.spend(move, '搬屋');
+        g2.add('J', 2, '新環境');
+        return '你搬咗去新單位，執拾咗成個星期。';
+      }, { pri: 480, def: 0, auto: 0, agui: 0, cat: '人生抉擇', scene: 'home' });
+    },
+  },
   {
     id: 'C-MA-02', pri: 500, ages: [45, 60], cat: '人生抉擇',
     when: (g) => (g.s.prop ? (g.s.kids.length >= 2 ? 0.2 : 0.1) : 0),
@@ -775,7 +825,7 @@ function rescueMark(g: Game, k: 'H' | 'J') {
   g.s.flags[`rescue${k}Age`] = g.s.age;
 }
 
-export const ALL_EVENTS: EventDef[] = [...CAREER_EVENTS, ...BIZ_EVENTS, ...HISTORY_EVENTS, ...EDU_EVENTS, ...HEALTH_EVENTS, ...FAMILY_EVENTS, ...GENERAL_EVENTS];
+export const ALL_EVENTS: EventDef[] = [...CAREER_EVENTS, ...BIZ_EVENTS, ...TRAGEDY_EVENTS, ...HISTORY_EVENTS, ...EDU_EVENTS, ...HEALTH_EVENTS, ...FAMILY_EVENTS, ...GENERAL_EVENTS];
 export const EVENTS_BY_ID: Record<string, EventDef> = Object.fromEntries(ALL_EVENTS.map((e) => [e.id, e]));
 
 const isInteractive = (c: Card) => c.kind !== 'system';
@@ -785,7 +835,7 @@ function markFired(g: Game, d: EventDef) {
   if (d.once !== false && !s.once.includes(d.id)) s.once.push(d.id);
   if (d.cool) g.cooldown(d.id, d.cool);
   if (d.group && d.groupCool) g.cooldown(`g:${d.group}`, d.groupCool);
-  if (d.tragedy) s.tragedies++;
+  if (d.tragedy) s.flags['randTrag'] = Number(s.flags['randTrag'] ?? 0) + 1; // 隨機悲劇件數（父母按生命表離世唔計）
 }
 
 /** 揀預設選項自動處理（冇時間諗 / 父母決定） */
@@ -831,7 +881,7 @@ export function drawEvents(g: Game) {
     if (d.group && g.cooling(`g:${d.group}`)) continue;
     let p = d.when(g);
     if (!(p > 0)) continue;
-    if (d.tragedy) p *= s.tragedies >= 3 ? 0.25 : s.tragedies >= 2 ? 0.5 : 1;
+    if (d.tragedy) { const n = Number(s.flags['randTrag'] ?? 0); p *= n >= 3 ? 0.25 : n >= 2 ? 0.5 : 1; }
     p = Math.min(p, d.fixed ? 1 : 0.95);
     if (p < 1 && streamRng(s.seed, 'ev', s.age, d.id)() >= p) continue;
     if (d.tragedy && tragedyThisYear >= 1) continue;

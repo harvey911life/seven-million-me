@@ -489,3 +489,5 @@ a { color: var(--teal); }
 .shareimg img { width: 100%; height: auto; border-radius: 14px; display: block; margin-top: 28px; }
 .shareimg .btn { text-align: center; text-decoration: none; display: block; height: auto; box-sizing: border-box; }
 .shareimg { align-content: start; grid-auto-rows: max-content; }
+.igline { text-align: center; font-size: 14px; color: var(--ink2); margin: 4px 0 0; display: grid; gap: 4px; }
+.igline a { color: var(--accent); font-weight: 700; text-decoration: none; font-size: 16px; }

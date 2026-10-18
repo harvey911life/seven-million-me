@@ -243,6 +243,8 @@ export function showEnding(root: HTMLElement, g: Game, period: string | null, on
       firstRun ? h('p', { class: 'unlock' }, '解鎖：自動揀、揀出生時段') : null,
       h('button', { class: 'btn big', type: 'button', onclick: () => onRestart() }, '再投胎一次'),
       h('button', { class: 'btn outline big', type: 'button', onclick: () => booking(root) }, '點擊查詢更多'),
+      h('p', { class: 'igline' }, h('span', null, '玩得開心？'), h('span', null, '記得喺 IG follow 我，第一時間玩到新版本！'),
+        h('a', { href: 'https://instagram.com/life_balance_adventure', target: '_blank', rel: 'noopener' }, '@life_balance_adventure')),
       sad ? h('p', { class: 'fine' }, '如果你感到困擾，可以搵身邊人傾吓，或致電「情緒通」18111。') : null,
       h('p', { class: 'fine' }, '內容為模擬，不構成投資建議。'));
   });

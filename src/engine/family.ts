@@ -6,7 +6,7 @@ import { streamRng, type RNG } from './rng';
 import { mkCard, type Card, type EventDef } from './cards';
 import { insuranceGateCard, yaDue } from './career';
 import { qHK } from './health';
-import { pmtOf, propEquity, liquidAssets, PRIVATE_RENT, PUBLIC_RENT } from './finance';
+import { pmtOf, propEquity, liquidAssets, PRIVATE_RENT, PUBLIC_RENT, rentFactor } from './finance';
 import { tragedyHit } from './yearly';
 import { GIVEN } from '../data/origin';
 
@@ -700,7 +700,7 @@ function housingCard(g: Game, single: boolean): Card {
   const hn = Math.min(5, g.householdSize()) - 1;
   return mkCard('C-FM-02', single ? '35 歲，住屋點算？' : '成家住屋', single ? '你 35 歲，仲係租樓或者同屋企人住。之後點打算？' : '結咗婚，你哋要諗住邊。', [
     { label: eligible ? '申公屋' : '抽居屋', note: eligible ? `平均約 5 年上樓（公屋月租約 ${fmtMoney(g.p(PUBLIC_RENT[hn]))}），期間租樓` : '入息超出公屋限額，每年約 8% 中籤' },
-    { label: s.home === 'parents' ? '留喺屋企' : '繼續租樓', note: s.home === 'parents' && !s.married ? '住屋開支 0，交家用照舊' : `月租約 ${fmtMoney(g.p(PRIVATE_RENT[hn]))}，靈活，冇樓價風險` },
+    { label: s.home === 'parents' ? '留喺屋企' : '繼續租樓', note: s.home === 'parents' && !s.married ? '住屋開支 0，交家用照舊' : `月租約 ${fmtMoney(PRIVATE_RENT[hn] * rentFactor(g))}，靈活，冇樓價風險` },
     { label: '買樓上車', note: `上車盤約 ${fmtMoney(starterPrice(g))}` },
   ], (g2, i) => {
     const s2 = g2.s;
