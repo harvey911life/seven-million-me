@@ -12,9 +12,11 @@ import { jobName } from '../engine/career';
 import { BIZ, bizBlock, bizName, startBiz, closeBiz } from '../engine/biz';
 import { LEVEL_NAME, EDU_NAME } from '../data/jobs';
 import { achToast } from './emblem';
+import { atFamilyHome, sibsAtHome, kidAtHome } from '../engine/family';
+import { rentalQuote, buyRental, sellRental, rentalValue, rentalMonthlyRent } from '../engine/rental';
 import type { QuizAnswer } from '../engine/quiz';
 import { fmtMoney } from '../engine/util';
-import { h, clear, sleep, toast } from './dom';
+import { h, clear, sleep, toast, reduceMotion, type Chip } from './dom';
 import { drawScene, drawPortrait, SW, SH } from './scene';
 import { store, type Settings } from './store';
 
@@ -24,7 +26,7 @@ const CAT_CLASS: Record<string, string> = {
   生活陷阱: 'c-orange', 政策衍生: 'c-cyan', 天馬行空: 'c-gold', 健康: 'c-pink',
 };
 const SPEEDS: Settings['speed'][] = [1, 2, 4, 8, 16];
-const YEAR_MS = 45000; // 1 倍速：一年約 45 秒
+const YEAR_MS = 40000; // 1 倍速：一年約 40 秒（v1.0）
 const CHILD_MS = 6000; // 0–5 歲（未有得揀）快啲行
 
 export function stageLabel(g: Game): string {
@@ -113,6 +115,12 @@ export function playGame(root: HTMLElement, g: Game, settings: Settings, onEnd: 
 
   // ---------- 狀態顯示 ----------
   let prevStats: Record<string, number> = {};
+  let prevCash: number | null = null;
+  function flashCash(up: boolean) {
+    if (reduceMotion()) return;
+    cashEl.classList.remove('flash-up', 'flash-dn'); void cashEl.offsetWidth;
+    cashEl.classList.add(up ? 'flash-up' : 'flash-dn');
+  }
   function renderTop() {
     clear(ageEl).append(h('b', null, String(s.age)), h('span', null, '歲'));
     metaEl.textContent = `${s.year}年 · ${s.name} · ${stageLabel(g)} · 1年≈${Math.round(yearLen() / 1000)}秒`;
@@ -127,16 +135,20 @@ export function playGame(root: HTMLElement, g: Game, settings: Settings, onEnd: 
       const d = prevStats[k] !== undefined ? v - prevStats[k] : 0;
       const kidF = k === 'F' && (s.status === 'child' || (s.status === 'study' && !s.everEmployed));
       const lvl = v < 30 ? 'low' : v > 70 ? 'high' : '';
-      statsEl.append(h('button', { class: `stat s-${k} ${lvl}`, type: 'button', onclick: k === 'F' ? () => fDetail() : null, 'aria-label': `${STAT_NAME[k]} ${v}` },
+      const bump = !reduceMotion() && Math.abs(d) >= 2 ? ` bump ${d > 0 ? 'b-up' : 'b-dn'}` : '';
+      statsEl.append(h('button', { class: `stat s-${k} ${lvl}${bump}`, type: 'button', onclick: k === 'F' ? () => fDetail() : null, 'aria-label': `${STAT_NAME[k]} ${v}` },
         h('span', { class: 'sl' }, kidF ? '家庭財務' : STAT_NAME[k]),
-        h('span', { class: 'sv' }, String(v), d ? h('i', { class: d > 0 ? 'up' : 'dn' }, d > 0 ? `+${d}` : String(d)) : null),
-        h('span', { class: 'bar' }, h('span', { style: `width:${v}%` }))));
+        h('span', { class: 'sv' }, String(v), d ? h('i', { class: `dl ${d > 0 ? 'up' : 'dn'}` }, d > 0 ? `+${d}` : String(d)) : null),
+        h('span', { class: 'bar' }, h('span', { style: `width:${v}%${bump ? `;--w0:${Math.max(0, Math.min(100, v - d))}%` : ''}` }))));
     }
     prevStats = { H: Math.round(s.H), J: Math.round(s.J), K: Math.round(s.K), R: Math.round(s.R), F: Math.round(s.F) };
     renderSide();
     renderMoney();
-    if (s.age >= 18) clear(cashEl).append(h('span', null, '現金同存款 '), h('b', null, fmtMoney(s.cash + s.deposit)));
-    else if (s.age >= 6) clear(cashEl).append(h('span', null, '錫錢罐 '), h('b', null, fmtMoney(s.piggy)));
+    const cashNow = Math.round(s.cash + s.deposit);
+    if (s.age >= 18 && prevCash !== null && Math.abs(cashNow - prevCash) >= Math.max(5000, Math.abs(prevCash) * 0.15)) flashCash(cashNow > prevCash);
+    prevCash = cashNow;
+    if (s.age >= 18) clear(cashEl).append(h('span', null, '現金同存款 '), h('b', null, fmtMoney(cashNow)));
+    else if (s.age >= 6) clear(cashEl).append(h('span', null, '錢罌 '), h('b', null, fmtMoney(s.piggy)));
     else clear(cashEl);
   }
   // ---------- 每月收支卡：每月收入、使費、剩幾多、負債 ----------
@@ -156,7 +168,7 @@ export function playGame(root: HTMLElement, g: Game, settings: Settings, onEnd: 
       const fi = Number(s.flags['familyIncome'] ?? 0);
       moneyCard.append(head, h('div', { class: 'mrow' },
         h('div', null, h('span', null, '屋企每月收入'), h('b', null, fi ? fmtMoney(fi) : '—')),
-        h('div', null, h('span', null, s.age >= 6 ? '錫錢罐' : '你嘅使費'), h('b', null, s.age >= 6 ? fmtMoney(s.piggy) : '屋企人負責')),
+        h('div', null, h('span', null, s.age >= 6 ? '錢罌' : '你嘅使費'), h('b', null, s.age >= 6 ? fmtMoney(s.piggy) : '屋企人負責')),
         h('div', null, h('span', null, '負債'), h('b', null, debtOf() > 0 ? fmtMoney(debtOf()) : '$0'))),
         h('p', { class: 'mnote' }, '出嚟做嘢之後，呢度會顯示你每月嘅收入同使費。'));
       return;
@@ -183,14 +195,14 @@ export function playGame(root: HTMLElement, g: Game, settings: Settings, onEnd: 
   function renderSide() {
     const o = s.origin;
     // 而家住喺邊、同邊個住（v0.7）：未搬出屋企就用出世地區；搬咗就淨係講住屋類型
-    const atFamily = s.home === 'parents' || s.age < 18;
-    const homeType = atFamily ? (s.age < 18 || s.home === 'parents' ? HOUSE_ORIGIN[o.housing] ?? '屋企' : HOME_NAME[s.home]) : HOME_NAME[s.home] ?? s.home;
+    const atFamily = atFamilyHome(s);
+    const homeType = atFamily ? (s.age < 18 || s.home === 'parents' || !s.flags['adultHome'] ? HOUSE_ORIGIN[o.housing] ?? '屋企' : HOME_NAME[s.home]) : HOME_NAME[s.home] ?? s.home;
     const where = atFamily ? `${o.district}${o.subArea && o.subArea !== o.district ? o.subArea : ''}・${homeType}` : homeType;
     const mates: string[] = [];
-    if (atFamily && s.home !== 'institution') for (const p of s.parents) if (p.alive) mates.push(p.role === '父' ? '爸爸' : '媽媽');
-    if (atFamily && s.siblings > 0 && s.age < 25) mates.push(s.siblings > 1 ? `${s.siblings} 個兄弟姊妹` : '兄弟姊妹');
+    if (atFamily) for (const p of s.parents) if (p.alive) mates.push(p.role === '父' ? '爸爸' : '媽媽');
+    if (sibsAtHome(s)) mates.push(s.siblings > 1 ? `${s.siblings} 個兄弟姊妹` : '兄弟姊妹');
     if (s.partner?.alive && (s.married || (s.home !== 'parents' && s.datingYears >= 3 && s.flags['cohabit']))) mates.push(s.partner.name);
-    for (const k of s.kids) if (!k.away && !k.emigrated && !k.married && k.age < 30) mates.push(k.name);
+    for (const k of s.kids) if (kidAtHome(k)) mates.push(k.name);
     if (s.support === 'live') for (const p of s.parents) if (p.alive && !atFamily) mates.push(p.role === '父' ? '爸爸' : '媽媽');
     for (const pt of s.pets ?? []) mates.push(`${pt.kind === 'cat' ? '貓' : '狗'}「${pt.name}」`);
     const withWho = s.home === 'institution' ? '院舍' : mates.length ? mates.join('、') : '自己一個';
@@ -290,7 +302,7 @@ export function playGame(root: HTMLElement, g: Game, settings: Settings, onEnd: 
   }
   function spendPanel(): HTMLElement {
     if (s.age < 15) {
-      return h('div', { class: 'list' }, h('p', null, `錫錢罐有 ${fmtMoney(s.piggy)}。利是錢點處理？`),
+      return h('div', { class: 'list' }, h('p', null, `錢罌有 ${fmtMoney(s.piggy)}。利是錢點處理？`),
         seg(['全部儲起', '儲一半', '使晒佢'], s.piggyMode, (i) => { s.piggyMode = i as 0 | 1 | 2; }),
         h('p', { class: 'muted' }, '15 歲起可以用花錢面板。'));
     }
@@ -390,6 +402,30 @@ export function playGame(root: HTMLElement, g: Game, settings: Settings, onEnd: 
         h('span', { class: 'ins-n' }, INS_NAME[k], h('small', null, lv ? `年保費 ${fmtMoney(premiumOf(g, k))}` : why ?? '未買')),
         seg(['冇', '基本', '充足'], lv, (i) => { setIns(g, k, i as 0 | 1 | 2); renderSheet(); }, [null, lv < 1 ? why : null, lv < 2 ? why : null])));
     }
+    // v1.0：買樓收租（可以多過一層）
+    box.append(h('h4', null, '買樓收租'));
+    (s.rentals ?? []).forEach((r, i) => {
+      const key = `sell${i}`;
+      const on = pendBiz === key;
+      box.append(h('button', { class: `opt-card ${on ? 'on' : ''}`, type: 'button', onclick: () => {
+        if (!on) { pendBiz = key; renderSheet(); return; }
+        pendBiz = null;
+        toast(sellRental(g, i), 'info', 4000);
+        renderSheet(); renderStats(); renderTop();
+      } }, h('b', null, on ? '再撳一下確認賣樓' : `收租樓 ${i + 1}（${r.boughtYear} 年買）`),
+      h('span', { class: 'muted' }, `市值 ${fmtMoney(rentalValue(g, r))}・欠按揭 ${fmtMoney(r.mortgage)}・月租約 ${fmtMoney(rentalMonthlyRent(g, r))}・月供 ${fmtMoney(r.pmt)}`)));
+    });
+    {
+      const q = rentalQuote(g);
+      const on = pendBiz === 'buyRental';
+      box.append(h('button', { class: `opt-card ${on ? 'on' : ''}`, type: 'button', disabled: !!q.why, onclick: () => {
+        if (!on) { pendBiz = 'buyRental'; renderSheet(); return; }
+        pendBiz = null;
+        toast(buyRental(g), 'info', 4000);
+        renderSheet(); renderStats(); renderTop();
+      } }, h('b', null, on ? '再撳一下確認買樓' : `買一層收租樓（${fmtMoney(q.price)}）`),
+      h('span', { class: 'muted' }, q.why ?? `首期連印花稅約 ${fmtMoney(q.upfront)}・按揭五成・月供約 ${fmtMoney(q.pmt)}・預計月租 ${fmtMoney(q.rent)}`)));
+    }
     box.append(
       h('h4', null, '六星彩'),
       seg(['唔買', '間中買', '每期買'], s.lottery, (i) => { s.lottery = i as 0 | 1 | 2; }),
@@ -417,6 +453,7 @@ export function playGame(root: HTMLElement, g: Game, settings: Settings, onEnd: 
       if (s.plans.length) rows.push(['儲蓄保險', fmtMoney(plansValue(s))]);
       rows.push(['強積金', fmtMoney(s.mpf)]);
       if (s.prop) rows.push(['物業', `市值 ${fmtMoney(propValue(g))}・欠按揭 ${fmtMoney(s.prop.mortgage)}`]);
+      if (s.rentals?.length) rows.push(['收租樓', `${s.rentals.length} 層・市值 ${fmtMoney(s.rentals.reduce((a, r) => a + rentalValue(g, r), 0))}・欠按揭 ${fmtMoney(s.rentals.reduce((a, r) => a + r.mortgage, 0))}`]);
       const debt = s.card + s.finco + s.privateLoan + (s.studentLoan?.bal ?? 0);
       if (debt > 0) rows.push(['欠債', fmtMoney(debt)]);
       rows.push(['保險', (['med', 'ci', 'acc', 'life'] as InsKind[]).map((k) => `${INS_NAME[k]}${['✕', '基本', '充足'][s.ins[k].level]}`).join('・')]);
@@ -468,9 +505,10 @@ export function playGame(root: HTMLElement, g: Game, settings: Settings, onEnd: 
         const money = g.liquid - before;
         // 揀完即刻繼續，結果用通知顯示，同時記入人生紀錄
         const d = c.resultDeltas;
-        const fx = d ? (['H', 'J', 'K', 'R'] as StatKey[]).filter((k) => Math.round(d[k])).map((k) => `${STAT_NAME[k]}${d[k] > 0 ? '+' : ''}${Math.round(d[k])}`) : [];
-        if (Math.abs(money) >= 1000) fx.push(`錢${money > 0 ? '+' : '−'}${fmtMoney(Math.abs(money))}`);
-        toast(`「${c.options[i]?.label ?? ''}」${text ? ` ${text}` : ''}${fx.length ? `（${fx.join('、')}）` : ''}`, 'info', settings.speed >= 8 ? 1800 : 3200);
+        const fx: Chip[] = d ? (['H', 'J', 'K', 'R'] as StatKey[]).filter((k) => Math.round(d[k])).map((k) => ({ t: `${STAT_NAME[k]} ${d[k] > 0 ? '+' : ''}${Math.round(d[k])}`, up: d[k] > 0 })) : [];
+        if (Math.abs(money) >= 1000) fx.push({ t: `錢 ${money > 0 ? '+' : '−'}${fmtMoney(Math.abs(money))}`, up: money > 0 });
+        toast(`「${c.options[i]?.label ?? ''}」${text ? ` ${text}` : ''}`, 'result', settings.speed >= 8 ? 2200 : 3600, fx);
+        if (Math.abs(money) >= 1000) flashCash(money > 0);
         renderStats();
         finish();
       };
@@ -488,6 +526,14 @@ export function playGame(root: HTMLElement, g: Game, settings: Settings, onEnd: 
   }
 
   /** 突擊測驗 / 公開試：每題 10 秒；答完顯示答案，撳任何位置或 1 秒後自動下一題 */
+  // 第二局起可以自動答題：按學識擲骰，唔會拎答題成就
+  function autoQuiz(c: Card) {
+    s.flags['autoQuiz'] = true;
+    const text = g.choose(c, 0);
+    toast(`${c.kind === 'exam' ? '公開試放榜（自動作答）' : '測驗完（自動作答）'}：${text}`, 'result', c.kind === 'exam' ? 5000 : 2600);
+    renderStats();
+  }
+
   function quizEvent(c: Card): Promise<void> {
     return new Promise((done) => {
       const qs = c.quiz ?? [];
@@ -498,7 +544,9 @@ export function playGame(root: HTMLElement, g: Game, settings: Settings, onEnd: 
       const intro = () => {
         clear(box).append(h('div', { class: 'ctop' }, h('span', { class: 'tag c-cyan' }, exam ? '公開試' : '測驗'), h('span', { class: 'muted' }, `${s.age} 歲`)),
           h('h3', null, c.title), h('p', { class: 'ctext' }, c.text),
-          h('button', { class: 'btn', type: 'button', onclick: () => ask(0) }, c.options[0]?.label ?? '開始'));
+          h('div', { class: 'qstart' },
+            h('button', { class: 'btn', type: 'button', onclick: () => ask(0) }, c.options[0]?.label ?? '開始'),
+            store.runs() >= 1 ? h('button', { class: 'btn ghost', type: 'button', onclick: () => { keyEnter = null; autoQuiz(c); fin(); } }, '自動作答') : null));
         keyEnter = () => ask(0);
       };
       const ask = (i: number) => {
@@ -640,6 +688,7 @@ export function playGame(root: HTMLElement, g: Game, settings: Settings, onEnd: 
       g.tick(`自動揀「${c.title}」：${c.options[i]?.label ?? ''}${text ? `，${text}` : ''}`);
       return;
     }
+    if ((c.kind === 'quiz' || c.kind === 'exam') && settings.autoQuiz) { autoQuiz(c); return; }
     if (c.kind === 'quiz' || c.kind === 'exam') await quizEvent(c);
     else await cardEvent(c);
   }

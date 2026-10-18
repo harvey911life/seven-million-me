@@ -1,4 +1,5 @@
 // 第 8 章財務系統 + 第 4 章 4.8 財務健康
+import { rentalYear, rentalsEquity } from './rental';
 import type { Game } from './game';
 import type { InsKind, State } from './state';
 import { clamp, interp, fmtMoney } from './util';
@@ -264,7 +265,7 @@ export function liquidAssets(g: Game): number {
 }
 export function netWorth(g: Game): number {
   const s = g.s;
-  return liquidAssets(g) + plansValue(s) + s.mpf + propEquity(g) - s.card - s.finco - (s.studentLoan?.bal ?? 0) - s.privateLoan;
+  return liquidAssets(g) + plansValue(s) + s.mpf + propEquity(g) + rentalsEquity(g) - s.card - s.finco - (s.studentLoan?.bal ?? 0) - s.privateLoan;
 }
 
 // ---------- 付款瀑布（8.7.4） ----------
@@ -407,7 +408,7 @@ export function settleYear(g: Game) {
       const hourly = minWage(g);
       s.cash += hourly * (s.age >= 18 ? 16 : 4) * 40;
     }
-    if (s.age === 18 && s.piggy > 0) { s.cash += s.piggy; g.tick(`錫錢罐轉做你嘅第一筆積蓄：${fmtMoney(s.piggy)}`); s.piggy = 0; }
+    if (s.age === 18 && s.piggy > 0) { s.cash += s.piggy; g.tick(`錢罌轉做你嘅第一筆積蓄：${fmtMoney(s.piggy)}`); s.piggy = 0; }
     if (s.pets.length) payCost(g, petCostYear(g));
     s.incomeHist.push(0);
     s.budget = null;
@@ -478,7 +479,8 @@ export function settleYear(g: Game) {
   s.mpf += mpfEE + mpfER;
   if (mpfEE + mpfER > 0) g.flag('hadMpf');
 
-  const income = pay + bonus + partTime + partnerNet + gov + mpfDraw + annuity;
+  const [rentIn, rentCost] = rentalYear(g);
+  const income = pay + bonus + partTime + partnerNet + gov + mpfDraw + annuity + rentIn;
 
   // 開支
   const tax = s.taxDue;
@@ -504,12 +506,14 @@ export function settleYear(g: Game) {
       if (sl.bal < 1) s.studentLoan = null;
     }
   }
-  // 債務利息
-  const cardInt = s.card * 0.3;
-  const fincoInt = s.finco * 0.4;
+  // 債務利息：65 歲後靠綜援、欠款遠超收入，債主追唔到，利息唔再滾
+  const frozen = s.age >= 65 && s.card + s.finco + s.privateLoan > Math.max(4 * income, 200000 * P);
+  if (frozen && !s.flags['debtFrozen']) { g.flag('debtFrozen'); lines.push('你年紀大又冇能力還，債主停咗追數，欠款冇再加息。'); }
+  const cardInt = frozen ? 0 : s.card * 0.3;
+  const fincoInt = frozen ? 0 : s.finco * 0.4;
   s.card += cardInt;
   s.finco += fincoInt;
-  const privInt = s.privateLoan * (s.flags['ivaUntil'] !== undefined && s.age < Number(s.flags['ivaUntil']) ? 0.02 : 0.06); // 債務重組期間低息
+  const privInt = frozen ? 0 : s.privateLoan * (s.flags['ivaUntil'] !== undefined && s.age < Number(s.flags['ivaUntil']) ? 0.02 : 0.06); // 債務重組期間低息
   s.privateLoan += privInt;
   // 花錢面板
   const panel = Number(s.flags['panelCost'] ?? 0);
@@ -521,12 +525,12 @@ export function settleYear(g: Game) {
   for (const p of s.plans) if (p.years < 5) { planPay += p.annual; }
 
   const pets = petCostYear(g);
-  const expense = tax + housing + living + pets + kids + support + prem + homeC + study + loanPay + panel + lot + planPay;
+  const expense = tax + housing + living + pets + kids + support + prem + homeC + study + loanPay + panel + lot + planPay + rentCost;
   const cf = income - mpfEE - expense;
   const items: [string, number][] = [
     [s.home === 'own' ? '供樓同管理費' : s.home === 'parents' ? '交家用' : '租金', s.home === 'parents' ? homeC : housing],
     ['食飯同日常', living], ['寵物', pets], ['仔女', kids], ['供養父母', support], ['保險', prem], ['交稅', tax],
-    ['學費', study], ['還學債', loanPay], ['興趣同消遣', panel], ['六星彩', lot], ['儲蓄計劃', planPay], ['強積金（自己供）', mpfEE],
+    ['學費', study], ['還學債', loanPay], ['興趣同消遣', panel], ['六星彩', lot], ['儲蓄計劃', planPay], ['收租樓供款同開支', rentCost], ['強積金（自己供）', mpfEE],
   ];
   s.budget = { income: Math.round(income), expense: Math.round(expense + mpfEE), cf: Math.round(cf), mpfEE: Math.round(mpfEE), items: items.filter(([, v]) => v > 0).map(([k, v]) => [k, Math.round(v)]) };
   // 稅：今年入息，明年交

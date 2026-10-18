@@ -25,6 +25,11 @@ export function aguiYear(g: Game) {
     s.alloc = { deposit: 0, plan: 0, index: 100, stock: 0, crypto: 0 };
     s.emergTarget = 6;
   }
+  // 有規劃嘅人唔會由卡數滾雪球：一欠到高息債就轉做低息分期
+  if (s.card + s.finco > 30000 * g.P) {
+    s.privateLoan += s.card + s.finco; s.card = 0; s.finco = 0;
+    s.flags['ivaUntil'] = s.age + 5;
+  }
   s.mpfFund = s.age < 45 ? '增長' : s.age < 60 ? '均衡' : '保守';
   s.panel = s.age >= 40 ? ['checkup', 'dinner'] : s.age >= 18 ? ['dinner'] : [];
 }

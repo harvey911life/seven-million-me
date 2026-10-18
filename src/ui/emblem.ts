@@ -175,14 +175,22 @@ export function emblem(id: string, cssSize = 48, locked = false): HTMLCanvasElem
 export const EMBLEM_IDS = Object.keys(MAP);
 
 /** 成就解鎖彈出：徽章大圖 + 名稱 + 稀有度 */
-export function achToast(id: string, ms = 3200) {
+export function achToast(id: string, ms = 3800) {
   const a = ACH_BY_ID[id];
   if (!a) return;
   let host = document.getElementById('toasts');
   if (!host) { host = h('div', { id: 'toasts', 'aria-live': 'polite' }); document.body.append(host); }
   const tier = tierOf(id);
-  const el = h('div', { class: `achpop t-${tier.name}`, role: 'status' }, emblem(id, 64),
-    h('div', { class: 'ap-t' }, h('small', null, `成就解鎖・${tier.name}`), h('b', null, a.name), h('span', null, a.desc)));
+  // 彩紙爆開：粒數同稀有度掛鈎
+  const n = tier.name === '傳說' ? 22 : tier.name === '稀有' ? 16 : 10;
+  const cols = ['#e0ac2b', '#e1765a', '#2f8f7a', '#4c7bd9', '#8e4fd6', '#d94c8a'];
+  const burst = h('span', { class: 'burst', 'aria-hidden': 'true' },
+    Array.from({ length: n }, (_, i) => {
+      const ang = (i / n) * 360 + (i % 3) * 9, dist = 46 + (i % 4) * 14;
+      return h('i', { style: `--a:${ang}deg;--d:${dist}px;background:${cols[i % cols.length]};animation-delay:${(i % 5) * 0.02}s` });
+    }));
+  const el = h('div', { class: `achpop t-${tier.name}`, role: 'status' }, h('span', { class: 'ap-e' }, burst, emblem(id, 72)),
+    h('div', { class: 'ap-t' }, h('small', null, `🏆 成就解鎖・${tier.name}`), h('b', null, a.name), h('span', null, a.desc)));
   while (host.children.length >= 2) host.firstElementChild!.remove();
   host.append(el);
   setTimeout(() => { el.classList.add('out'); setTimeout(() => el.remove(), 400); }, ms);

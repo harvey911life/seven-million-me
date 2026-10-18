@@ -35,10 +35,12 @@ export async function copyText(text: string, fallbackEl?: HTMLElement): Promise<
   }
 }
 
-export function toast(text: string, kind: 'ach' | 'info' = 'info', ms = 2600) {
+export type Chip = { t: string; up: boolean };
+export function toast(text: string, kind: 'ach' | 'info' | 'result' = 'info', ms = 2600, chips: Chip[] = []) {
   let host = $('#toasts');
   if (!host) { host = h('div', { id: 'toasts', 'aria-live': 'polite' }); document.body.append(host); }
-  const t = h('div', { class: `toast ${kind}` }, text);
+  const t = h('div', { class: `toast ${kind}` }, h('span', { class: 'tt' }, text),
+    chips.length ? h('span', { class: 'chips' }, chips.map((c, i) => h('i', { class: `chip ${c.up ? 'up' : 'dn'}`, style: `animation-delay:${0.12 + i * 0.07}s` }, c.t))) : null);
   // 最多同時顯示 2 個，舊嘅即刻收起，避免遮住畫面
   while (host.children.length >= 2) host.firstElementChild!.remove();
   host.append(t);

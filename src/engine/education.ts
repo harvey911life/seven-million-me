@@ -210,7 +210,7 @@ function majorCard(g: Game): Card {
 function laiseeCard(g: Game, id: string): Card {
   const amt = laiOf(g);
   return mkCard(id, '新年利是', `農曆新年，你今年收到大約 ${fmtMoney(amt)} 利是。你點處理？`, [
-    { label: '全部儲落錫錢罐', note: `儲 ${fmtMoney(amt)}，18 歲先拎出嚟` },
+    { label: '全部儲落錢罌', note: `儲 ${fmtMoney(amt)}，18 歲先拎出嚟` },
     { label: '一半儲一半使', note: `儲 ${fmtMoney(amt / 2)}，使 ${fmtMoney(amt / 2)}`, fx: { J: 1 } },
     { label: '全部買玩具', note: `使晒 ${fmtMoney(amt)}`, fx: { J: 3 } },
   ], (g2, i) => {
@@ -224,7 +224,7 @@ function laiseeCard(g: Game, id: string): Card {
     }
     if (i === 1) g2.add('J', 1);
     if (i === 2) { g2.add('J', 3, '買玩具'); g2.flag('toyRegret', s.age + 1); }
-    return ['錫錢罐重到你抱唔起。', '你買咗一盒心儀嘅模型，其餘留低。', '玩具玩咗兩個星期就擺埋一邊。'][i];
+    return ['錢罌重到你抱唔起。', '你買咗一盒心儀嘅模型，其餘留低。', '玩具玩咗兩個星期就擺埋一邊。'][i];
   }, { def: 1, auto: 0, agui: 0, scene: 'home', cat: '生活日常' });
 }
 

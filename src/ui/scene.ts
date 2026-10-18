@@ -1,6 +1,7 @@
 // 像素場景：160 × 64 原圖，只畫背景同人物（其他 UI 用普通網頁元素）
 import type { State } from '../engine/state';
 import { HARBOUR_NIGHT } from '../assets/harbour';
+import { atFamilyHome } from '../engine/family';
 
 export const SW = 160;
 export const SH = 64;
@@ -192,7 +193,7 @@ function drawSprite(c: Ctx, rows: string[], x: number, feet: number, pal: Pal, b
   });
 }
 
-type Who = { sex: 'M' | 'F'; age: number; role: 'me' | 'partner' | 'kid'; status?: State['status']; level?: number };
+type Who = { sex: 'M' | 'F'; age: number; role: 'me' | 'partner' | 'kid' | 'parent'; status?: State['status']; level?: number };
 
 function palette(w: Who): Pal {
   const female = w.sex === 'F';
@@ -204,6 +205,7 @@ function palette(w: Who): Pal {
   else if (w.role === 'me' && w.status === 'work' && (w.level ?? 0) >= 3) { t = female ? '#3a3f63' : '#2c3550'; b = female ? '#3a3f63' : '#23293d'; }
   else if (w.role === 'partner') { t = female ? '#f29a4a' : '#3fa37a'; b = female ? '#c4543c' : '#3a4256'; }
   else if (w.age >= 65) { t = female ? '#c27aa8' : '#b98a52'; b = female ? '#6a5a8a' : '#5a5148'; }
+  else if (w.role === 'parent') { t = female ? '#e0a640' : '#5f8f5a'; b = female ? '#8a5a3c' : '#4a4a58'; }
   return { h: hair, s: skin, t, b, k: '#2a2a33', m: female ? '#e2475f' : skin };
 }
 
@@ -337,6 +339,12 @@ function people(c: Ctx, s: State, t: number) {
   if (p && p.alive && (s.married || s.datingYears > 0) && s.age >= 15) person(c, meX + 13, { sex: p.sex, age: Math.max(18, p.age), role: 'partner' }, t, 3);
   const kids = s.kids.filter((k) => !k.away && !k.emigrated && k.age < 18).slice(0, 3);
   kids.forEach((k, i) => person(c, meX - 12 - i * 10, { sex: k.sex ?? (hash(k.name.length * 7 + i) % 2 ? 'M' : 'F'), age: Math.max(1, k.age), role: 'kid' }, t, i + 1));
+  // v1.0：同父母住（細個、未搬出、或者接咗父母返嚟住）就畫埋爸爸媽媽
+  const withParents = atFamilyHome(s) || (s.support === 'live' && s.home !== 'institution');
+  if (withParents) {
+    const x0 = meX - 16 - kids.length * 10;
+    s.parents.filter((pa) => pa.alive).forEach((pa, i) => person(c, x0 - i * 11, { sex: pa.role === '父' ? 'M' : 'F', age: Math.max(25, pa.age), role: 'parent' }, t, 5 + i, pa.age >= 75 && pa.health < 40));
+  }
   person(c, meX, { sex: s.gender, age: s.age, role: 'me', status: s.status, level: s.job?.level }, t, 0, s.age >= 65 && s.H < 30);
   // 寵物排喺右邊
   (s.pets ?? []).slice(0, 4).forEach((pt, i) => pet(c, 127 + i * 9, pt.kind, i, t));

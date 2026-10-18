@@ -39,7 +39,10 @@ export const FOCUS: Record<'student' | 'work' | 'retired', FocusDef[]> = {
 export function focusList(g: Game): FocusDef[] {
   const st = g.s.focusStage as 'student' | 'work' | 'retired';
   const list = FOCUS[st] ?? [];
-  return list.filter((f) => (f.minAge ?? 0) <= g.s.age && (f.maxAge ?? 200) >= g.s.age);
+  const s = g.s;
+  // v1.0：冇屋企人就唔出「含飴弄孫 / 陪伴家人」
+  const family = (s.partner?.alive && s.married) || s.kids.some((k) => !k.emigrated) || s.parents.some((p) => p.alive);
+  return list.filter((f) => (f.minAge ?? 0) <= s.age && (f.maxAge ?? 200) >= s.age && (f.id !== '含飴弄孫' || family));
 }
 
 export function focusEffects(g: Game) {

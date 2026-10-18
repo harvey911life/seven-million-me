@@ -5,6 +5,7 @@ import { aguiEnding } from '../engine/agui';
 import { simulateParallel } from '../engine/parallel';
 import { ACHIEVEMENTS, ACH_BY_ID } from '../engine/achievements';
 import { fmtMoney } from '../engine/util';
+import { propEquity } from '../engine/finance';
 import { h, clear, copyText } from './dom';
 import { store } from './store';
 import { drawPortrait, drawScene, drawApocalypse, SW, SH } from './scene';
@@ -77,6 +78,9 @@ export function showEnding(root: HTMLElement, g: Game, period: string | null, on
   store.addRun();
   store.addAchs(s.ach);
   const firstRun = store.runs() === 1;
+  // 第一局完、或者仲未撞過任何終局事件，就暗示有特殊結局
+  const SECRET = ['earth_defense', 'zombie_survivor', 'redo_10y'];
+  const showSecret = !apoc && (firstRun || (store.runs() <= 5 && !store.achs().some((id) => SECRET.includes(id))));
   let boardRank: number | null = null;
   let boardDone = false;
 
@@ -163,7 +167,20 @@ export function showEnding(root: HTMLElement, g: Game, period: string | null, on
       h('dt', null, '強積金賺咗'), h('dd', { class: s.mpfGain >= 0 ? 'up' : 'dn' }, `${s.mpfGain < 0 ? '−' : ''}${fmtMoney(Math.abs(s.mpfGain))}`),
       h('dt', null, '投資賺咗'), h('dd', { class: s.investGain >= 0 ? 'up' : 'dn' }, `${s.investGain < 0 ? '−' : ''}${fmtMoney(Math.abs(s.investGain))}`),
       h('dt', null, '買六星彩用咗'), h('dd', null, fmtMoney(s.lotterySpent)),
-      h('dt', null, '六星彩一共中咗'), h('dd', null, fmtMoney(s.lotteryWon))),
+      h('dt', null, '六星彩一共中咗'), h('dd', null, fmtMoney(s.lotteryWon)),
+      h('dt', null, '離世時淨資產'), h('dd', { class: g.net >= 0 ? 'up' : 'dn' }, `${g.net < 0 ? '−' : ''}${fmtMoney(Math.abs(g.net))}`)),
+    (() => {
+      // v1.0：最後係負債就額外講清楚欠咗乜
+      if (g.net >= 0) return null;
+      const debts: [string, number][] = [
+        ['卡數', s.card], ['財務公司', s.finco], ['私人貸款', s.privateLoan], ['學債', s.studentLoan?.bal ?? 0], ['生意貸款', s.biz?.loan ?? 0],
+        ['物業按揭（超出樓價部分）', Math.max(0, -propEquity(g))],
+      ];
+      return h('div', { class: 'debtbox' },
+        h('b', null, `你最後係負資產：欠 ${fmtMoney(-g.net)}`),
+        h('ul', { class: 'plain' }, debts.filter(([, v]) => v > 1).map(([k, v]) => h('li', null, `${k} ${fmtMoney(v)}`))),
+        h('small', null, '負債唔會因為離世消失，要由遺產先還；遺產唔夠還，債權人通常就收唔返。'));
+    })(),
     h('p', { class: 'fine' }, '強積金同投資回報以 2026 年幣值計（包括定期存款利息）；六星彩按當年銀碼計。內容為模擬，不構成投資建議。'),
     h('p', { class: 'lead' }, `某某人一生賺咗 ${fmtMoney(ag.earnReal)}。${s.earnReal > ag.earnReal ? '你賺得比佢多，但賺得多唔等於夠用。' : '賺得少唔緊要，規劃先係關鍵。'}`)));
   P('parallel', () => {
@@ -266,7 +283,10 @@ export function showEnding(root: HTMLElement, g: Game, period: string | null, on
     const sad = s.tragedies > 0 || !!s.mental || !!s.flags['mentalEver'];
     return h('div', { class: 'epage last' }, h('h2', null, '呢一世完咗。'),
       h('p', { class: 'lead' }, lines[seed0 % 3]),
-      firstRun ? h('p', { class: 'unlock' }, '解鎖：自動揀、揀出生時段') : null,
+      firstRun ? h('p', { class: 'unlock' }, '解鎖：自動揀、自動答題、揀出生時段') : null,
+      showSecret ? h('div', { class: 'secret' }, h('b', null, '🔮 你知唔知……'),
+        h('p', null, '呢個遊戲收埋咗幾個特殊結局。有人話喺天台見過飛碟，有人話某年殭屍湧上街，亦有人一覺瞓醒返咗去十年前。'),
+        h('p', { class: 'muted small' }, '機會好微，下一世可能就係你。')) : null,
       h('button', { class: 'btn big', type: 'button', onclick: () => onRestart() }, '再投胎一次'),
       h('button', { class: 'btn outline big', type: 'button', onclick: () => booking(root) }, '點擊查詢更多'),
       h('p', { class: 'igline' }, h('span', null, '玩得開心？'), h('span', null, '記得喺 IG follow 我，第一時間玩到新版本！'),
@@ -316,8 +336,6 @@ export function boardTable(hi: number | null = null): HTMLElement {
 }
 
 export function booking(root: HTMLElement) {
-  const num = h('span', { class: 'num' }, '+852 5196 6602');
-  const note = h('small', { class: 'copied' }, '');
   const wrap = h('div', { class: 'mwrap in' });
   const close = () => wrap.remove();
   wrap.append(h('div', { class: 'modal booking', role: 'dialog', 'aria-modal': 'true', 'aria-label': '點擊查詢更多' },
@@ -325,10 +343,6 @@ export function booking(root: HTMLElement) {
     h('h3', { class: 'ctitle' }, '15 分鐘免費理財健康檢查'),
     h('img', { src: QR, alt: 'IG 專頁 QR code', class: 'qr', width: 180, height: 180 }),
     h('a', { href: 'https://instagram.com/life_balance_adventure', target: '_blank', rel: 'noopener' }, 'IG：@life_balance_adventure'),
-    h('div', { class: 'phone' }, h('span', null, 'Harvey Wong'), num,
-      h('button', { class: 'btn ghost small', type: 'button', onclick: async () => { note.textContent = (await copyText('+85251966602', num)) ? '已複製' : '已揀住號碼，可以自己複製'; } }, '複製號碼'),
-      h('a', { href: 'https://wa.me/85251966602', target: '_blank', rel: 'noopener' }, 'WhatsApp')),
-    note,
     h('p', { class: 'fine' }, '你可以自己決定係咪聯絡。遊戲唔會收集任何玩家資料。內容為模擬，不構成投資建議。')));
   wrap.addEventListener('click', (ev) => { if (ev.target === wrap) close(); });
   root.append(wrap);

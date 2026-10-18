@@ -18,9 +18,19 @@ export type { Card, EventDef } from './cards';
 // ---------- 騙局組統一規則（11.10） ----------
 interface ScamSpec { id: string; title: string; text: string; believe: string; loss: (g: Game) => number; crypto?: boolean; mlm?: boolean }
 
-function familyAround(g: Game) {
+/** 仲有冇屋企人可以幫手：返回係邊個（v1.0：老咗冇屋企人就唔再出「搵屋企人」） */
+function familyHelp(g: Game): string | null {
   const s = g.s;
-  return (s.married && !!s.partner?.alive) || s.home === 'parents' || s.R >= 40;
+  if (s.married && s.partner?.alive) return '另一半';
+  if (s.parents.some((p) => p.alive && p.age < 85)) return '父母';
+  if (s.kids.some((k) => k.age >= 22 && !k.emigrated)) return '仔女';
+  if (s.siblings > 0 && s.age < 80 && !s.origin.isBaoyou) return '兄弟姊妹';
+  return null;
+}
+/** 「先問家人」：冇屋企人就改問朋友，連朋友都冇就唔出 */
+function askOpt(g: Game, note?: string) {
+  const fam = familyHelp(g);
+  return { label: fam ? '先問家人' : '先問朋友', note, disabled: fam || g.s.R >= 40 ? undefined : '身邊冇人可以問' };
 }
 
 function scamCard(g: Game, sp: ScamSpec): Card | null {
@@ -28,12 +38,12 @@ function scamCard(g: Game, sp: ScamSpec): Card | null {
   const r = streamRng(s.seed, 'scam', s.age, sp.id);
   if (r() < clamp((s.K - 40) / 80, 0, 0.6)) { g.tick(`${sp.title}：你一眼識穿呢個騙局。`); return null; }
   const hint = r() < clamp(0.3 * Mpos(s.K), 0.15, 0.6) ? '呢個回報好似太好，有啲唔妥。' : undefined;
-  const fam = familyAround(g);
   const amt = Math.round(sp.loss(g));
+  const canAsk = !!familyHelp(g) || s.R >= 40;
   return mkCard(sp.id, sp.title, sp.text, [
     { label: sp.believe, money: -amt },
     { label: '唔信' },
-    { label: '先問家人', disabled: fam ? undefined : '身邊冇人可以問' },
+    askOpt(g),
   ], (g2, i) => {
     const s2 = g2.s;
     const lose = (x: number) => {
@@ -54,11 +64,12 @@ function scamCard(g: Game, sp: ScamSpec): Card | null {
     if (i === 2) {
       const calm = s2.married && s2.partner?.traits.includes('冷靜');
       const pDetect = calm ? 1 : Math.min(0.95, 0.85 * Math.sqrt(Mpos(s2.R)));
-      if (r() < pDetect) { g2.add('R', 1); return '屋企人聽完即刻話：「呢個係騙案嚟㗎！」'; }
-      return `屋企人都覺得可信……${lose(Math.round(amt / 2))}`;
+      const who = familyHelp(g2) ? '屋企人' : '朋友';
+      if (r() < pDetect) { g2.add('R', 1); return `${who}聽完即刻話：「呢個係騙案嚟㗎！」`; }
+      return `${who}都覺得可信……${lose(Math.round(amt / 2))}`;
     }
     return lose(amt);
-  }, { pri: 300, def: fam ? 2 : 1, auto: fam ? 2 : 1, agui: 1, cat: '生活陷阱', reason: hint });
+  }, { pri: 300, def: canAsk ? 2 : 1, auto: canAsk ? 2 : 1, agui: 1, cat: '生活陷阱', reason: hint });
 }
 
 const liq = (g: Game) => liquidAssets(g);
@@ -249,7 +260,7 @@ function longevityCard(g: Game): Card {
   return mkCard('E-LONG', '錢夠唔夠用到 95 歲？', `照而家咁使，你嘅積蓄大概只夠用到 ${s.fParts.untilAge} 歲。`, [
     { label: '做反向按揭', disabled: rm ? undefined : '要有冇按揭嘅物業' },
     { label: '減開支', fx: { J: -5 } },
-    { label: '申請綜援 / 靠仔女', fx: { J: -8 } },
+    { label: s.kids.some((k) => k.job && !k.emigrated) ? '申請綜援 / 靠仔女' : '申請綜援', fx: { J: -8 } },
   ], (g2, i) => {
     const s2 = g2.s;
     if (i === 0 && s2.prop) { const v = s2.prop.price0 * (g2.e.hpi / s2.prop.hpi0); s2.reverseMortgage = Math.round(v * (0.0028 + Math.max(0, s2.age - 65) * 0.0001)); return `層樓每月俾你 ${fmtMoney(s2.reverseMortgage)}，你照住喺度。`; }
@@ -268,10 +279,10 @@ const GENERAL_EVENTS: EventDef[] = [
       return mkCard('E-STRUCT', '銀行嘅「保本」產品', '銀行職員好熱情咁介紹一隻高息產品，話「保本」又年息 6%，好多街坊都買咗。', [
         { label: '買', note: `投入一半定期存款，約 ${fmtMoney(amt)}` },
         { label: '唔買' },
-        { label: '先問家人', note: '人際 +1' },
+        askOpt(g, '人際 +1'),
       ], (g2, i) => {
         if (i === 0) { g2.s.deposit -= amt; g2.s.flags['structured'] = amt; return '你簽咗一疊好厚嘅文件，其實冇睇清楚條款。'; }
-        if (i === 2) { g2.add('R', 1); return '屋企人話「保本」兩個字最唔保本，你決定唔買。'; }
+        if (i === 2) { g2.add('R', 1); return `${familyHelp(g2) ? '屋企人' : '朋友'}話「保本」兩個字最唔保本，你決定唔買。`; }
         return '你覺得睇唔明嘅嘢唔好買。';
       }, { pri: 800, def: 1, auto: 1, agui: 1, cat: '生活陷阱' });
     },
@@ -506,7 +517,7 @@ const GENERAL_EVENTS: EventDef[] = [
     when: (g) => (g.s.card + g.s.finco > g.monthlyIncome() * 3 && g.s.card + g.s.finco > 10000 * g.P ? 0.3 * Mneg(g.s.F) : 0),
     make: (g) => mkCard('E-CARDMAX', '卡數失控，被追數', `你欠咗卡數同財務公司 ${fmtMoney(g.s.card + g.s.finco)}，日日有人打嚟追。`, [
       { label: '債務重組', note: '利息降低，但之後難借按揭' },
-      { label: '搵家人幫', note: `家人幫你還最多 ${fmtMoney(Math.min(g.s.card, 100000 * g.P))}，之後要還返`, fx: { R: -5 } },
+      { label: '搵家人幫', note: `家人幫你還最多 ${fmtMoney(Math.min(g.s.card, 100000 * g.P))}，之後要還返`, fx: { R: -5 }, disabled: familyHelp(g) ? undefined : '身邊冇屋企人可以幫' },
       { label: '繼續拖', note: `利息令卡數多三成（約 ${fmtMoney(g.s.card * 0.3)}）`, fx: { J: -8 } },
     ], (g2, i) => {
       const s = g2.s;
@@ -524,7 +535,7 @@ const GENERAL_EVENTS: EventDef[] = [
     make: (g) => {
       const amt = g.p(50000);
       return mkCard('E-FINCO', '「免 TU 即批」貸款', '手機彈出廣告：「免 TU、即批、即日過數」。你最近好手緊。', [
-        { label: '借', note: `${fmtMoney(amt)}，年利率 40%` }, { label: '唔借', fx: { J: -3 } }, { label: '搵家人', fx: { R: -3 } },
+        { label: '借', note: `${fmtMoney(amt)}，年利率 40%` }, { label: '唔借', fx: { J: -3 } }, { label: '搵家人', fx: { R: -3 }, disabled: familyHelp(g) ? undefined : '身邊冇屋企人可以幫' },
       ], (g2, i) => {
         const s = g2.s;
         if (i === 0) { s.cash += amt; s.finco += amt; g2.flag('usedFinco'); return '錢即日到手，但利息驚人。'; }
@@ -769,7 +780,7 @@ function ERA_TICKS(): EventDef[] {
 }
 
 // ---------- 天馬行空（11.17，一生合共 ≤ 0.05%） ----------
-const P_TIANMA_YEAR = 6.25e-6; // v0.7：一生合共約 0.05%
+const P_TIANMA_YEAR = 5e-4; // v1.0：一生合共約 4%（用家指定）
 interface Tianma { id: string; ach: string; name: string; ok: (g: Game) => boolean; card?: (g: Game) => Card; tick?: (g: Game) => string }
 /** 測試用：指定某個年齡一定出某件天馬行空 */
 export const TIANMA_FORCE: { id: string | null; age: number } = { id: null, age: 0 };
@@ -868,7 +879,7 @@ const TIANMA: Tianma[] = [
   },
   {
     id: 'TM-MARS', ach: 'mars_scam', name: '火星樓盤騙局', ok: (g) => g.s.age >= 18,
-    card: (g) => mkCard('TM-MARS', '火星樓盤', '一個外太空商人邀請你投資「火星樓盤」，保證回報。', [{ label: '投資' }, { label: '唔信' }, { label: '先問家人' }], (g2, i) => {
+    card: (g) => mkCard('TM-MARS', '火星樓盤', '一個外太空商人邀請你投資「火星樓盤」，保證回報。', [{ label: '投資' }, { label: '唔信' }, askOpt(g)], (g2, i) => {
       if (i === 0) { const c = Math.round(g2.s.cash * 0.3); g2.spend(c, '火星樓盤'); return `火星冇樓。你損失咗 ${fmtMoney(c)}。`; }
       return '你保住咗身家。宇宙都有騙徒。';
     }, { pri: 150, def: 2, auto: 2, agui: 1, cat: '天馬行空' }),

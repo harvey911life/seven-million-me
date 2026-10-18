@@ -1,6 +1,6 @@
 // 第 9 章 家庭系統：父母、拍拖、結婚、離婚、生育、子女、住屋
 import type { Game } from './game';
-import type { Kid, Partner } from './state';
+import type { Kid, Partner, State } from './state';
 import { clamp, interp, Mneg, Mpos, fmtMoney } from './util';
 import { streamRng, type RNG } from './rng';
 import { mkCard, type Card, type EventDef } from './cards';
@@ -344,10 +344,29 @@ export function divorce(g: Game, r: RNG, mode: 'agree' | 'fight', fault: 'self' 
 }
 
 // 子女（9.11）
+/** 而家仲同父母住（細個、未出嚟做嘢、或者揀咗留喺屋企） */
+export function atFamilyHome(s: State): boolean {
+  if (s.home === 'institution' || s.emigrated || s.study?.kind === '出國升學') return false;
+  return s.age < 18 || s.home === 'parents' || !s.flags['adultHome'];
+}
+/** 兄弟姊妹仲同你住 */
+export const sibsAtHome = (s: State) => s.siblings > 0 && atFamilyHome(s) && !s.flags['sibOut'];
+/** 仔女仲同你住 */
+export const kidAtHome = (k: Kid) => !k.away && !k.emigrated && !k.married && !k.out;
+
 function kidsYear(g: Game, r: RNG) {
   const s = g.s;
+  // v1.0：同住嘅人離開一定交代（唔再突然消失）
+  if (sibsAtHome(s) && s.age >= 20 + (streamRng(s.seed, 'sibOut', 0).int(2, 9))) {
+    g.flag('sibOut');
+    g.tick(s.siblings > 1 ? '兄弟姊妹陸續結婚、搬出去住，屋企靜咗好多。' : '兄弟姊妹搬咗出去自己住，屋企靜咗好多。');
+  }
   for (const k of s.kids) {
     k.age++;
+    if (kidAtHome(k) && k.age >= streamRng(s.seed, 'kidOut', k.name).int(24, 32)) {
+      k.out = true;
+      g.tick(`${k.name}搬咗出去自己住，間中返嚟食飯。`);
+    }
     if (k.age >= 6 && k.age <= 17) {
       k.acad += 1.5 + [0, 0.8, 1][k.school] + 0.02 * (s.K - 50) + (s.focus === '家庭優先' || (s.childcare === 'quit') ? 0.5 : 0) - (s.F < 15 && s.age >= 18 ? 2 : 0) + r.normal(0, 2);
       if (s.flags['kidTutor']) k.acad += Number(s.flags['kidTutor']);
@@ -608,9 +627,9 @@ function proposeCard(g: Game, byPartner: boolean): Card {
   const ring = clamp(g.monthlyIncome(), g.p(8000), g.p(60000));
   const opts = byPartner
     ? [{ label: '答應', fx: { J: 6 } }, { label: '再等等', fx: { R: -1 } }, { label: '分手', fx: { J: -8 } }]
-    : [{ label: '求婚', money: -ring }, { label: '再等等' }, { label: '分手', fx: { J: -8 } }];
-  const text = byPartner ? `${p.name}拎出戒指：「我哋結婚好唔好？」` : `你同${p.name}拍拖 ${s.datingYears} 年。要唔要求婚？`;
-  return mkCard(byPartner ? 'C-YA-10P' : 'C-YA-10', byPartner ? '另一半向你求婚' : '要唔要求婚', text, opts, (g2, i) => {
+    : [{ label: '結婚', note: `戒指約 ${fmtMoney(ring)}`, money: -ring }, { label: '再等等' }, { label: '分手', fx: { J: -8 } }];
+  const text = byPartner ? `${p.name}拎出戒指：「我哋結婚好唔好？」` : `你同${p.name}拍拖 ${s.datingYears} 年。要唔要同佢結婚？`;
+  return mkCard(byPartner ? 'C-YA-10P' : 'C-YA-10', byPartner ? '另一半想同你結婚' : '要唔要結婚', text, opts, (g2, i) => {
     const s2 = g2.s;
     const pt = s2.partner;
     if (!pt || s2.married) return '';
@@ -636,7 +655,7 @@ function proposeCard(g: Game, byPartner: boolean): Card {
         pt.rel = clamp(pt.rel - 15, 0, 100);
         if (g2.er() < 0.5) { s2.partner = null; s2.datingYears = 0; return `${pt.name}拒絕咗你，之後你哋分咗手。`; }
         s2.proposeAt = s2.age + 2;
-        return `${pt.name}話未準備好。`;
+        return `${pt.name}話未準備好結婚。`;
       }
     }
     g2.add('J', 6, '求婚成功');

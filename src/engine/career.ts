@@ -136,8 +136,12 @@ export function firstJobCard(g: Game): Card {
   const top = (arr: Job[]) => arr.slice(0, Math.max(1, Math.ceil(arr.length * 0.25)));
   const fb = () => JOB_BY_ID[r.pick(FALLBACK.filter((id) => eduOk(g, JOB_BY_ID[id])).concat(['J40']))];
   const A = tryJobs(g, top(by((j) => j.start)), r) ?? fb();
-  const B = tryJobs(g, top(by((j) => j.promo)), r) ?? fb();
+  let B = tryJobs(g, top(by((j) => j.promo)), r) ?? fb();
   const C = tryJobs(g, cands.filter((j) => j.hours >= -0.5), r) ?? fb();
+  // v1.0：大學或以上畢業，三份工之中最少一份係同學系對口
+  const rel = s.edu >= 5 && s.major ? cands.filter((j) => j.majors?.includes(s.major!)) : [];
+  const isRel = (j: Job) => rel.includes(j);
+  if (rel.length && ![A, B, C].some(isRel)) B = tryJobs(g, rel.filter((j) => j !== A && j !== C), r, 5) ?? r.pick(rel);
   const picks: [Job, 'hard' | 'promo' | 'ontime', number][] = [
     [A, 'hard', Math.round(Math.min(startSalary(g, A, 1, r) * 1.12, Math.max(entryCap(g, A) * g.W, minMonthly(g))))],
     [B, 'promo', startSalary(g, B, 1, r)],
@@ -149,7 +153,7 @@ export function firstJobCard(g: Game): Card {
   const reason = allFb ? '今年搵工好難，暫時只搵到呢幾份。' : fi >= 1.4 ? '因為你嘅人脈廣，老同學介紹你入工。' : 0.6 + (0.8 * s.K) / 100 >= 1.25 ? '面試官對你嘅知識印象深刻。' : g.e.u >= 5.5 ? '今年經濟差，好多公司凍結請人。' : '畢業後你寄出咗幾十份履歷。';
   return mkCard('C-YA-01', '第一份工', '你終於要出嚟社會做嘢。有三份工請你，你揀邊份？', picks.map(([j, , sal], i) => ({
     label: `${names[i]}：${jobDisplayName(j, s.year)}`,
-    note: `月薪 ${fmtMoney(sal)}`,
+    note: `月薪 ${fmtMoney(sal)}${isRel(j) ? `・${s.major}對口` : ''}`,
     fx: i === 0 ? { H: -2 } : i === 2 ? { J: 2 } : {},
   })), (g2, i) => {
     const [j, type, sal] = picks[i];

@@ -58,8 +58,8 @@ function subjWeights(age: number, stream?: string): number[] {
   }
   return w;
 }
-// v0.6：難題比例減三分一（減咗嘅份額撥去中等）
-const DIFF_W = (age: number) => (age <= 8 ? [60, 33.3, 6.7] : age <= 11 ? [50, 40, 10] : age <= 14 ? [40, 46.7, 13.3] : [30, 50, 20]);
+// v1.0：用家話題目太難，再調易（大部分係易題，難題好少）
+const DIFF_W = (age: number) => (age <= 8 ? [85, 15, 0] : age <= 11 ? [75, 23, 2] : age <= 14 ? [65, 31, 4] : [55, 38, 7]);
 const pickIdx = (r: RNG, w: number[]) => { const t = w.reduce((a, b) => a + b, 0); let x = r() * t; for (let i = 0; i < w.length; i++) { x -= w[i]; if (x < 0) return i; } return w.length - 1; };
 
 function draw(g: Game, r: RNG, n: number, spec: (i: number) => { subj?: number; diff: number; exam: boolean; exclude: Set<number> }): Question[] {
@@ -145,13 +145,13 @@ export function examCard(g: Game, onDone: (g: Game) => void): Card {
   const exclude = new Set<number>();
   const electives = s.stream === '理科' ? [4, 5, 6] : s.stream === '商科' ? [7, 2] : [7, 0];
   const spec = [
-    { subj: 0, diff: 0 }, { subj: 1, diff: 0 }, { subj: 2, diff: 1 }, { subj: 2, diff: 0 },
-    // 公開試原本 2 條難題，v0.6 減三分一：第二條難題只有三分一機會保持難度
-    { subj: r.pick(electives), diff: 1 }, { subj: undefined, diff: 1 }, { subj: undefined, diff: 2 }, { subj: undefined, diff: r() < 1 / 3 ? 2 : 1 },
+    { subj: 0, diff: 0 }, { subj: 1, diff: 0 }, { subj: 2, diff: 0 }, { subj: 2, diff: 0 },
+    // v1.0：調易，5 條易、3 條中等，冇難題
+    { subj: r.pick(electives), diff: 0 }, { subj: undefined, diff: 1 }, { subj: undefined, diff: 1 }, { subj: undefined, diff: 1 },
   ];
   const qs = draw(g, r, 8, (i) => ({ subj: spec[i].subj, diff: spec[i].diff, exam: true, exclude }));
   qs.sort(() => r() - 0.5);
-  const c = mkCard('EXAM', s.examTries ? '重考公開試' : '公開試', '8 條題目連續作答，每條 10 秒，中間唔會停。', [{ label: '入試場' }], (g2) => {
+  const c = mkCard('EXAM', s.examTries ? '重考公開試' : '公開試', '8 條題目連續作答，每條 10 秒，中間唔會停。入大學最少要答啱 4 題。', [{ label: '入試場' }], (g2) => {
     const res = applyExam(g2, c);
     onDone(g2);
     return res;
@@ -170,8 +170,10 @@ function applyExam(g: Game, c: Card): string {
   const pu = P_UNI(kEff) * eraUni(s.year);
   const ps = Math.max(P_SUB(kEff), pu);
   const x = r();
-  const result = x < pu ? '達大學要求' : x < ps ? '達副學位要求' : '未達副學位要求';
-  const short = result !== '達大學要求' && C < 8 && x < P_UNI(clamp(kBefore + DELTA(C + 1), 0, 100)) * eraUni(s.year);
+  // v1.0：入大學最少要答啱 4 題
+  const UNI_MIN = 4;
+  const result = x < pu && C >= UNI_MIN ? '達大學要求' : x < ps ? '達副學位要求' : '未達副學位要求';
+  const short = result !== '達大學要求' && C < 8 && (C === UNI_MIN - 1 ? x < pu : C >= UNI_MIN && x < P_UNI(clamp(kBefore + DELTA(C + 1), 0, 100)) * eraUni(s.year));
   g.add('K', (C - 4) * 0.5);
   s.examTries++;
   // 取較好嘅結果

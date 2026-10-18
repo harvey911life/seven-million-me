@@ -1,5 +1,6 @@
 import type { Origin } from './origin';
 import type { Edu, Major, Track } from '../data/jobs';
+import type { Rental } from './rental';
 
 export type StatKey = 'H' | 'J' | 'K' | 'R';
 export type Cat = '人生抉擇' | '生活日常' | '財務衝擊' | '時代事件' | '國際都會' | '悲劇' | '生活陷阱' | '政策衍生' | '天馬行空' | '健康';
@@ -15,7 +16,7 @@ export interface Disease {
 export interface Kid {
   name: string; sex?: 'M' | 'F'; age: number; acad: number; rel: number; school: 0 | 1 | 2; overseas?: boolean; married?: boolean;
   loan?: { left: number; per: number; stopAt: number; year: number };
-  path?: '大學' | '副學位' | '就業' | '出國'; job?: boolean; away?: boolean; emigrated?: boolean; grandkids?: number; schoolAsked?: number;
+  path?: '大學' | '副學位' | '就業' | '出國'; job?: boolean; away?: boolean; emigrated?: boolean; grandkids?: number; schoolAsked?: number; out?: boolean;
 }
 export interface Partner {
   name: string; age: number; job: string; income: number; rel: number; traits: string[]; health: number; alive: boolean;
@@ -92,7 +93,7 @@ export interface State {
   cool: Record<string, number>; once: string[]; tragedies: number; childAdversity: number;
   will: boolean; epa: boolean; emigrated: boolean;
   log: LogEntry[]; hist: HistRow[]; ach: string[]; achNew: string[];
-  wonder: string | null; pendingFixed: string[];
+  wonder: string | null; pendingFixed: string[]; rentals?: Rental[];
   pAvg: { P: number[]; E: number[] }; netMinEver: number;
   pets: Pet[]; budget: Budget | null;
   biz: Biz | null; biz0: number; // 而家嘅生意；一生開過幾多盤

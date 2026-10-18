@@ -45,14 +45,14 @@ function title() {
   clear(root).append(h('div', { class: 'screen title' },
     cv,
     h('div', { class: 'title-box' },
-      h('p', { class: 'ver' }, 'v0.9 試玩版 · 免費香港人生模擬'),
+      h('p', { class: 'ver' }, 'v1.0 試玩版 · 香港人Soci Game'),
       h('h1', { class: 'logo' }, '七百萬', h('br'), '分之', h('em', null, '我')),
       h('p', { class: 'tagline' }, '香港七百幾萬人，你係其中一個。喺邊區出世、做邊個嘅仔女，都揀唔到；之後點過，就睇你點揀。'),
       h('div', { class: 'counts' },
         h('div', null, h('b', null, String(runs)), h('span', null, '你投胎過嘅次數')),
         h('div', null, h('b', null, String(new Set(store.achs()).size)), h('span', null, '已解鎖成就'))),
       h('button', { class: 'btn big', type: 'button', onclick: () => { cancelAnimationFrame(titleAnim); disclaimer(); } }, '出生'),
-      runs ? h('p', { class: 'muted small' }, '已解鎖：揀出生時段、自動揀') : null,
+      runs ? h('p', { class: 'muted small' }, '已解鎖：揀出生時段、自動揀、自動答題') : null,
       h('div', { class: 'title-row' },
         h('button', { class: 'btn ghost small', type: 'button', onclick: () => boardScreen() }, '排行榜'),
         h('button', { class: 'btn ghost small', type: 'button', onclick: () => achScreen() }, '成就'),
@@ -119,6 +119,7 @@ function setup() {
     },
   }, `${v}×`)));
   const autoBox = h('input', { type: 'checkbox', id: 'autopick', checked: settings.autoPick });
+  const quizBox = h('input', { type: 'checkbox', id: 'autoquiz', checked: !!settings.autoQuiz });
   const periodSel = h('div', { class: 'periods' }, Object.keys(PERIODS).map((p) => h('button', {
     type: 'button', class: `period ${settings.period === p ? 'on' : ''}`, onclick: (e: Event) => {
       settings.period = p;
@@ -127,6 +128,7 @@ function setup() {
   }, h('b', null, p), h('span', null, PERIOD_NOTE[p] ?? ''))));
   const next = h('button', { class: 'btn', type: 'button', onclick: () => {
     settings.autoPick = second && autoBox.checked;
+    settings.autoQuiz = second && quizBox.checked;
     if (!second) settings.period = '隨機時段';
     store.saveSettings(settings);
     const period = settings.period === '隨機時段' ? null : settings.period;
@@ -136,11 +138,12 @@ function setup() {
     h('div', { class: 'setup-head' }, h('h2', null, '投胎設定'), next),
     h('p', { class: 'muted' }, '名字會喺出世嗰刻隨機抽，屋企人改嘅，你揀唔到。'),
     h('h4', null, '速度'), speedSeg,
-    h('p', { class: 'muted small' }, '1× 大約 45 秒一年，等候期間可以調整投資同強積金，亦可以撳「下一年」直接跳。遊戲中隨時可以改速度。'),
+    h('p', { class: 'muted small' }, '1× 大約 40 秒一年，等候期間可以調整投資同強積金，亦可以撳「下一年」直接跳。遊戲中隨時可以改速度。'),
     second ? [
       h('h4', null, '出生時段'), periodSel,
-      h('label', { class: 'check' }, autoBox, h('span', null, '自動揀：系統幫你揀人生抉擇，測驗同公開試仍然要自己答。')),
-    ] : h('p', { class: 'muted small' }, '玩完第一局會解鎖「揀出生時段」同「自動揀」。'))));
+      h('label', { class: 'check' }, autoBox, h('span', null, '自動揀：系統幫你揀人生抉擇。')),
+      h('label', { class: 'check' }, quizBox, h('span', null, '自動答題：測驗同公開試由系統按你嘅學識自動作答，不過拎唔到答題相關成就。')),
+    ] : h('p', { class: 'muted small' }, '玩完第一局會解鎖「揀出生時段」、「自動揀」同「自動答題」。'))));
 }
 
 function dateOf(year: number, day: number) {
