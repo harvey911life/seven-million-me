@@ -21,16 +21,16 @@ const RAW_JOBS: Job[] = [
   { id: 'J02', name: '銀行分行經理', cat: '經理及行政級', minEdu: 5, start: 42000, median: 62000, top: 110000, raise: [0.01, 0.03], cjob: 1.0, ai: AI.中, hours: -1, bhire: 0.3, promo: 0.08, promoteOnly: true },
   { id: 'J03', name: '餐廳經理', cat: '經理及行政級', minEdu: 2, start: 22000, median: 32000, top: 50000, raise: [0.005, 0.025], cjob: 1.4, ai: AI.低, hours: -1.5, bhire: 0.45, promo: 0.1 },
   { id: 'J04', name: '政務主任', cat: '經理及行政級', minEdu: 5, start: 60000, median: 105000, top: 220000, raise: [0.02, 0.05], cjob: 0.2, ai: AI.低, hours: -1, bhire: 0.08, promo: 0.1, minK: 75, civil: true },
-  { id: 'J05', name: '醫生', cat: '專業人員', minEdu: 5, majors: ['醫科'], start: 78000, median: 150000, top: 350000, raise: [0.03, 0.06], cjob: 0.2, ai: AI.低, hours: -1.5, bhire: 0.9, promo: 0.12 },
-  { id: 'J06', name: '律師', cat: '專業人員', minEdu: 5, majors: ['法律'], start: 28000, median: 75000, top: 250000, raise: [0.03, 0.07], cjob: 0.6, ai: AI.中, hours: -1.5, bhire: 0.55, promo: 0.12 },
-  { id: 'J07', name: '會計師', cat: '專業人員', minEdu: 5, majors: ['商科'], start: 20000, median: 45000, top: 120000, raise: [0.02, 0.05], cjob: 0.7, ai: AI.高, hours: -1, bhire: 0.65, promo: 0.14 },
-  { id: 'J08', name: '工程師', cat: '專業人員', minEdu: 5, majors: ['工程'], start: 22000, median: 45000, top: 95000, raise: [0.015, 0.04], cjob: 0.8, ai: AI.低, hours: -0.5, bhire: 0.6, promo: 0.12 },
+  { id: 'J05', name: '醫生', cat: '專業人員', minEdu: 5, majors: ['醫科'], start: 85000, median: 150000, top: 350000, raise: [0.03, 0.06], cjob: 0.2, ai: AI.低, hours: -1.5, bhire: 0.9, promo: 0.12 },
+  { id: 'J06', name: '律師', cat: '專業人員', minEdu: 5, majors: ['法律'], start: 45000, median: 75000, top: 250000, raise: [0.03, 0.07], cjob: 0.6, ai: AI.中, hours: -1.5, bhire: 0.55, promo: 0.12 },
+  { id: 'J07', name: '會計師', cat: '專業人員', minEdu: 5, majors: ['商科'], start: 28000, median: 45000, top: 120000, raise: [0.02, 0.05], cjob: 0.7, ai: AI.高, hours: -1, bhire: 0.65, promo: 0.14 },
+  { id: 'J08', name: '工程師', cat: '專業人員', minEdu: 5, majors: ['工程'], start: 28000, median: 45000, top: 95000, raise: [0.015, 0.04], cjob: 0.8, ai: AI.低, hours: -0.5, bhire: 0.6, promo: 0.12 },
   { id: 'J09', name: '中學教師', cat: '專業人員', minEdu: 5, majors: ['教育'], start: 34000, median: 60000, top: 95000, raise: [0.015, 0.04], cjob: 0.4, ai: AI.低, hours: -1, bhire: 0.55, promo: 0.06, civil: true },
   { id: 'J10', name: '小學教師', cat: '專業人員', minEdu: 5, majors: ['教育'], start: 32000, median: 52000, top: 85000, raise: [0.015, 0.035], cjob: 0.5, ai: AI.低, hours: -1, bhire: 0.5, promo: 0.06, civil: true },
-  { id: 'J11', name: '軟件工程師', cat: '專業人員', minEdu: 4, majors: ['工程'], tracks: ['資訊科技'], start: 22000, median: 42000, top: 100000, raise: [0.02, 0.05], cjob: 1.0, ai: AI.高, hours: -1, bhire: 0.6, promo: 0.14 },
-  { id: 'J12', name: '藥劑師', cat: '專業人員', minEdu: 5, majors: ['藥劑'], start: 38000, median: 52000, top: 80000, raise: [0.01, 0.03], cjob: 0.4, ai: AI.中, hours: -0.5, bhire: 0.7, promo: 0.08 },
-  { id: 'J13', name: '測量師 / 建築師', cat: '專業人員', minEdu: 5, majors: ['工程'], start: 21000, median: 50000, top: 110000, raise: [0.015, 0.04], cjob: 1.0, ai: AI.低, hours: -1, bhire: 0.55, promo: 0.12 },
-  { id: 'J14', name: '金融分析師', cat: '專業人員', minEdu: 5, majors: ['商科'], start: 35000, median: 70000, top: 300000, raise: [0.03, 0.08], cjob: 1.6, ai: AI.中, hours: -2, bhire: 0.25, promo: 0.15, minK: 75 },
+  { id: 'J11', name: '軟件工程師', cat: '專業人員', minEdu: 4, majors: ['工程'], tracks: ['資訊科技'], start: 28000, median: 42000, top: 100000, raise: [0.02, 0.05], cjob: 1.0, ai: AI.高, hours: -1, bhire: 0.6, promo: 0.14 },
+  { id: 'J12', name: '藥劑師', cat: '專業人員', minEdu: 5, majors: ['藥劑'], start: 42000, median: 52000, top: 80000, raise: [0.01, 0.03], cjob: 0.4, ai: AI.中, hours: -0.5, bhire: 0.7, promo: 0.08 },
+  { id: 'J13', name: '測量師 / 建築師', cat: '專業人員', minEdu: 5, majors: ['工程'], start: 28000, median: 50000, top: 110000, raise: [0.015, 0.04], cjob: 1.0, ai: AI.低, hours: -1, bhire: 0.55, promo: 0.12 },
+  { id: 'J14', name: '金融分析師', cat: '專業人員', minEdu: 5, majors: ['商科'], start: 40000, median: 70000, top: 300000, raise: [0.03, 0.08], cjob: 1.6, ai: AI.中, hours: -2, bhire: 0.25, promo: 0.15, minK: 75 },
   { id: 'J15', name: '數據分析師', cat: '專業人員', minEdu: 5, start: 23000, median: 40000, top: 85000, raise: [0.02, 0.05], cjob: 0.9, ai: AI.中, hours: -0.5, bhire: 0.55, promo: 0.14 },
   { id: 'J16', name: '註冊護士', cat: '輔助專業人員', minEdu: 5, majors: ['護理'], start: 32000, median: 45000, top: 75000, raise: [0.015, 0.035], cjob: 0.3, ai: AI.低, hours: -1.5, bhire: 0.85, promo: 0.08, civil: true },
   { id: 'J17', name: '社工', cat: '輔助專業人員', minEdu: 5, majors: ['社科'], start: 24000, median: 36000, top: 60000, raise: [0.01, 0.03], cjob: 0.5, ai: AI.低, hours: -1, bhire: 0.6, promo: 0.08 },
@@ -63,7 +63,7 @@ const RAW_JOBS: Job[] = [
   { id: 'J44', name: '網上創作人', cat: '其他', minEdu: 0, start: 8000, median: 15000, top: 150000, raise: [-0.1, 0.2], cjob: 2.0, ai: AI.高, hours: -0.5, bhire: 0.6, promo: 0, needIP: 3, commission: true },
 ];
 
-// v0.6：整體人工下調（起薪 ×0.9、中位數 ×0.85、頂薪 ×0.75）
+// v0.6：整體人工下調（起薪 ×0.9、中位數 ×0.85、頂薪 ×0.75）；v1.1 專業人士起薪調高（用家要求）
 export const JOBS: Job[] = RAW_JOBS.map((j) => ({ ...j, start: Math.round(j.start * 0.9), median: Math.round(j.median * 0.85), top: Math.round(j.top * 0.75) }));
 
 export const JOB_BY_ID: Record<string, Job> = Object.fromEntries(JOBS.map((j) => [j.id, j]));

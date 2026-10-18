@@ -68,12 +68,12 @@ export function startSalary(g: Game, j: Job, level = 1, r: RNG): number {
   return Math.max(Math.round(sal), minMonthly(g));
 }
 
-/** 入職起薪上限（2026 年幣值）：中學或以下 $15,000；職業 / 副學位 $20,000；學士 / 碩士 $32,000；醫生、藥劑師除外 */
+/** 入職起薪上限（2026 年幣值）：中學或以下 $15,000；職業 / 副學位 $20,000；學士 / 碩士 $32,000；要指定學科嘅專業人士（醫生、律師、會計師等）除外 */
 export function entryCap(g: Game, j: Job): number {
   const e = g.s.edu;
   if (e <= 2) return 15000;
   if (e <= 4) return 20000;
-  if (j.majors?.some((m) => m === '醫科' || m === '藥劑')) return Infinity;
+  if (j.cat === '專業人員' && j.majors?.length) return Infinity;
   return 32000;
 }
 
