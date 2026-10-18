@@ -76,3 +76,16 @@ export interface EventDef {
   make?: (g: Game) => Card | null;
   tick?: (g: Game) => string | void;
 }
+
+/** 每張卡最多 4 個選項；多過 4 個就隨機留 4 個（保留預設選項，盡量留可以揀嘅） */
+export function capOptions(c: Card, rnd: () => number, max = 4): Card {
+  if (c.options.length <= max || c.kind === 'quiz' || c.kind === 'exam') return c;
+  const idx = c.options.map((_, i) => i);
+  const keep = new Set<number>([c.def]);
+  const pool = idx.filter((i) => i !== c.def).sort(() => rnd() - 0.5).sort((a, b) => Number(!!c.options[a].disabled) - Number(!!c.options[b].disabled));
+  for (const i of pool) { if (keep.size >= max) break; keep.add(i); }
+  const map = [...keep].sort((a, b) => a - b);
+  const run = c.run;
+  const back = (i?: number) => (i === undefined ? undefined : Math.max(0, map.indexOf(i)));
+  return { ...c, options: map.map((i) => c.options[i]), def: back(c.def)!, auto: back(c.auto), agui: back(c.agui), run: (g, i) => run(g, map[i] ?? map[0]) };
+}

@@ -469,7 +469,7 @@ function birth(g: Game, r: RNG, n: number) {
   const sur = s.gender === 'M' ? s.name[0] : s.flags['partnerSurname'] ? String(s.flags['partnerSurname']) : s.name[0];
   for (let i = 0; i < n; i++) {
     const sex = r() < 0.515 ? 'M' : 'F';
-    const kid: Kid = { name: sur + r.pick(GIVEN[sex][era]), age: 0, acad: clamp(r.normal(50, 12), 10, 90), rel: 70, school: 0 };
+    const kid: Kid = { name: sur + r.pick(GIVEN[sex][era]), sex, age: 0, acad: clamp(r.normal(50, 12), 10, 90), rel: 70, school: 0 };
     s.kids.push(kid);
   }
   g.add('J', 10, n === 2 ? '雙胞胎出世' : 'BB出世'); g.add('R', 3);
@@ -726,8 +726,10 @@ export function buyCard(g: Game): Card {
     { label: '自己儲夠先買', note: `七成按揭：首期連使費 ${fmtMoney(m70.upfront)}，月供 ${fmtMoney(m70.pmt)}`, disabled: m70.stress ? undefined : '入息唔夠，銀行唔批' },
     { label: '父母幫手', note: parentsCan ? `父母出約 ${fmtMoney(help)}` : undefined, disabled: !parentsCan ? '父母冇可動用資產' : !m70.stress ? '入息唔夠，銀行唔批' : undefined, fx: { J: 2, R: 2 } },
     { label: '借按揭保險做高成數', note: `首期一成：連使費 ${fmtMoney(m90.upfront)}，月供 ${fmtMoney(m90.pmt)}`, disabled: m90.stress ? undefined : '入息唔夠，銀行唔批' },
+    { label: '暫時唔買', note: '繼續租樓，遲啲再諗' },
   ], (g2, i) => {
     const s2 = g2.s;
+    if (i === 3) { if (s2.home === 'parents' && s2.married) { s2.home = 'rent'; s2.rentBase = 0; } return '你決定暫時唔買，繼續租樓。'; }
     if (i === 0) {
       const res = buyHome(g2, price, 0.7, '私樓', false);
       if (res.ok) return res.text;
@@ -747,7 +749,7 @@ export function buyCard(g: Game): Card {
     const res = buyHome(g2, price, 0.9, '私樓', false);
     if (!res.ok) { s2.saveForHome = true; return `${res.text}你入咗「儲首期模式」。`; }
     return res.text;
-  }, { pri: 755, def: 0, auto: 0, agui: 0, cat: '人生抉擇', scene: 'home' });
+  }, { pri: 755, def: m70.stress ? 0 : 3, auto: m70.stress ? 0 : 3, agui: m70.stress ? 0 : 3, cat: '人生抉擇', scene: 'home' });
 }
 
 function babyCard(g: Game): Card {

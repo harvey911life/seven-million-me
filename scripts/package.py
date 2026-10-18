@@ -1,7 +1,5 @@
-# 打包：將 vite 單檔輸出轉做 Artifact 頁面格式，並嵌入裁剪過嘅 Fusion Pixel 12px 字型
+# 打包：將 vite 單檔輸出轉做 Artifact 頁面格式（v0.2 起用系統字型；設 FONT_DIR 先會嵌入像素字型）
 import base64, io, os, re, sys
-from fontTools import subset
-from fontTools.ttLib import TTFont
 
 FONT_DIR = os.environ.get('FONT_DIR', '')
 src = open('dist/index.html', encoding='utf-8').read()
@@ -17,7 +15,9 @@ cps = sorted(ord(c) for c in chars)
 
 faces = []
 total = 0
-for fn in sorted(os.listdir(FONT_DIR)):
+for fn in (sorted(os.listdir(FONT_DIR)) if FONT_DIR else []):
+    from fontTools import subset
+    from fontTools.ttLib import TTFont
     if not fn.endswith('.woff2'):
         continue
     f = TTFont(os.path.join(FONT_DIR, fn))

@@ -47,8 +47,8 @@ function spiderCanvas(me: Spider, ag: Spider): HTMLCanvasElement {
     if (fill) { c.fillStyle = fill; c.fill(); }
   };
   poly(ag, col('--muted'), null, [5, 4]);
-  poly(me, col('--amber'), 'rgba(242,177,52,.22)', []);
-  c.fillStyle = col('--ink'); c.font = '12px FusionPixel, sans-serif'; c.textAlign = 'center'; c.textBaseline = 'middle';
+  poly(me, col('--accent'), 'rgba(255,122,69,.20)', []);
+  c.fillStyle = col('--ink'); c.font = `600 12px ${css.getPropertyValue('--font').trim() || 'sans-serif'}`; c.textAlign = 'center'; c.textBaseline = 'middle';
   keys.forEach((k, i) => { const [x, y] = pt(i, 122); c.fillText(`${names[k]} ${Math.round(me[k])}`, x, y); });
   return cv;
 }
@@ -70,7 +70,7 @@ export function showEnding(root: HTMLElement, g: Game, period: string | null, on
   const P = (id: string, render: () => HTMLElement) => pages.push({ id, render });
 
   P('death', () => {
-    const pc = h('canvas', { class: 'portrait', width: 32, height: 32 });
+    const pc = h('canvas', { class: 'portrait', width: 24, height: 24 });
     drawPortrait(pc.getContext('2d')!, s);
     return h('div', { class: 'epage death' }, pc,
       h('h2', null, `${s.name}`),
@@ -126,9 +126,9 @@ export function showEnding(root: HTMLElement, g: Game, period: string | null, on
         boardRank = store.addBoard({ nick, score: e.total, age: s.age, born: s.birthYear, place: placeOf(g), date: new Date().toISOString().slice(0, 10) });
         boardDone = true;
         go(idx);
-      } }, inp, h('button', { class: 'primary', type: 'submit' }, '上榜'));
+      } }, inp, h('button', { class: 'btn', type: 'submit' }, '上榜'));
       box.append(h('p', { class: 'muted' }, '排行榜只會儲喺呢部機，唔會傳去任何地方。'), form,
-        h('button', { class: 'ghost', type: 'button', onclick: () => { boardDone = true; go(idx + 1); } }, '唔上榜'));
+        h('button', { class: 'btn ghost', type: 'button', onclick: () => { boardDone = true; go(idx + 1); } }, '唔上榜'));
     } else {
       if (boardRank !== null && boardRank >= 0) box.append(h('p', { class: 'lead good' }, `你排第 ${boardRank + 1} 名！`));
       box.append(boardTable(boardRank));
@@ -147,8 +147,8 @@ export function showEnding(root: HTMLElement, g: Game, period: string | null, on
     return h('div', { class: 'epage last' }, h('h2', null, '呢一世完咗。'),
       h('p', { class: 'lead' }, lines[s.seed % 3]),
       firstRun ? h('p', { class: 'unlock' }, '解鎖：自動揀、揀出生時段') : null,
-      h('button', { class: 'primary big', type: 'button', onclick: () => onRestart() }, '再投胎一次'),
-      h('button', { class: 'outline big', type: 'button', onclick: () => booking(root) }, '預約 15 分鐘免費理財健康檢查'),
+      h('button', { class: 'btn big', type: 'button', onclick: () => onRestart() }, '再投胎一次'),
+      h('button', { class: 'btn outline big', type: 'button', onclick: () => booking(root) }, '點擊查詢更多'),
       sad ? h('p', { class: 'fine' }, '如果你感到困擾，可以搵身邊人傾吓，或致電「情緒通」18111。') : null,
       h('p', { class: 'fine' }, '內容為模擬，不構成投資建議。'));
   });
@@ -156,9 +156,9 @@ export function showEnding(root: HTMLElement, g: Game, period: string | null, on
   let idx = 0;
   const dots = h('div', { class: 'dots' });
   const stage = h('div', { class: 'estage' });
-  const prev = h('button', { class: 'ghost', type: 'button', onclick: () => go(idx - 1) }, '◀ 上一頁');
-  const next = h('button', { class: 'primary', type: 'button', onclick: () => go(idx + 1) }, '下一頁 ▶');
-  const skip = h('button', { class: 'skip', type: 'button', onclick: () => go(pages.findIndex((p) => p.id === 'score')) }, '跳到分數 ▶▶');
+  const prev = h('button', { class: 'btn ghost', type: 'button', onclick: () => go(idx - 1) }, '◀ 上一頁');
+  const next = h('button', { class: 'btn', type: 'button', onclick: () => go(idx + 1) }, '下一頁 ▶');
+  const skip = h('button', { class: 'pill', type: 'button', onclick: () => go(pages.findIndex((p) => p.id === 'score')) }, '跳到分數 ▶▶');
   clear(root).append(h('div', { class: 'screen ending' }, h('div', { class: 'etop' }, dots, skip), stage, h('div', { class: 'enav' }, prev, next)));
 
   function go(i: number) {
@@ -186,13 +186,13 @@ export function booking(root: HTMLElement) {
   const note = h('small', { class: 'copied' }, '');
   const wrap = h('div', { class: 'mwrap in' });
   const close = () => wrap.remove();
-  wrap.append(h('div', { class: 'modal booking', role: 'dialog', 'aria-modal': 'true', 'aria-label': '預約理財健康檢查' },
+  wrap.append(h('div', { class: 'modal booking', role: 'dialog', 'aria-modal': 'true', 'aria-label': '點擊查詢更多' },
     h('button', { class: 'mx', type: 'button', 'aria-label': '關閉', onclick: close }, '✕'),
     h('h3', { class: 'ctitle' }, '15 分鐘免費理財健康檢查'),
     h('img', { src: QR, alt: 'IG 專頁 QR code', class: 'qr', width: 180, height: 180 }),
     h('a', { href: 'https://instagram.com/life_balance_adventure', target: '_blank', rel: 'noopener' }, 'IG：@life_balance_adventure'),
     h('div', { class: 'phone' }, h('span', null, 'Harvey Wong'), num,
-      h('button', { class: 'ghost', type: 'button', onclick: async () => { note.textContent = (await copyText('+85251966602', num)) ? '已複製' : '已揀住號碼，可以自己複製'; } }, '複製號碼'),
+      h('button', { class: 'btn ghost small', type: 'button', onclick: async () => { note.textContent = (await copyText('+85251966602', num)) ? '已複製' : '已揀住號碼，可以自己複製'; } }, '複製號碼'),
       h('a', { href: 'https://wa.me/85251966602', target: '_blank', rel: 'noopener' }, 'WhatsApp')),
     note,
     h('p', { class: 'fine' }, '你可以自己決定係咪聯絡。遊戲唔會收集任何玩家資料。內容為模擬，不構成投資建議。')));

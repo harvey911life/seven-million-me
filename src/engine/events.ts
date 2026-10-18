@@ -2,7 +2,7 @@
 import type { Game } from './game';
 import { clamp, Mneg, Mpos, fmtMoney } from './util';
 import { streamRng } from './rng';
-import { mkCard, firstEnabled, type Card, type EventDef } from './cards';
+import { mkCard, firstEnabled, capOptions, type Card, type EventDef } from './cards';
 import { CAREER_EVENTS, insuranceGateCard, jobOf } from './career';
 import { EDU_EVENTS } from './education';
 import { HEALTH_EVENTS, healthYear } from './health';
@@ -738,6 +738,8 @@ export function drawEvents(g: Game) {
   let used = 0;
   let randomUsed = 0;
   const cap = s.age < 6 ? 0 : 2;
+  // 隨機互動事件唔好年年都有：每年最多 1 張，仲要過一道閘（大約每 3 年 1 張）
+  const gateOpen = streamRng(s.seed, 'gate', s.age)() < (s.flags['lastRandomCard'] === s.age - 1 ? 0.15 : 0.4);
   for (const h of hits) {
     const c = h.c;
     if (!isInteractive(c)) {
@@ -747,11 +749,20 @@ export function drawEvents(g: Game) {
     }
     if (s.age < 6) { autoResolve(g, c, '父母幫你決定：'); continue; }
     const isRandom = !(h.d?.fixed) && c.kind === 'choice' && !h.forced;
-    const childLimit = s.age <= 14 && isRandom && randomUsed >= 1;
-    if (used < cap && !childLimit) {
+    const important = h.d?.tragedy || c.cat === '財務衝擊' || c.cat === '健康' || c.cat === '天馬行空';
+    if (isRandom && !gateOpen && !important && h.d) {
+      // 今年唔出：當冇發生過，之後年份仲可以再抽到
+      const d = h.d;
+      s.once = s.once.filter((x) => x !== d.id);
+      delete s.cool[d.id];
+      if (d.group) delete s.cool[`g:${d.group}`];
+      continue;
+    }
+    const randomBlocked = isRandom && randomUsed >= 1;
+    if (used < cap && !randomBlocked) {
       out.push(c);
       used++;
-      if (isRandom) randomUsed++;
+      if (isRandom) { randomUsed++; g.flag('lastRandomCard', s.age); }
       continue;
     }
     if (h.d?.fixed && c.deferrable && !deferred.includes(h.d.id)) {
@@ -762,5 +773,5 @@ export function drawEvents(g: Game) {
     }
     autoResolve(g, c, '你冇時間諗，');
   }
-  g.queue.push(...out);
+  g.queue.push(...out.map((c) => capOptions(c, g.er)));
 }

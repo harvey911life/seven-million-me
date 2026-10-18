@@ -1,233 +1,338 @@
-// 像素場景：192 × 108 原圖，整數倍放大（第 3 章 3.11）
+// 像素場景：160 × 64 原圖，只畫背景同人物（其他 UI 用普通網頁元素）
 import type { State } from '../engine/state';
 
-export const SW = 192;
-export const SH = 108;
+export const SW = 160;
+export const SH = 64;
+const GROUND = SH - 8; // 人企喺呢條線
 
 type Ctx = CanvasRenderingContext2D;
 const R = (c: Ctx, x: number, y: number, w: number, h: number, col: string) => { c.fillStyle = col; c.fillRect(x | 0, y | 0, w | 0, h | 0); };
-
-// 小圖示（5 × 5），焦點氣泡用
-const ICONS: Record<string, string[]> = {
-  book: ['.###.', '#.#.#', '#.#.#', '#.#.#', '.###.'],
-  heart: ['.#.#.', '#####', '#####', '.###.', '..#..'],
-  ball: ['.###.', '#.#.#', '#####', '#.#.#', '.###.'],
-  note: ['..###', '..#.#', '..#.#', '###.#', '##...'],
-  coin: ['.###.', '#.#.#', '#.##.', '.##.#', '.###.'],
-  case: ['.###.', '#####', '#...#', '#####', '#####'],
-  star: ['..#..', '.###.', '#####', '.#.#.', '#...#'],
-  plane: ['..#..', '.###.', '#####', '..#..', '.###.'],
-  cross: ['.###.', '..#..', '#####', '..#..', '..#..'],
-  hand: ['#.#.#', '#.#.#', '#####', '#####', '.###.'],
-  scale: ['..#..', '#####', '#.#.#', '#.#.#', '.###.'],
-};
-const FOCUS_ICON: Record<string, string> = {
-  發奮圖強: 'book', 增值進修: 'book', 家庭優先: 'heart', 含飴弄孫: 'heart', 強身健體: 'ball', 廣結朋友: 'ball',
-  培養興趣: 'note', 培養嗜好: 'note', 精打細算: 'coin', 做兼職: 'coin', 事業衝刺: 'case', 退而不休: 'case',
-  放飛自我: 'star', 享受當下: 'star', 周遊列國: 'plane', 養生保健: 'cross', 服務社區: 'hand', 幫手頂家: 'hand', 平衡人生: 'scale',
-};
-
-function icon(c: Ctx, name: string, x: number, y: number, col: string) {
-  const m = ICONS[name];
-  if (!m) return;
-  m.forEach((row, j) => [...row].forEach((ch, i) => { if (ch === '#') R(c, x + i, y + j, 1, 1, col); }));
-}
-
-// 天色：童年白天、打工黃昏、退休夜晚
-function sky(age: number): { bands: string[]; stars: boolean; sun: string | null } {
-  if (age < 18) return { bands: ['#5aa9e6', '#7cc0ee', '#a2d4f2', '#cbe7f5'], stars: false, sun: '#fff1a8' };
-  if (age < 65) return { bands: ['#2b2d63', '#6b3f7a', '#c4607a', '#f29e6b'], stars: false, sun: '#ffd27a' };
-  return { bands: ['#0c1030', '#141a44', '#1d2558', '#2a3470'], stars: true, sun: null };
-}
-
 function hash(n: number) { let x = (n * 2654435761) >>> 0; x ^= x >>> 15; x = Math.imul(x, 2246822519) >>> 0; return (x ^ (x >>> 13)) >>> 0; }
 
+// ---------- 人物造型 ----------
+// h 頭髮 s 皮膚 e 眼 m 嘴（女仔紅唇）t 上衣 b 褲 / 裙 k 鞋 w 白（領 / 蝴蝶結）
+const SPR: Record<string, string[]> = {
+  baby: [
+    '..hhh..',
+    '.hssss.',
+    '.seses.',
+    '.sssss.',
+    '..www..',
+  ],
+  kidM: [
+    '..hhhh..',
+    '.hhhhhh.',
+    '.hssssh.',
+    '.sesses.',
+    '.ssssss.',
+    '..ssss..',
+    '.tttttt.',
+    'stttttts',
+    's.tttt.s',
+    '..tttt..',
+    '..bbbb..',
+    '..b..b..',
+    '..b..b..',
+    '..k..k..',
+  ],
+  kidF: [
+    'w.hhhh.w',
+    'hhhhhhhh',
+    'hhssssh.',
+    '.sesses.',
+    '.smssms.',
+    '..ssss..',
+    '.tttttt.',
+    'stttttts',
+    's.tttt.s',
+    '.bbbbbb.',
+    'bbbbbbbb',
+    '..s..s..',
+    '..s..s..',
+    '..k..k..',
+  ],
+  teenM: [
+    '...hhhh...',
+    '..hhhhhh..',
+    '..hssssh..',
+    '..sesses..',
+    '..ssssss..',
+    '...ssss...',
+    '..wtwwtw..',
+    '.tttttttt.',
+    's.tttttt.s',
+    's.tttttt.s',
+    '..tttttt..',
+    '..bbbbbb..',
+    '..bb..bb..',
+    '..bb..bb..',
+    '..bb..bb..',
+    '..bb..bb..',
+    '..kk..kk..',
+  ],
+  teenF: [
+    '...hhhh...',
+    '..hhhhhh..',
+    '.hhssssh..',
+    '.hsesseh..',
+    '.hssssssh.',
+    '.hhsmmshh.',
+    '.hh.ss.hh.',
+    '..wtwwtw..',
+    '.tttttttt.',
+    's.tttttt.s',
+    's.tttttt.s',
+    '..bbbbbb..',
+    '.bbbbbbbb.',
+    '.bbbbbbbb.',
+    '...s..s...',
+    '...s..s...',
+    '...k..k...',
+  ],
+  adultM: [
+    '...hhhh...',
+    '..hhhhhh..',
+    '..hssssh..',
+    '..sesses..',
+    '..ssssss..',
+    '...ssss...',
+    '....ss....',
+    '..tttttt..',
+    '.tttttttt.',
+    's.tttttt.s',
+    's.tttttt.s',
+    's.tttttt.s',
+    '..tttttt..',
+    '..bbbbbb..',
+    '..bb..bb..',
+    '..bb..bb..',
+    '..bb..bb..',
+    '..bb..bb..',
+    '..bb..bb..',
+    '..kk..kk..',
+  ],
+  adultF: [
+    '...hhhh...',
+    '..hhhhhh..',
+    '.hhssssh..',
+    '.hsesseh..',
+    '.hssssssh.',
+    '.hhsmmshh.',
+    '.hh.ss.hh.',
+    '.hhttttthh',
+    '.tttttttt.',
+    's.tttttt.s',
+    's.tttttt.s',
+    '..tttttt..',
+    '..tttttt..',
+    '.bbbbbbbb.',
+    '.bbbbbbbb.',
+    'bbbbbbbbbb',
+    '...s..s...',
+    '...s..s...',
+    '...s..s...',
+    '...k..k...',
+  ],
+  elderM: [
+    '..........',
+    '..hh..hh..',
+    '..hssssh..',
+    '..sesses..',
+    '..ssssss..',
+    '...ssss...',
+    '....ss....',
+    '..tttttt..',
+    '.tttttttt.',
+    's.tttttt.s',
+    's.tttttt.s',
+    '..tttttt..',
+    '..bbbbbb..',
+    '..bb..bb..',
+    '..bb..bb..',
+    '..bb..bb..',
+    '..bb..bb..',
+    '..kk..kk..',
+  ],
+  elderF: [
+    '....hh....',
+    '...hhhh...',
+    '..hhhhhh..',
+    '..hssssh..',
+    '..sesses..',
+    '..smssms..',
+    '...ssss...',
+    '..tttttt..',
+    '.tttttttt.',
+    's.tttttt.s',
+    's.tttttt.s',
+    '..tttttt..',
+    '.bbbbbbbb.',
+    '.bbbbbbbb.',
+    '...s..s...',
+    '...s..s...',
+    '...k..k...',
+  ],
+};
+
+interface Pal { h: string; s: string; t: string; b: string; k: string; m: string }
+const BASE: Record<string, string> = { e: '#2a1e1a', w: '#ffffff' };
+
+function drawSprite(c: Ctx, rows: string[], x: number, feet: number, pal: Pal, bob = 0) {
+  const top = feet - rows.length - bob;
+  const left = Math.round(x - rows[0].length / 2);
+  const map = pal as unknown as Record<string, string>;
+  rows.forEach((row, j) => {
+    for (let i = 0; i < row.length; i++) {
+      const ch = row[i];
+      if (ch === '.') continue;
+      const col = map[ch] ?? BASE[ch];
+      if (col) R(c, left + i, top + j, 1, 1, col);
+    }
+  });
+}
+
+type Who = { sex: 'M' | 'F'; age: number; role: 'me' | 'partner' | 'kid'; status?: State['status']; level?: number };
+
+function palette(w: Who): Pal {
+  const female = w.sex === 'F';
+  const hair = w.age >= 70 ? '#e9e9ef' : w.age >= 52 ? '#9a9aa6' : female ? '#5a2e1c' : '#1f1a18';
+  const skin = '#f5c9a6';
+  let t = female ? '#ee6f9a' : '#3f7fd8';
+  let b = female ? '#7a4fc2' : '#33415e';
+  if (w.age >= 6 && w.age < 18) { t = '#ffffff'; b = female ? '#4f8fd8' : '#7d8597'; } // 校服：女仔藍色裙、男仔灰褲
+  else if (w.role === 'me' && w.status === 'work' && (w.level ?? 0) >= 3) { t = female ? '#3a3f63' : '#2c3550'; b = female ? '#3a3f63' : '#23293d'; }
+  else if (w.role === 'partner') { t = female ? '#f29a4a' : '#3fa37a'; b = female ? '#c4543c' : '#3a4256'; }
+  else if (w.age >= 65) { t = female ? '#c27aa8' : '#b98a52'; b = female ? '#6a5a8a' : '#5a5148'; }
+  return { h: hair, s: skin, t, b, k: '#2a2a33', m: female ? '#e2475f' : skin };
+}
+
+function spriteFor(w: Who): string[] {
+  const f = w.sex === 'F' ? 'F' : 'M';
+  if (w.age < 3) return SPR.baby;
+  if (w.age < 12) return SPR['kid' + f];
+  if (w.age < 18) return SPR['teen' + f];
+  if (w.age < 65) return SPR['adult' + f];
+  return SPR['elder' + f];
+}
+
+function person(c: Ctx, x: number, w: Who, t: number, phase = 0, cane = false) {
+  if (w.age < 3) {
+    // BB 車
+    R(c, x - 6, GROUND - 7, 12, 4, '#7fb6ea'); R(c, x - 6, GROUND - 10, 4, 4, '#7fb6ea');
+    R(c, x - 5, GROUND - 2, 2, 2, '#333'); R(c, x + 3, GROUND - 2, 2, 2, '#333');
+    drawSprite(c, SPR.baby, x + 1, GROUND - 6, palette(w));
+    return;
+  }
+  const bob = ((t + phase) >> 2) % 2;
+  drawSprite(c, spriteFor(w), x, GROUND, palette(w), bob);
+  if (cane) { R(c, x + 6, GROUND - 11, 1, 11, '#7a5a3a'); R(c, x + 5, GROUND - 11, 2, 1, '#7a5a3a'); }
+}
+
+// ---------- 背景 ----------
+function sky(age: number) {
+  if (age < 18) return { bands: ['#7cc4f2', '#9bd3f5', '#bde3f8', '#dcf1fb'], sun: '#fff1a8', stars: false, hill: '#6aa784', far: '#a9c6d6' };
+  if (age < 65) return { bands: ['#ffb38a', '#ffc9a0', '#ffdcb6', '#ffeccd'], sun: '#fff3c4', stars: false, hill: '#8a7aa8', far: '#c9b3c9' };
+  return { bands: ['#28305e', '#34407a', '#45528f', '#5a67a3'], sun: null, stars: true, hill: '#2a3360', far: '#3b4677' };
+}
+
 function lionRock(c: Ctx, col: string) {
-  // 獅子山剪影：由左至右嘅高度
-  const h = [30, 31, 33, 35, 38, 40, 43, 45, 47, 49, 52, 55, 58, 60, 61, 62, 61, 59, 56, 54, 53, 52, 52, 51, 50, 48, 46, 44, 42, 40, 38, 36, 34, 33, 32, 31, 30];
+  const h = [10, 11, 12, 14, 16, 18, 20, 22, 24, 26, 27, 28, 28, 27, 25, 23, 22, 21, 20, 19, 17, 15, 13, 12, 11, 10];
   const step = SW / (h.length - 1);
   for (let i = 0; i < SW; i++) {
     const k = i / step;
     const a = h[Math.floor(k)];
     const b = h[Math.min(h.length - 1, Math.ceil(k))];
     const v = a + (b - a) * (k - Math.floor(k));
-    R(c, i, SH - 38 - v * 0.55, 1, v * 0.55 + 2, col);
+    R(c, i, GROUND - 14 - v, 1, v + 2, col);
   }
 }
 
-function windows(c: Ctx, x: number, y: number, w: number, h: number, gx: number, gy: number, lit: string, dark: string, seed: number, night: boolean, t: number) {
-  for (let j = y + 2; j < y + h - 3; j += gy) {
-    for (let i = x + 2; i < x + w - 2; i += gx) {
-      const r = hash(seed + i * 31 + j * 17);
-      const on = night ? r % 3 !== 0 : r % 5 === 0;
-      const flick = night && r % 23 === 0 && (t >> 3) % 2 === 0;
-      R(c, i, j, 2, 2, on && !flick ? lit : dark);
-    }
+function windows(c: Ctx, x: number, y: number, w: number, h: number, gx: number, gy: number, lit: string, dark: string, seed: number, night: boolean) {
+  for (let j = y + 2; j < y + h - 2; j += gy) for (let i = x + 2; i < x + w - 2; i += gx) {
+    const r = hash(seed + i * 31 + j * 17);
+    R(c, i, j, 1, 1, (night ? r % 3 !== 0 : r % 6 === 0) ? lit : dark);
   }
 }
 
-function building(c: Ctx, home: State['home'], night: boolean, t: number, year: number) {
-  const lit = night ? '#ffd86b' : '#e8f4ff';
-  const base = SH - 22;
-  switch (home) {
-    case 'public': {
-      // 公屋：兩座長型大廈，粉色外牆
-      R(c, 8, base - 70, 44, 70, '#e7b6a8'); R(c, 8, base - 70, 44, 3, '#c98f84');
-      windows(c, 8, base - 66, 44, 66, 4, 5, lit, '#8a6f78', 11, night, t);
-      R(c, 56, base - 58, 36, 58, '#a9d0c4'); R(c, 56, base - 58, 36, 3, '#7fb0a3');
-      windows(c, 56, base - 54, 36, 54, 4, 5, lit, '#5f7d7a', 23, night, t);
+function home(c: Ctx, kind: State['home'], night: boolean) {
+  const lit = night ? '#ffd86b' : '#ffffff';
+  const g = GROUND;
+  switch (kind) {
+    case 'public':
+      R(c, 6, g - 44, 28, 44, '#f0b9a9'); windows(c, 6, g - 42, 28, 42, 3, 3, lit, '#b88a86', 11, night);
+      R(c, 36, g - 36, 22, 36, '#a9d9c6'); windows(c, 36, g - 34, 22, 34, 3, 3, lit, '#76a596', 23, night);
       break;
-    }
-    case 'subdiv': {
-      // 劏房：舊唐樓、冷氣機、招牌
-      R(c, 14, base - 52, 60, 52, '#9b8a73'); R(c, 14, base - 52, 60, 2, '#6f604f');
-      windows(c, 14, base - 48, 60, 48, 6, 7, lit, '#4c4238', 37, night, t);
-      for (let j = 0; j < 6; j++) R(c, 16 + (j % 2) * 40, base - 46 + j * 7, 4, 3, '#d8d3c8');
-      R(c, 76, base - 40, 10, 22, night ? '#ff4f6d' : '#c2364f'); R(c, 78, base - 37, 6, 2, '#ffe1a8'); R(c, 78, base - 31, 6, 2, '#ffe1a8');
+    case 'subdiv':
+      R(c, 8, g - 32, 40, 32, '#bba58a'); windows(c, 8, g - 30, 40, 30, 4, 4, lit, '#7f6c58', 37, night);
+      R(c, 50, g - 26, 7, 14, night ? '#ff5f7e' : '#d9435e'); R(c, 51, g - 24, 5, 1, '#ffe1a8'); R(c, 51, g - 20, 5, 1, '#ffe1a8');
       break;
-    }
-    case 'own': {
-      // 私樓：玻璃幕牆
-      R(c, 18, base - 80, 34, 80, '#4a6d96'); R(c, 18, base - 80, 34, 2, '#7fa6cf');
-      windows(c, 18, base - 77, 34, 77, 3, 4, lit, '#36557a', 41, night, t);
-      R(c, 56, base - 62, 30, 62, '#5b7fa6');
-      windows(c, 56, base - 58, 30, 58, 3, 4, lit, '#3d5f86', 43, night, t);
-      R(c, 14, base - 4, 76, 4, '#8aa36a');
+    case 'own':
+      R(c, 8, g - 50, 22, 50, '#6d9ccc'); windows(c, 8, g - 48, 22, 48, 2, 3, lit, '#4f7eae', 41, night);
+      R(c, 32, g - 40, 20, 40, '#86b0da'); windows(c, 32, g - 38, 20, 38, 2, 3, lit, '#5f8cbc', 43, night);
+      R(c, 4, g - 3, 52, 3, '#8cc26e');
       break;
-    }
-    case 'village': {
-      // 村屋：三層高、斜瓦頂
-      R(c, 22, base - 36, 52, 36, '#efe3c6');
-      for (let j = 0; j < 8; j++) R(c, 20 + j, base - 44 + j, 56 - j * 2, 1, '#b5523b');
-      windows(c, 22, base - 34, 52, 34, 8, 11, lit, '#7a6a52', 53, night, t);
-      R(c, 10, base - 18, 8, 18, '#4f7a3a'); R(c, 6, base - 26, 16, 10, '#5f9446');
+    case 'village':
+      R(c, 12, g - 22, 34, 22, '#fbefd2'); for (let j = 0; j < 6; j++) R(c, 10 + j, g - 28 + j, 38 - j * 2, 1, '#d0613f');
+      windows(c, 12, g - 20, 34, 20, 6, 7, lit, '#a8946e', 53, night);
+      R(c, 2, g - 16, 6, 16, '#5a8f3e'); R(c, 0, g - 22, 10, 8, '#6fae4c');
       break;
-    }
-    case 'institution': {
-      R(c, 14, base - 34, 74, 34, '#d9d2c3'); R(c, 14, base - 34, 74, 3, '#a89f8e');
-      windows(c, 14, base - 30, 74, 30, 6, 8, lit, '#7c7468', 61, night, t);
-      R(c, 48, base - 52, 1, 18, '#555'); R(c, 49, base - 52, 8, 5, '#f2b134');
+    case 'institution':
+      R(c, 8, g - 22, 48, 22, '#ece4d4'); windows(c, 8, g - 20, 48, 20, 5, 5, lit, '#b2a892', 61, night);
+      R(c, 32, g - 32, 1, 10, '#666'); R(c, 33, g - 32, 6, 4, '#ffb03a');
       break;
-    }
-    default: {
-      // 租樓 / 同父母住 / 合租：普通住宅
-      R(c, 12, base - 60, 40, 60, '#c9c3b6'); R(c, 12, base - 60, 40, 2, '#a39d90');
-      windows(c, 12, base - 56, 40, 56, 5, 6, lit, '#6d685f', 71, night, t);
-      R(c, 56, base - 46, 34, 46, '#b8b0a0');
-      windows(c, 56, base - 42, 34, 42, 5, 6, lit, '#625c52', 73, night, t);
-    }
+    default:
+      R(c, 6, g - 38, 26, 38, '#dcd5c8'); windows(c, 6, g - 36, 26, 36, 3, 4, lit, '#a29b8e', 71, night);
+      R(c, 34, g - 30, 22, 30, '#cbc2b2'); windows(c, 34, g - 28, 22, 28, 3, 4, lit, '#938a7b', 73, night);
   }
-  // 未來年代：天空飛車
-  if (year >= 2035) { const fx = (t * 2) % (SW + 20) - 10; R(c, fx, 18, 6, 2, '#7ff0ff'); R(c, fx + 1, 17, 3, 1, '#c8fbff'); }
-}
-
-interface Look { skin: string; hair: string; top: string; bottom: string }
-function lookOf(s: State, who: 'me' | 'partner' | 'kid', age: number): Look {
-  const hair = age >= 65 ? '#e8e8e8' : age >= 48 ? '#8d8d8d' : '#2b2420';
-  const skin = '#f2c7a1';
-  if (who === 'kid') return { skin, hair, top: ['#f2b134', '#5ec4a0', '#e86a8a'][age % 3], bottom: '#3b4a7a' };
-  if (who === 'partner') return { skin, hair, top: '#8e7cc3', bottom: '#3d3d55' };
-  let top = '#e86a5c';
-  if (age >= 6 && age < 18 && s.status === 'study') top = '#f4f4f4';
-  else if (s.status === 'work') top = s.job && s.job.level >= 3 ? '#2f3d5c' : '#4d8fd1';
-  else if (s.status === 'retired') top = '#c98b4a';
-  else if (s.status === 'unemp') top = '#8b8b8b';
-  return { skin, hair, top, bottom: age >= 6 && age < 18 ? '#2d4a8a' : '#353a4a' };
-}
-
-function person(c: Ctx, x: number, feet: number, age: number, lk: Look, t: number, cane = false, phase = 0) {
-  if (age < 3) {
-    // BB 車
-    R(c, x - 6, feet - 9, 13, 6, '#6fa8dc'); R(c, x - 6, feet - 12, 5, 4, '#6fa8dc');
-    R(c, x - 1, feet - 12, 4, 4, lk.skin); R(c, x - 1, feet - 13, 4, 1, lk.hair);
-    R(c, x - 5, feet - 2, 3, 2, '#333'); R(c, x + 3, feet - 2, 3, 2, '#333');
-    return;
-  }
-  const h = age < 6 ? 14 : age < 12 ? 18 : age < 16 ? 21 : 24;
-  const bob = ((t + phase) >> 2) % 2;
-  const top = feet - h - bob;
-  const head = age < 12 ? 6 : 6;
-  const legH = Math.round(h * 0.38);
-  const bodyH = h - head - legH;
-  // 頭
-  R(c, x - 3, top, 6, head, lk.skin);
-  R(c, x - 3, top, 6, 2, lk.hair); R(c, x - 3, top, 1, 4, lk.hair);
-  R(c, x + 1, top + 3, 1, 1, '#222');
-  // 身
-  R(c, x - 3, top + head, 6, bodyH, lk.top);
-  const sw = ((t + phase) >> 3) % 2 ? 1 : 0;
-  R(c, x - 4, top + head + sw, 1, bodyH - 1, lk.skin); R(c, x + 3, top + head + 1 - sw, 1, bodyH - 1, lk.skin);
-  // 腳
-  R(c, x - 3, feet - legH, 2, legH, lk.bottom); R(c, x + 1, feet - legH, 2, legH, lk.bottom);
-  R(c, x - 3, feet - 1, 2, 1, '#222'); R(c, x + 1, feet - 1, 2, 1, '#222');
-  if (cane) { R(c, x + 5, feet - 12, 1, 12, '#7a5a3a'); R(c, x + 4, feet - 12, 2, 1, '#7a5a3a'); }
 }
 
 export function drawScene(c: Ctx, s: State, t: number) {
-  const age = s.age;
-  const sk = sky(age);
-  const night = sk.stars || (age >= 18 && age < 65 && false);
-  const bh = Math.ceil((SH - 20) / sk.bands.length);
+  const sk = sky(s.age);
+  const bh = Math.ceil(GROUND / sk.bands.length);
   sk.bands.forEach((col, i) => R(c, 0, i * bh, SW, bh + 1, col));
-  if (sk.stars) for (let i = 0; i < 26; i++) { const r = hash(i * 97); if ((t + i) % 17 !== 0) R(c, r % SW, (r >> 8) % 50, 1, 1, '#fff6d0'); }
-  if (sk.sun) { const sy = age < 18 ? 14 : 40; R(c, 150, sy, 10, 10, sk.sun); R(c, 148, sy + 2, 14, 6, sk.sun); }
-  else { R(c, 152, 12, 8, 8, '#f3f0d8'); R(c, 155, 12, 5, 6, sk.bands[1]); }
-  // 雲
-  if (!sk.stars) for (let i = 0; i < 3; i++) { const cx = ((t / 3 + i * 70) % (SW + 40)) - 20; R(c, cx, 20 + i * 9, 18, 3, 'rgba(255,255,255,.55)'); R(c, cx + 4, 18 + i * 9, 9, 2, 'rgba(255,255,255,.55)'); }
-  lionRock(c, age < 18 ? '#4f7f6a' : age < 65 ? '#3d3557' : '#10162e');
-  // 遠景樓群
-  for (let i = 0; i < 12; i++) { const r = hash(i * 13 + 5); const w = 10 + (r % 8); const hh = 14 + (r >> 4) % 22; R(c, 96 + i * 9, SH - 22 - hh, w, hh, age < 18 ? '#8fa9b8' : age < 65 ? '#5a4a6e' : '#1c2448'); }
-  building(c, s.home, sk.stars, t, s.year);
-  // 街
-  R(c, 0, SH - 22, SW, 4, '#9a9a92'); R(c, 0, SH - 18, SW, 18, '#4b4d55');
-  for (let i = 0; i < SW; i += 16) R(c, (i + (t % 16)) % SW, SH - 9, 8, 1, '#d8d27a');
-  // 人物
-  const feet = SH - 20;
-  const me = lookOf(s, 'me', age);
-  const meX = 132;
-  if (s.partner && s.partner.alive && (s.married || s.datingYears > 0) && age >= 15) person(c, meX + 12, feet, Math.max(16, s.partner.age), lookOf(s, 'partner', s.partner.age), t, false, 3);
+  if (sk.stars) for (let i = 0; i < 20; i++) { const r = hash(i * 97); if ((t + i) % 17 !== 0) R(c, r % SW, (r >> 8) % 28, 1, 1, '#fff6d0'); }
+  if (sk.sun) { R(c, 124, 7, 8, 8, sk.sun); R(c, 122, 9, 12, 4, sk.sun); } else { R(c, 128, 6, 6, 6, '#f3f0d8'); R(c, 130, 6, 4, 4, sk.bands[0]); }
+  if (!sk.stars) for (let i = 0; i < 3; i++) { const cx = ((t / 3 + i * 60) % (SW + 30)) - 15; R(c, cx, 10 + i * 6, 14, 2, 'rgba(255,255,255,.7)'); R(c, cx + 3, 9 + i * 6, 7, 1, 'rgba(255,255,255,.7)'); }
+  lionRock(c, sk.hill);
+  for (let i = 0; i < 12; i++) { const r = hash(i * 13 + 5); const w = 7 + (r % 6); const hh = 8 + (r >> 4) % 16; R(c, 62 + i * 8, GROUND - hh, w, hh, sk.far); }
+  home(c, s.home, sk.stars);
+  if (s.year >= 2035) { const fx = (t * 2) % (SW + 20) - 10; R(c, fx, 14, 5, 2, '#7ff0ff'); }
+  // 地面
+  R(c, 0, GROUND, SW, 2, '#b9b6ad'); R(c, 0, GROUND + 2, SW, SH - GROUND - 2, '#5a5d66');
+  for (let i = 0; i < SW; i += 14) R(c, (i + (t % 14)) % SW, SH - 3, 7, 1, '#e3d98a');
+  // 人物：自己、伴侶、細路
+  const meX = 104;
+  const p = s.partner;
+  if (p && p.alive && (s.married || s.datingYears > 0) && s.age >= 15) person(c, meX + 13, { sex: p.sex, age: Math.max(18, p.age), role: 'partner' }, t, 3);
   const kids = s.kids.filter((k) => !k.away && !k.emigrated && k.age < 18).slice(0, 3);
-  kids.forEach((k, i) => person(c, meX - 12 - i * 10, feet, Math.max(1, k.age), lookOf(s, 'kid', k.age), t, false, i + 1));
-  person(c, meX, feet, age, me, t, age >= 65 && s.H < 30);
-  // 焦點氣泡
-  const ic = s.focus ? FOCUS_ICON[s.focus] : null;
-  if (ic && age >= 6) {
-    const by = feet - 40 - (((t >> 3) % 2) ? 1 : 0);
-    R(c, meX + 4, by, 9, 9, '#fffaf0'); R(c, meX + 4, by + 9, 2, 2, '#fffaf0');
-    icon(c, ic, meX + 6, by + 2, '#2b2d63');
-  }
-  void night;
+  kids.forEach((k, i) => person(c, meX - 12 - i * 10, { sex: k.sex ?? (hash(k.name.length * 7 + i) % 2 ? 'M' : 'F'), age: Math.max(1, k.age), role: 'kid' }, t, i + 1));
+  person(c, meX, { sex: s.gender, age: s.age, role: 'me', status: s.status, level: s.job?.level }, t, 0, s.age >= 65 && s.H < 30);
 }
 
-/** 頭像（排行榜、結局用）：攞場景中間一格 */
+/** 頭像（結局用） */
 export function drawPortrait(c: Ctx, s: State) {
-  R(c, 0, 0, 32, 32, '#1e2640');
-  person(c, 16, 30, Math.max(6, s.age), lookOf(s, 'me', s.age), 0, s.age >= 65 && s.H < 30);
+  R(c, 0, 0, 24, 24, '#e8eefb');
+  const w: Who = { sex: s.gender, age: Math.max(18, s.age), role: 'me', status: s.status, level: s.job?.level };
+  drawSprite(c, spriteFor(w), 12, 22, palette(w));
 }
 
-/** 標題畫面：維港夜景，天星小輪橫過 */
+/** 標題畫面：維港，天星小輪橫過 */
 export function drawTitle(c: Ctx, t: number, day: boolean) {
-  const bands = day ? ['#5aa9e6', '#7cc0ee', '#a2d4f2', '#cbe7f5'] : ['#0c1030', '#141a44', '#1d2558', '#2a3470'];
-  bands.forEach((col, i) => R(c, 0, i * 16, SW, 17, col));
-  if (!day) for (let i = 0; i < 30; i++) { const r = hash(i * 131); if ((t + i) % 13 !== 0) R(c, r % SW, (r >> 8) % 44, 1, 1, '#fff6d0'); }
-  lionRock(c, day ? '#4f7f6a' : '#141c3c');
-  // 港島天際線
-  for (let i = 0; i < 26; i++) {
+  const bands = day ? ['#7cc4f2', '#9bd3f5', '#bde3f8', '#dcf1fb'] : ['#28305e', '#34407a', '#45528f', '#5a67a3'];
+  bands.forEach((col, i) => R(c, 0, i * 10, SW, 11, col));
+  if (!day) for (let i = 0; i < 24; i++) { const r = hash(i * 131); if ((t + i) % 13 !== 0) R(c, r % SW, (r >> 8) % 26, 1, 1, '#fff6d0'); }
+  const h = [8, 10, 13, 16, 20, 24, 26, 27, 25, 22, 20, 18, 15, 12, 10, 9];
+  for (let i = 0; i < SW; i++) { const v = h[Math.floor((i / SW) * h.length)]; R(c, i, 40 - v, 1, v, day ? '#6aa784' : '#2a3360'); }
+  for (let i = 0; i < 22; i++) {
     const r = hash(i * 29 + 3);
-    const w = 5 + (r % 6);
-    const hh = 16 + ((r >> 5) % 34) + (i === 11 ? 18 : 0);
-    const x = i * 7.6;
-    R(c, x, 74 - hh, w, hh, day ? '#7f97ab' : '#232c55');
-    for (let j = 74 - hh + 2; j < 72; j += 3) for (let k = x + 1; k < x + w - 1; k += 2) {
-      const on = hash((k | 0) * 7 + j * 3 + i) % (day ? 9 : 3) === 0;
-      if (on) R(c, k, j, 1, 1, day ? '#dfeaf2' : ['#ffd86b', '#7ff0ff', '#ff7aa8'][(i + j) % 3]);
-    }
+    const w = 4 + (r % 4);
+    const hh = 8 + ((r >> 5) % 20) + (i === 9 ? 10 : 0);
+    const x = i * 7.4;
+    R(c, x, 44 - hh, w, hh, day ? '#9fb3c4' : '#3b4677');
+    for (let j = 44 - hh + 2; j < 43; j += 2) for (let k = x + 1; k < x + w - 1; k += 2) if (hash((k | 0) * 7 + j * 3 + i) % (day ? 7 : 3) === 0) R(c, k, j, 1, 1, day ? '#ffffff' : ['#ffd86b', '#7ff0ff', '#ff9ac0'][(i + j) % 3]);
   }
-  // 海
-  R(c, 0, 74, SW, 34, day ? '#3f7fb3' : '#0f1a3d');
-  for (let j = 0; j < 8; j++) for (let i = 0; i < SW; i += 12) R(c, (i + j * 5 + (t >> 1)) % SW, 78 + j * 4, 5, 1, day ? '#78b3db' : '#2a3c78');
-  // 天星小輪
-  const fx = ((t * 1.2) % (SW + 40)) - 30;
-  R(c, fx, 88, 26, 5, '#2f6b4f'); R(c, fx + 2, 85, 22, 3, '#f4f1e6'); R(c, fx + 4, 83, 18, 2, '#2f6b4f');
-  for (let i = 0; i < 5; i++) R(c, fx + 5 + i * 4, 86, 2, 1, '#2f6b4f');
+  R(c, 0, 44, SW, 20, day ? '#4a8cc4' : '#1d2a5c');
+  for (let j = 0; j < 5; j++) for (let i = 0; i < SW; i += 10) R(c, (i + j * 4 + (t >> 1)) % SW, 47 + j * 3, 4, 1, day ? '#8cc3e8' : '#3a4c8c');
+  const fx = ((t * 1.2) % (SW + 36)) - 28;
+  R(c, fx, 52, 22, 4, '#2f7a57'); R(c, fx + 2, 49, 18, 3, '#fbf8ee'); R(c, fx + 4, 47, 14, 2, '#2f7a57');
 }

@@ -1,11 +1,11 @@
-// 七百萬分之我：入口（標題 → 免責 → 設定 → 出身抽籤 → 出身卡 → 人生 → 結局）
+// 七百萬分之我：入口（標題 → 免責 → 設定 → 出身卡（可重洗）→ 人生 → 結局）
 import './ui/style.css';
 import { Game } from './engine/game';
 import { PERIODS, type ParentInfo } from './engine/origin';
 import { WEALTH_LABEL } from './data/origin';
 import { ACHIEVEMENTS } from './engine/achievements';
-import { h, clear, sleep, reduceMotion } from './ui/dom';
-import { drawTitle, SW, SH } from './ui/scene';
+import { h, clear } from './ui/dom';
+import { drawTitle, drawScene, SW, SH } from './ui/scene';
 import { store, type Settings } from './ui/store';
 import { playGame } from './ui/play';
 import { showEnding, boardTable, booking, placeOf } from './ui/ending';
@@ -23,15 +23,22 @@ function newSeed(): number {
   try { return crypto.getRandomValues(new Uint32Array(1))[0] >>> 1; } catch { return Math.floor(Math.random() * 2 ** 31); }
 }
 
+// ---------- 右下角主頁按鈕（遊戲以外嘅畫面；遊戲內喺導航列） ----------
+const homeFab = h('button', { class: 'home-fab', type: 'button', 'aria-label': '返回主頁', onclick: () => title() }, h('span', { 'aria-hidden': 'true' }, '⌂'), '主頁');
+function fab(show: boolean) {
+  if (show) { if (!homeFab.isConnected) document.body.append(homeFab); } else homeFab.remove();
+}
+
 // ---------- 標題 ----------
 function title() {
   cancelAnimationFrame(titleAnim);
+  fab(false);
   const cv = h('canvas', { class: 'title-scene', width: SW, height: SH, 'aria-hidden': 'true' });
   const c = cv.getContext('2d')!;
   const hr = new Date().getHours();
   const day = hr >= 6 && hr < 18;
   let t = 0, last = 0;
-  const loop = (ts: number) => { if (ts - last > 120) { last = ts; t++; drawTitle(c, t, day); } titleAnim = requestAnimationFrame(loop); };
+  const loop = (ts: number) => { if (!cv.isConnected && t) return; if (ts - last > 120) { last = ts; t++; drawTitle(c, t, day); } titleAnim = requestAnimationFrame(loop); };
   titleAnim = requestAnimationFrame(loop);
   const runs = store.runs();
   clear(root).append(h('div', { class: 'screen title' },
@@ -39,32 +46,35 @@ function title() {
     h('div', { class: 'title-box' },
       h('h1', { class: 'logo' }, '七百萬分之我'),
       h('p', { class: 'tagline' }, '同一個起點，有冇規劃，結局差好遠。'),
-      h('button', { class: 'primary big', type: 'button', onclick: () => { cancelAnimationFrame(titleAnim); disclaimer(); } }, '開始人生'),
-      runs ? h('p', { class: 'muted small' }, `已經投胎 ${runs} 次${runs >= 1 ? '・已解鎖：揀出生時段、自動揀' : ''}`) : null,
+      h('button', { class: 'btn big', type: 'button', onclick: () => { cancelAnimationFrame(titleAnim); disclaimer(); } }, '開始人生'),
+      runs ? h('p', { class: 'muted small' }, `已經投胎 ${runs} 次・已解鎖：揀出生時段、自動揀`) : null,
       h('div', { class: 'title-row' },
-        h('button', { class: 'ghost', type: 'button', onclick: () => boardScreen() }, '排行榜'),
-        h('button', { class: 'ghost', type: 'button', onclick: () => achScreen() }, '成就'),
-        h('button', { class: 'ghost', type: 'button', onclick: () => booking(root) }, '理財健康檢查'))),
-    h('footer', { class: 'title-foot' }, h('span', null, 'v0.1 試玩版'), h('span', null, '內容為模擬，不構成投資建議'))));
+        h('button', { class: 'btn ghost small', type: 'button', onclick: () => boardScreen() }, '排行榜'),
+        h('button', { class: 'btn ghost small', type: 'button', onclick: () => achScreen() }, '成就'),
+        h('button', { class: 'btn outline small', type: 'button', onclick: () => booking(root) }, '點擊查詢更多'))),
+    h('footer', { class: 'title-foot' }, h('span', null, 'v0.2 試玩版'), h('span', null, '內容為模擬，不構成投資建議'))));
 }
 
 function boardScreen() {
+  fab(true);
   clear(root).append(h('div', { class: 'screen sub' }, h('h2', null, '排行榜（呢部機）'), boardTable(),
-    h('button', { class: 'primary', type: 'button', onclick: () => title() }, '返回')));
+    h('button', { class: 'btn ghost', type: 'button', onclick: () => title() }, '返回')));
 }
 function achScreen() {
+  fab(true);
   const got = new Set(store.achs());
   clear(root).append(h('div', { class: 'screen sub' }, h('h2', null, `成就 ${ACHIEVEMENTS.filter((a) => got.has(a.id)).length} / ${ACHIEVEMENTS.length}`),
     h('div', { class: 'achs' }, ACHIEVEMENTS.map((a) => {
       const on = got.has(a.id);
       return h('div', { class: `ach ${on ? '' : 'locked'}` }, h('b', null, on || !a.hidden ? a.name : '？？？'), h('span', null, on || !a.hidden ? a.desc : '隱藏成就'), a.pts ? h('em', null, `${a.pts} 分`) : null);
     })),
-    h('button', { class: 'primary', type: 'button', onclick: () => title() }, '返回')));
+    h('button', { class: 'btn ghost', type: 'button', onclick: () => title() }, '返回')));
 }
 
 // ---------- 免責聲明 ----------
 function disclaimer() {
-  const ok = h('button', { class: 'primary big', type: 'button', disabled: true, onclick: () => setup() }, '我明白');
+  fab(true);
+  const ok = h('button', { class: 'btn big', type: 'button', disabled: true, onclick: () => setup() }, '我明白');
   clear(root).append(h('div', { class: 'screen center-card' }, h('div', { class: 'paper' },
     h('h2', null, '開始之前'),
     h('p', null, '「七百萬分之我」是一個模擬遊戲，只供娛樂及理財教育用途，不構成任何保險、投資或財務建議。遊戲內容涉及疾病、意外及死亡，建議 15 歲或以上人士遊玩。'),
@@ -74,6 +84,7 @@ function disclaimer() {
 
 // ---------- 設定 ----------
 function setup() {
+  fab(true);
   const second = store.runs() >= 1;
   const speedSeg = h('div', { class: 'seg' }, ([1, 2, 4, 8] as const).map((v) => h('button', {
     type: 'button', class: settings.speed === v ? 'on' : '', onclick: (e: Event) => {
@@ -88,51 +99,22 @@ function setup() {
       periodSel.querySelectorAll('.period').forEach((b) => b.classList.toggle('on', b === e.currentTarget));
     },
   }, h('b', null, p), h('span', null, PERIOD_NOTE[p] ?? ''))));
-  clear(root).append(h('div', { class: 'screen center-card' }, h('div', { class: 'paper wide' },
+  clear(root).append(h('div', { class: 'screen center-card' }, h('div', { class: 'paper' },
     h('h2', null, '投胎設定'),
     h('p', { class: 'muted' }, '名字會喺出世嗰刻隨機抽，屋企人改嘅，你揀唔到。'),
     h('h4', null, '速度'), speedSeg,
-    h('p', { class: 'muted small' }, '平淡嘅年份會自動行，有事發生先停低。遊戲中隨時可以改速度。'),
+    h('p', { class: 'muted small' }, '1× 大約 45 秒一年，等候期間可以調整投資同強積金，亦可以撳「下一年」直接跳。遊戲中隨時可以改速度。'),
     second ? [
       h('h4', null, '出生時段'), periodSel,
       h('label', { class: 'check' }, autoBox, h('span', null, '自動揀：系統幫你揀人生抉擇，測驗同公開試仍然要自己答。')),
     ] : h('p', { class: 'muted small' }, '玩完第一局會解鎖「揀出生時段」同「自動揀」。'),
-    h('button', { class: 'primary big', type: 'button', onclick: () => {
+    h('button', { class: 'btn big', type: 'button', onclick: () => {
       settings.autoPick = second && autoBox.checked;
       if (!second) settings.period = '隨機時段';
       store.saveSettings(settings);
-      lottery();
+      const period = settings.period === '隨機時段' ? null : settings.period;
+      originCard(new Game(newSeed(), period), period);
     } }, '下一步'))));
-}
-
-// ---------- 出身抽籤 ----------
-async function lottery() {
-  const period = settings.period === '隨機時段' ? null : settings.period;
-  const g = new Game(newSeed(), period);
-  const o = g.s.origin;
-  let skip = false;
-  const big = h('div', { class: 'roll' });
-  const cap = h('p', { class: 'roll-cap' });
-  clear(root).append(h('div', { class: 'screen lottery', onclick: () => { skip = true; } },
-    h('button', { class: 'skip', type: 'button', onclick: () => { skip = true; } }, '跳過 ▶▶'),
-    h('p', { class: 'muted' }, '投胎中……'), big, cap));
-  const fast = reduceMotion();
-  const step = async (label: string, frames: string[], final: string, ms: number) => {
-    cap.textContent = label;
-    if (!skip && !fast) {
-      const n = Math.max(6, Math.round(ms / 70));
-      for (let i = 0; i < n && !skip; i++) { big.textContent = frames[i % frames.length]; await sleep(40 + (i * i * 2) / n); }
-    }
-    big.textContent = final;
-    big.classList.remove('pop'); void big.offsetWidth; big.classList.add('pop');
-    if (!skip) await sleep(fast ? 300 : 650);
-  };
-  const [y0, y1] = PERIODS[settings.period] ?? [1975, 2015];
-  await step('出生年份', Array.from({ length: 24 }, (_, i) => String(y0 + ((i * 7) % (y1 - y0 + 1)))), `${o.birthYear} 年`, 1200);
-  await step('性別', ['男', '女'], o.gender === 'M' ? '男仔' : '女仔', 500);
-  await step('十八區', ['觀塘', '沙田', '元朗', '深水埗', '中西區', '屯門', '黃大仙', '大埔', '灣仔', '葵青', '北區', '東區'], o.district, 1400);
-  await step('住屋', ['公屋', '居屋', '私樓', '劏房', '村屋'], placeOf(g).replace(o.subArea, '') || o.housing, 700);
-  originCard(g, period);
 }
 
 function dateOf(year: number, day: number) {
@@ -159,6 +141,7 @@ function originLine(g: Game) {
 }
 
 function originCard(g: Game, period: string | null) {
+  fab(true);
   const s = g.s;
   const o = s.origin;
   const stamps: string[] = [];
@@ -167,25 +150,29 @@ function originCard(g: Game, period: string | null) {
   if (o.isBaoyou) stamps.push('保幼局');
   if (o.birthYear === 1997) stamps.push('九七一代');
   const stat = (k: 'H' | 'J' | 'K' | 'R', n: string) => h('div', { class: `ostat s-${k}` }, h('span', null, n), h('span', { class: 'bar' }, h('span', { style: `width:${Math.round(s[k])}%` })), h('b', null, String(Math.round(s[k]))));
-  const sib = o.siblings ? `${o.siblings} 個（你排第 ${o.birthOrder}）` : '獨生';
+  const sib = o.siblings ? `${o.siblings} 個（排第 ${o.birthOrder}）` : '獨生';
+  const tile = (label: string, val: string, cls = '') => h('div', { class: `otile ${cls}` }, h('span', null, label), h('b', null, val));
+  const cv = h('canvas', { class: 'oscene', width: SW, height: SH, 'aria-hidden': 'true' });
+  drawScene(cv.getContext('2d')!, s, 0);
   clear(root).append(h('div', { class: 'screen center-card' }, h('div', { class: 'paper origin' },
-    h('div', { class: 'o-head' }, h('h2', null, s.name), h('span', { class: 'muted' }, `${o.gender === 'M' ? '男' : '女'}・${dateOf(o.birthYear, o.birthDay)}`)),
+    cv,
+    h('div', { class: 'o-head' }, h('h2', null, s.name), h('span', { class: 'muted' }, dateOf(o.birthYear, o.birthDay))),
     stamps.length ? h('div', { class: 'stamps' }, stamps.map((t) => h('span', { class: 'stamp' }, t))) : null,
     h('p', { class: 'lead' }, originLine(g)),
-    h('dl', { class: 'facts' },
-      h('dt', null, '地區'), h('dd', null, `${o.district}・${o.subArea}`),
-      h('dt', null, '住屋'), h('dd', null, o.housing),
-      o.family ? [h('dt', null, '家庭背景'), h('dd', null, o.family)] : null,
-      !o.isBaoyou ? [h('dt', null, '父親'), h('dd', null, parentText(o.father)), h('dt', null, '母親'), h('dd', null, parentText(o.mother))] : null,
-      h('dt', null, '兄弟姊妹'), h('dd', null, sib),
-      h('dt', null, '家庭財務'), h('dd', null, WEALTH_LABEL[o.wealthTier])),
+    h('div', { class: 'otiles' },
+      tile('出生年份', `${o.birthYear} 年`), tile('性別', o.gender === 'M' ? '男仔' : '女仔'), tile('地區', o.district),
+      tile('住屋', o.housing, 'half'), tile('家庭', o.family ?? (o.isBaoyou ? '保幼局' : '—'), 'half'), tile('兄弟姊妹', sib, 'half'),
+      !o.isBaoyou ? [tile('父親', parentText(o.father), 'half'), tile('母親', parentText(o.mother), 'half')] : null,
+      tile('家庭財務', WEALTH_LABEL[o.wealthTier], o.isBaoyou ? 'wide' : 'half')),
     h('div', { class: 'ostats' }, stat('H', '健康'), stat('J', '快樂'), stat('K', '知識'), stat('R', '人際')),
-    h('p', { class: 'muted small' }, '出身由天，冇得重抽。'),
-    h('button', { class: 'primary big', type: 'button', onclick: () => start(g, period) }, '開始人生'))));
+    h('div', { class: 'row2' },
+      h('button', { class: 'btn ghost', type: 'button', onclick: () => originCard(new Game(newSeed(), period), period) }, '🎲 重洗'),
+      h('button', { class: 'btn', type: 'button', onclick: () => start(g, period) }, '開始人生')))));
 }
 
 function start(g: Game, period: string | null) {
-  playGame(root, g, settings, (gg) => showEnding(root, gg, period, () => { settings = store.settings(); disclaimer(); }), () => title());
+  fab(false);
+  playGame(root, g, settings, (gg) => { fab(true); showEnding(root, gg, period, () => { settings = store.settings(); disclaimer(); }); }, () => title());
 }
 
 title();

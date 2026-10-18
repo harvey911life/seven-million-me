@@ -13,7 +13,7 @@ export interface Disease {
   stage: number; years: number; d: number; status: 'treating' | 'remission' | 'chronic'; treat: 'public' | 'private' | 'none';
 }
 export interface Kid {
-  name: string; age: number; acad: number; rel: number; school: 0 | 1 | 2; overseas?: boolean; married?: boolean;
+  name: string; sex?: 'M' | 'F'; age: number; acad: number; rel: number; school: 0 | 1 | 2; overseas?: boolean; married?: boolean;
   loan?: { left: number; per: number; stopAt: number; year: number };
   path?: '大學' | '副學位' | '就業' | '出國'; job?: boolean; away?: boolean; emigrated?: boolean; grandkids?: number; schoolAsked?: number;
 }

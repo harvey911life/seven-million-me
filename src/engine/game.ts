@@ -7,7 +7,7 @@ import type { State, StatKey, Cat, LogEntry } from './state';
 import { settleYear, computeF, payCost, netWorth, liquidAssets } from './finance';
 import { focusEffects, naturalChanges, panelEffects } from './yearly';
 import { drawEvents } from './events';
-import type { Card } from './cards';
+import { capOptions, type Card } from './cards';
 import { deathCheck } from './health';
 import { scheduleQuizzes } from './quiz';
 import { checkAchievementsYear } from './achievements';
@@ -156,6 +156,7 @@ export class Game {
   }
 
   pushCard(c: Card, front = false) {
+    c = capOptions(c, this.er);
     if (front) this.queue.unshift(c); else this.queue.push(c);
   }
 }

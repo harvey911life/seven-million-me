@@ -4,10 +4,11 @@ import { streamRng, type RNG } from './rng';
 import { clamp } from './util';
 import { mkCard, type Card, type Question } from './cards';
 import RAW from '../data/questions.json';
+import EXTRA from '../data/questions_extra.json';
 
 type Raw = [string, number, number, number, number, string, string, string, string, string, number, string];
 export const SUBJ = ['中文', '英文', '數學', '公民與社會發展', '物理', '化學', '生物', '經濟'];
-const BANK: (Question & { age: number; exam: boolean; s: number })[] = (RAW as Raw[]).map((r) => ({
+const BANK: (Question & { age: number; exam: boolean; s: number })[] = (RAW as Raw[]).concat(EXTRA as Raw[]).filter((r) => r[1] !== 3).map((r) => ({
   id: r[0], s: r[1], subj: SUBJ[r[1]], diff: r[2] as 0 | 1 | 2, age: r[3], exam: r[4] === 1, q: r[5], opts: [r[6], r[7], r[8], r[9]], ans: r[10], expl: r[11],
 }));
 
@@ -31,8 +32,7 @@ export function rememberSeen(ids: string[]) {
 
 export function scheduleQuizzes(g: Game) {
   const r = streamRng(g.s.seed, 'quiz', 'schedule');
-  const x = r();
-  const n = x < 0.4 ? 3 : x < 0.8 ? 4 : 5;
+  const n = 2; // 一生最多兩次突擊測驗：小學一次、中學一次
   const ages = [6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17];
   const all: number[][] = [];
   const rec = (start: number, cur: number[]) => {
@@ -49,9 +49,10 @@ export function scheduleQuizzes(g: Game) {
 // 科目權重（6.4.3，冇中史、地理、資通就併入其他）
 function subjWeights(age: number, stream?: string): number[] {
   // 中文 英文 數學 公社 物理 化學 生物 經濟
-  let w = age <= 8 ? [30, 30, 30, 4, 0, 0, 3, 0] : age <= 11 ? [24, 24, 24, 10, 2, 2, 6, 2] : age <= 14 ? [16, 16, 16, 16, 6, 6, 8, 6] : [14, 14, 14, 16, 8, 8, 8, 8];
+  // 公民與社會發展（index 3）暫時移除
+  let w = age <= 8 ? [30, 30, 30, 0, 2, 2, 4, 2] : age <= 11 ? [24, 24, 24, 0, 4, 4, 8, 4] : age <= 14 ? [18, 18, 18, 0, 10, 10, 12, 10] : [16, 16, 16, 0, 12, 12, 12, 12];
   if (age >= 15 && stream) {
-    const m = stream === '理科' ? [1, 1, 1, 1, 2, 2, 2, 0.5] : stream === '商科' ? [1, 1, 1, 1, 0.5, 0.5, 1, 3] : [1, 1, 1, 2, 0.5, 0.5, 1, 1];
+    const m = stream === '理科' ? [1, 1, 1, 0, 2, 2, 2, 0.5] : stream === '商科' ? [1, 1, 1, 0, 0.5, 0.5, 1, 3] : [1.5, 1.5, 1, 0, 0.5, 0.5, 1, 1];
     w = w.map((v, i) => v * m[i]);
   }
   return w;
@@ -140,9 +141,9 @@ export function examCard(g: Game, onDone: (g: Game) => void): Card {
   const s = g.s;
   const r = streamRng(s.seed, 'exam', s.age);
   const exclude = new Set<number>();
-  const electives = s.stream === '理科' ? [4, 5, 6] : s.stream === '商科' ? [7, 2] : [7, 3];
+  const electives = s.stream === '理科' ? [4, 5, 6] : s.stream === '商科' ? [7, 2] : [7, 0];
   const spec = [
-    { subj: 0, diff: 0 }, { subj: 1, diff: 0 }, { subj: 2, diff: 1 }, { subj: 3, diff: 0 },
+    { subj: 0, diff: 0 }, { subj: 1, diff: 0 }, { subj: 2, diff: 1 }, { subj: 2, diff: 0 },
     { subj: r.pick(electives), diff: 1 }, { subj: undefined, diff: 1 }, { subj: undefined, diff: 2 }, { subj: undefined, diff: 2 },
   ];
   const qs = draw(g, r, 8, (i) => ({ subj: spec[i].subj, diff: spec[i].diff, exam: true, exclude }));
