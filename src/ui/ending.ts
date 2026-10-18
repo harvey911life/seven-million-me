@@ -129,6 +129,22 @@ export function showEnding(root: HTMLElement, g: Game, period: string | null, on
   store.addAchs(s.ach);
   const firstRun = store.runs() === 1;
   // 第一局完、或者仲未撞過任何終局事件，就暗示有特殊結局
+  // v1.1：彩蛋提示，只提未解鎖嘅成就，每局揀兩句
+  const HINTS: [string[], string][] = [
+    [['giant_cat', 'talking_cat'], '養多幾隻貓，話唔定有奇怪嘅事發生……'],
+    [['twins'], '生多幾個，可能會有雙倍驚喜。'],
+    [['green_hat'], '結咗婚都要好好維繫感情，唔係頭上可能會變色。'],
+    [['centenarian'], '注重健康，或者可以食到 100 歲生日蛋糕。'],
+    [['history_rewrite'], '留意時代大事，歷史未必一定照舊發生。'],
+    [['pentagon'], '五項數值全部過 70，會有一個特別稱號。'],
+    [['expat'], '事業衝刺嘅人，有機會被公司派去外國。'],
+    [['biz_exit'], '自己做老細做得好，可能有人想收購你盤生意。'],
+    [['jackpot'], '六星彩頭獎機會好微，但遊戲入面……唔係零。'],
+    [['rooftop_ufo', 'meteor', 'duck_effect', 'treasure'], '香港上空偶然會出現一啲解釋唔到嘅嘢。'],
+  ];
+  const known = new Set(store.achs());
+  const hintPool = HINTS.filter(([ids]) => ids.some((id) => !known.has(id))).map(([, t]) => t);
+  const hints = hintPool.length <= 2 ? hintPool : [hintPool[seed0 % hintPool.length], hintPool[(seed0 + 1 + (seed0 >> 3) % (hintPool.length - 1)) % hintPool.length]];
   const SECRET = ['earth_defense', 'zombie_survivor', 'redo_10y'];
   const showSecret = !apoc && (firstRun || (store.runs() <= 5 && !store.achs().some((id) => SECRET.includes(id))));
   let boardRank: number | null = null;
@@ -339,6 +355,7 @@ export function showEnding(root: HTMLElement, g: Game, period: string | null, on
       showSecret ? h('div', { class: 'secret' }, h('b', null, '🔮 你知唔知……'),
         h('p', null, '呢個遊戲收埋咗幾個特殊結局。有人話喺天台見過飛碟，有人話某年殭屍湧上街，亦有人一覺瞓醒返咗去十年前。'),
         h('p', { class: 'muted small' }, '機會好微，下一世可能就係你。')) : null,
+      hints.length ? h('div', { class: 'hints' }, h('b', null, '💡 小提示'), h('ul', null, hints.map((t) => h('li', null, t)))) : null,
       h('button', { class: 'btn big', type: 'button', onclick: () => onRestart() }, '再投胎一次'),
       h('button', { class: 'btn outline big', type: 'button', onclick: () => booking(root) }, '點擊查詢更多'),
       h('p', { class: 'igline' }, h('span', null, '玩得開心？'), h('span', null, '記得喺 IG follow 我，第一時間玩到新版本！'),

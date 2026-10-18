@@ -573,3 +573,7 @@ a { color: var(--teal); }
 .est { display: grid; grid-template-columns: repeat(5, 1fr); gap: 4px; margin-top: 4px; }
 .est span { font-size: 11px; text-align: center; color: var(--muted); line-height: 1.3; }
 .est span.on { color: var(--accent); font-weight: 700; }
+.hints { text-align: left; background: #fff8e6; border: 1px dashed #e0ac2b; border-radius: 14px; padding: 10px 14px; animation: secretin .6s .6s both; }
+.hints b { font-size: 14px; color: #a2741a; }
+.hints ul { margin: 6px 0 0; padding-left: 18px; display: grid; gap: 4px; }
+.hints li { font-size: 13px; line-height: 1.5; }
