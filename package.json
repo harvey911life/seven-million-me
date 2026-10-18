@@ -1,0 +1,16 @@
+{
+  "name": "seven-million-me",
+  "private": true,
+  "version": "0.1.0",
+  "type": "module",
+  "scripts": {
+    "dev": "vite",
+    "build": "tsc --noEmit && vite build && python3 scripts/package.py",
+    "sim": "esbuild scripts/sim.ts --bundle --platform=node --format=esm --outfile=.sim/sim.mjs --log-level=warning && node .sim/sim.mjs"
+  },
+  "devDependencies": {
+    "typescript": "5.6.3",
+    "vite": "5.4.10",
+    "vite-plugin-singlefile": "2.0.3"
+  }
+}

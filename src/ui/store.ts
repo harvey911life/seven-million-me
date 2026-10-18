@@ -1,0 +1,30 @@
+// 本地儲存：設定、局數、本機排行榜、累積成就（讀唔到就當冇）
+export interface Settings { speed: 1 | 2 | 4 | 8; autoPick: boolean; period: string }
+export interface BoardRow { nick: string; score: number; age: number; born: number; place: string; date: string }
+
+const K = { settings: '7m:settings', runs: '7m:runs', board: '7m:board', ach: '7m:ach' };
+
+function read<T>(key: string, fallback: T): T {
+  try {
+    const raw = localStorage.getItem(key);
+    return raw ? (JSON.parse(raw) as T) : fallback;
+  } catch { return fallback; }
+}
+function write(key: string, v: unknown) {
+  try { localStorage.setItem(key, JSON.stringify(v)); } catch { /* 忽略 */ }
+}
+
+export const store = {
+  settings(): Settings { return { speed: 1, autoPick: false, period: '隨機時段', ...read<Partial<Settings>>(K.settings, {}) }; },
+  saveSettings(s: Settings) { write(K.settings, s); },
+  runs(): number { return read<number>(K.runs, 0); },
+  addRun() { write(K.runs, this.runs() + 1); },
+  board(): BoardRow[] { return read<BoardRow[]>(K.board, []); },
+  addBoard(r: BoardRow): number {
+    const b = this.board().concat(r).sort((a, z) => z.score - a.score).slice(0, 30);
+    write(K.board, b);
+    return b.indexOf(r);
+  },
+  achs(): string[] { return read<string[]>(K.ach, []); },
+  addAchs(ids: string[]) { write(K.ach, Array.from(new Set(this.achs().concat(ids)))); },
+};
