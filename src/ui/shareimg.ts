@@ -94,6 +94,11 @@ export function makeShareImage(d: ShareImgInput): HTMLCanvasElement {
 }
 
 /** 分享：手機用系統分享（連圖），唔得就彈出圖片俾人長按儲存或者下載 */
+// 喺 claude.ai 入面，下載要經 downloads 能力（會問viewer確認）；獨立 HTML 檔就用普通下載連結
+type Dl = { save: (r: { filename: string; data: Blob }) => Promise<unknown> } | null;
+const cw = (window as unknown as { claude?: { use: (n: string) => Promise<unknown> } }).claude;
+const dlReady: Promise<Dl> = cw ? cw.use('downloads').then((d) => d as Dl).catch(() => null) : Promise.resolve(null);
+
 export async function shareImage(cv: HTMLCanvasElement, text: string, host: HTMLElement): Promise<string> {
   const blob: Blob | null = await new Promise((res) => cv.toBlob(res, 'image/png'));
   if (!blob) return '整唔到圖片，可以直接截圖。';
@@ -112,7 +117,19 @@ export async function shareImage(cv: HTMLCanvasElement, text: string, host: HTML
   const x = document.createElement('button'); x.className = 'mx'; x.type = 'button'; x.textContent = '✕'; x.setAttribute('aria-label', '關閉'); x.onclick = close;
   const img = document.createElement('img'); img.src = url; img.alt = '人生分享卡';
   const p = document.createElement('p'); p.className = 'muted'; p.textContent = '手機長按圖片就可以儲存；電腦可以撳下面下載。';
-  const a = document.createElement('a'); a.className = 'btn'; a.href = url; a.download = 'seven-million-me.png'; a.textContent = '下載圖片';
+  const dl = await Promise.race([dlReady, new Promise<Dl>((r) => setTimeout(() => r(null), 1500))]);
+  let a: HTMLElement;
+  if (dl) {
+    a = document.createElement('button'); a.className = 'btn'; (a as HTMLButtonElement).type = 'button'; a.textContent = '下載圖片';
+    a.onclick = async () => {
+      try { await dl.save({ filename: 'seven-million-me.png', data: blob }); p.textContent = '已經儲存。'; }
+      catch (err) { const c = (err as { code?: string }).code; p.textContent = c === 'declined' ? '你取消咗下載。' : '呢度下載唔到，可以長按圖片儲存或者截圖。'; }
+    };
+  } else if (cw) {
+    a = document.createElement('span'); p.textContent = '手機長按圖片就可以儲存，或者直接截圖。';
+  } else {
+    const l = document.createElement('a'); l.className = 'btn'; l.href = url; l.download = 'seven-million-me.png'; l.textContent = '下載圖片'; a = l;
+  }
   box.append(x, img, p, a);
   wrap.append(box);
   wrap.addEventListener('click', (ev) => { if (ev.target === wrap) close(); });
