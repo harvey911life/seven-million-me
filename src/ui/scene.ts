@@ -179,16 +179,16 @@ const SPR: Record<string, string[]> = {
 interface Pal { h: string; s: string; t: string; b: string; k: string; m: string }
 const BASE: Record<string, string> = { e: '#2a1e1a', w: '#ffffff' };
 
-function drawSprite(c: Ctx, rows: string[], x: number, feet: number, pal: Pal, bob = 0) {
-  const top = feet - rows.length - bob;
-  const left = Math.round(x - rows[0].length / 2);
+function drawSprite(c: Ctx, rows: string[], x: number, feet: number, pal: Pal, bob = 0, k = 1) {
+  const top = feet - rows.length * k - bob;
+  const left = Math.round(x - (rows[0].length * k) / 2);
   const map = pal as unknown as Record<string, string>;
   rows.forEach((row, j) => {
     for (let i = 0; i < row.length; i++) {
       const ch = row[i];
       if (ch === '.') continue;
       const col = map[ch] ?? BASE[ch];
-      if (col) R(c, left + i, top + j, 1, 1, col);
+      if (col) R(c, left + i * k, top + j * k, k, k, col);
     }
   });
 }
@@ -237,10 +237,20 @@ const PET_SPR: Record<'cat' | 'dog', string[]> = {
   dog: ['kk......', 'kaa.....', 'aeaa...k', 'aaaaaaak', '.aaaaaa.', '.a.a.aa.', '.a.a..a.'],
 };
 const PET_COL = ['#f0a04b', '#8a6a4a', '#d9d4c7', '#444a52'];
-function pet(c: Ctx, x: number, kind: 'cat' | 'dog', i: number, t: number) {
-  const col = PET_COL[(hash(i * 31 + (kind === 'cat' ? 1 : 7)) >> 3) % PET_COL.length];
+function pet(c: Ctx, x: number, kind: 'cat' | 'dog', i: number, t: number, giant = false, talk = false) {
+  const col = giant ? '#f0a04b' : PET_COL[(hash(i * 31 + (kind === 'cat' ? 1 : 7)) >> 3) % PET_COL.length];
   const bob = ((t + i * 3) >> 3) % 2;
-  drawSprite(c, PET_SPR[kind], x, GROUND, { h: col, s: col, t: col, b: col, k: '#2a2a33', m: col, a: col } as unknown as Pal, bob);
+  const k = giant ? 5 : 1;
+  // 彩蛋：超巨型貓企喺最右邊，大過成棟樓
+  const px = giant ? SW - 19 : x;
+  drawSprite(c, PET_SPR[kind], px, GROUND, { h: col, s: col, t: col, b: col, k: '#2a2a33', m: col, a: col } as unknown as Pal, giant ? 0 : bob, k);
+  if (talk && (t >> 4) % 3 !== 2) {
+    // 對話氣泡：白色框 + 三點
+    const bx = px - 2, by = GROUND - 6 * k - 9 - (giant ? 0 : bob);
+    R(c, bx, by, 11, 6, '#2a2a33'); R(c, bx + 1, by + 1, 9, 4, '#ffffff'); R(c, bx + 1, by + 6, 2, 2, '#2a2a33'); R(c, bx + 2, by + 6, 1, 1, '#ffffff');
+    const dots = ((t >> 2) % 3) + 1;
+    for (let d = 0; d < dots; d++) R(c, bx + 3 + d * 2, by + 3, 1, 1, '#2a2a33');
+  }
 }
 
 // ---------- 背景 ----------
@@ -347,7 +357,7 @@ function people(c: Ctx, s: State, t: number) {
   }
   person(c, meX, { sex: s.gender, age: s.age, role: 'me', status: s.status, level: s.job?.level }, t, 0, s.age >= 65 && s.H < 30);
   // 寵物排喺右邊
-  (s.pets ?? []).slice(0, 4).forEach((pt, i) => pet(c, 127 + i * 9, pt.kind, i, t));
+  (s.pets ?? []).slice(0, 4).forEach((pt, i) => pet(c, 127 + i * 9, pt.kind, i, t, !!pt.giant, !!pt.talk));
 }
 
 /** 頭像（結局用） */

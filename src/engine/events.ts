@@ -224,7 +224,7 @@ function jackpotCard(g: Game): Card {
   const r = streamRng(s.seed, 'jackpot', s.age);
   const prize = Math.round(r.uni(8_000_000, 30_000_000) * Math.max(0.3, g.P));
   g.s.lotteryWon += prize;
-  return mkCard('C-AN-06', '中咗六星彩頭獎！', `你張彩票 6 個號碼全中，獎金 ${fmtMoney(prize)}！（機率約 1 / 13,983,816）`, [
+  return mkCard('C-AN-06', '中咗六星彩頭獎！', `你張彩票 6 個號碼全中，獎金 ${fmtMoney(prize)}！（遊戲內機率約 1 / 1,398,382，已經比現實高 10 倍）`, [
     { label: '全部使', fx: { J: 10 } },
     { label: '一半投資', fx: { J: 8 } },
     { label: '全部投資', fx: { J: 6 } },
@@ -826,7 +826,7 @@ const TIANMA: Tianma[] = [
     tick: () => '', // 由 Game.rewind 處理（還原到 10 年前）
   },
   { id: 'TM-GOLD', ach: 'gold_rush', name: '淘金熱', ok: (g) => g.s.age >= 5, tick: (g) => { g.add('J', 5); g.spend(g.p(500), '買鏟'); return '香港發現海底金礦！全港市民去海灘掘金，你最後只掘到蜆。'; } },
-  { id: 'TM-CAT', ach: 'cat_boss', name: '貓老闆', ok: () => true, tick: (g) => { g.add('K', 3); g.add('J', 5); if (!g.s.pets.some((p) => p.kind === 'cat')) g.s.pets.push({ kind: 'cat', name: '貓老闆', age: 3, since: g.s.age }); return '屋企隻貓突然識講嘢，佢教你：「唔好追高殺低。」'; } },
+  { id: 'TM-CAT', ach: 'cat_boss', name: '貓老闆', ok: () => true, tick: (g) => { g.add('K', 3); g.add('J', 5); if (!g.s.pets.some((p) => p.kind === 'cat')) g.s.pets.push({ kind: 'cat', name: '貓老闆', age: 3, since: g.s.age, talk: true }); return '屋企隻貓突然識講嘢，佢教你：「唔好追高殺低。」'; } },
   { id: 'TM-METEOR', ach: 'meteor', name: '天降橫財', ok: () => true, tick: (g) => { g.add('R', 8); g.add('J', 3); return '一粒隕石落喺你屋苑平台，變咗地標，成個屋苑都識你。'; } },
   { id: 'TM-DUCK', ach: 'duck_effect', name: '鴨鴨效應', ok: () => true, tick: (g) => { g.add('J', 5); g.add('R', 2); return '維港出現巨型充氣鴨仔群，全港打卡熱潮！'; } },
   { id: 'TM-BLACKOUT', ach: 'blackout', name: '黑暗一星期', ok: () => true, tick: (g) => { const m = (g.s.cash + g.s.deposit) / Math.max(1, Number(g.s.flags['lastNeed'] ?? 1) / 12); if (m < 1 && g.s.age >= 18) g.add('J', -5); return m >= 3 ? '全港停電一星期，你有備用金，淡定應對。' : '全港停電一星期，你手頭緊，過得好狼狽。'; } },

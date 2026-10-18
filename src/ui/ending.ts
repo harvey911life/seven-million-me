@@ -1,5 +1,6 @@
 // 結局畫面（第 12 章，v0.1 精簡版）：離世 → 身後 → 退休 → 蜘蛛網 → 計分 → 賺錢 → 上榜 → 成就 → 最後一頁
 import type { Game } from '../engine/game';
+import type { LogEntry } from '../engine/state';
 import { computeEnding, endAchievements, spiderLine, lifeGrade, bestEarnYear, GRADE_CUTS, type Ending, type Spider } from '../engine/ending';
 import { aguiEnding } from '../engine/agui';
 import { simulateParallel } from '../engine/parallel';
@@ -29,6 +30,55 @@ function moments(g: Game): string[] {
   if (pool.length <= 3) pick.push(...pool);
   else for (let i = 0; i < 3; i++) pick.push(pool[Math.round((i * (pool.length - 1)) / 2)]);
   return pick.sort((a, b) => a.age - b.age).map((l) => `${l.age} 歲：${l.text.split('：')[0]}${l.text.includes('「') ? ' ' + (l.text.match(/「[^」]*」/)?.[0] ?? '') : ''}`);
+}
+
+// v1.1：死亡頁下面嘅人生回顧，按人生階段列出重要抉擇同事件
+const STAGES: [string, number, number][] = [['童年', 0, 11], ['少年', 12, 17], ['青年', 18, 29], ['壯年', 30, 44], ['中年', 45, 64], ['晚年', 65, 200]];
+function reviewLine(l: LogEntry): string {
+  const m = l.text.match(/^([^：「]{1,24})：(「[^」]*」)\s*(.*)$/);
+  if (m) {
+    const rest = m[3].replace(/（[^）]*）/g, '').split(/[。！]/)[0];
+    return `${m[1]}，揀咗${m[2]}${rest && rest.length <= 26 ? `，${rest}` : ''}`;
+  }
+  const t = l.text.replace(/（[^）]*）/g, '').split(/[。！]/)[0];
+  return t.length > 34 ? `${t.slice(0, 33)}…` : t;
+}
+function lifeReview(g: Game): { name: string; span: string; items: string[] }[] {
+  const s = g.s;
+  const pool = s.log.filter((l) => l.big || KEY_WORDS.some((w) => l.text.includes(w)) || l.cat === '天馬行空');
+  const out: { name: string; span: string; items: string[] }[] = [];
+  for (const [name, a, b] of STAGES) {
+    if (s.age < a) break;
+    // 同一類抉擇（例如每 5 年問一次嘅遺囑）只列第一次
+    const seen = new Set<string>();
+    const inStage = pool.filter((l) => {
+      if (l.age < a || l.age > b || /^自動揀/.test(l.text)) return false;
+      const t = l.text.split('：')[0].replace(/\d+/g, '');
+      if (seen.has(t)) return false;
+      seen.add(t); return true;
+    });
+    if (!inStage.length) continue;
+    const KEY_CAT = ['天馬行空', '悲劇', '健康', '財務衝擊'];
+    const key = inStage.filter((l) => KEY_WORDS.some((w) => l.text.includes(w)) || KEY_CAT.includes(l.cat ?? ''));
+    const rest = inStage.filter((l) => !key.includes(l));
+    const max = 5;
+    let pick = key.slice(0, max);
+    if (pick.length < max && rest.length) {
+      const need = max - pick.length;
+      const step = rest.length / need;
+      for (let i = 0; i < need && i * step < rest.length; i++) pick.push(rest[Math.floor(i * step)]);
+    }
+    pick = Array.from(new Set(pick)).sort((x, y) => x.age - y.age || s.log.indexOf(x) - s.log.indexOf(y));
+    out.push({ name, span: `${a}–${Math.min(b, s.age)} 歲`, items: pick.map((l) => `${l.age} 歲　${reviewLine(l)}`) });
+  }
+  return out;
+}
+function reviewBox(g: Game): HTMLElement | null {
+  const st = lifeReview(g);
+  if (!st.length) return null;
+  return h('section', { class: 'review' }, h('h3', null, '人生回顧'),
+    st.map((x) => h('div', { class: 'rv-stage' }, h('div', { class: 'rv-h' }, h('b', null, x.name), h('span', null, x.span)),
+      h('ul', null, x.items.map((t) => h('li', null, t))))));
 }
 
 function spiderCanvas(me: Spider, ag: Spider, forceDpr?: number): HTMLCanvasElement {
@@ -105,7 +155,8 @@ export function showEnding(root: HTMLElement, g: Game, period: string | null, on
         h('p', { class: 'years' }, `${s.birthYear}–${s.year}，${s.age} 歲`),
         h('p', { class: 'cause' }, line),
         h('p', { class: 'muted' }, apoc === 'alien' ? '如果世界冇完，你嘅人生本來會走到哪裡？' : '全世界都一齊完結，冇人需要為你善後。'),
-        h('ul', { class: 'moments' }, moments(g).map((m) => h('li', null, m))));
+        h('ul', { class: 'moments' }, moments(g).map((m) => h('li', null, m))),
+        reviewBox(g));
     }
     const pc = h('canvas', { class: 'portrait', width: 24, height: 24 });
     drawPortrait(pc.getContext('2d')!, s);
@@ -113,7 +164,8 @@ export function showEnding(root: HTMLElement, g: Game, period: string | null, on
       h('h2', null, `${s.name}`),
       h('p', { class: 'years' }, bankrupt ? `${s.birthYear}–${s.year}，${s.age} 歲破產` : `${s.birthYear}–${s.year}，享年 ${s.age} 歲`),
       h('p', { class: 'cause' }, bankrupt ? '破產結算：負債太多，人生遊戲提早結束，理財分數計 0 分。' : s.deathCause ?? '離世'),
-      h('ul', { class: 'moments' }, moments(g).map((m) => h('li', null, m))));
+      h('ul', { class: 'moments' }, moments(g).map((m) => h('li', null, m))),
+      reviewBox(g));
   });
   if (!bankrupt && !apoc) P('after', () => {
     const f = e.fpi;

@@ -7,7 +7,7 @@ import { ACHIEVEMENTS } from './engine/achievements';
 import { h, clear } from './ui/dom';
 import { drawTitle, drawScene, SW, SH } from './ui/scene';
 import { store, type Settings } from './ui/store';
-import { playGame } from './ui/play';
+import { playGame, estMinutes } from './ui/play';
 import { simulateParallel } from './engine/parallel';
 import { showEnding, boardTable, booking, placeOf, achGrid } from './ui/ending';
 
@@ -45,7 +45,7 @@ function title() {
   clear(root).append(h('div', { class: 'screen title' },
     cv,
     h('div', { class: 'title-box' },
-      h('p', { class: 'ver' }, 'v1.0 試玩版 · 香港人Soci Game'),
+      h('p', { class: 'ver' }, 'v1.1 試玩版 · 香港人Soci Game'),
       h('h1', { class: 'logo' }, '七百萬', h('br'), '分之', h('em', null, '我')),
       h('p', { class: 'tagline' }, '香港七百幾萬人，你係其中一個。喺邊區出世、做邊個嘅仔女，都揀唔到；之後點過，就睇你點揀。'),
       h('div', { class: 'counts' },
@@ -112,10 +112,13 @@ function disclaimer() {
 function setup() {
   fab(true);
   const second = store.runs() >= 1;
-  const speedSeg = h('div', { class: 'seg' }, ([1, 2, 4, 8, 16] as const).map((v) => h('button', {
+  const SPEEDS = [1, 2, 4, 8, 16] as const;
+  const estRow = h('div', { class: 'est' }, SPEEDS.map((v) => h('span', { class: settings.speed === v ? 'on' : '' }, `約 ${estMinutes(v)} 分鐘`)));
+  const speedSeg = h('div', { class: 'seg' }, SPEEDS.map((v, i) => h('button', {
     type: 'button', class: settings.speed === v ? 'on' : '', onclick: (e: Event) => {
       settings.speed = v;
       (e.currentTarget as HTMLElement).parentElement!.querySelectorAll('button').forEach((b) => b.classList.toggle('on', b.textContent === `${v}×`));
+      estRow.querySelectorAll('span').forEach((x, j) => x.classList.toggle('on', j === i));
     },
   }, `${v}×`)));
   const autoBox = h('input', { type: 'checkbox', id: 'autopick', checked: settings.autoPick });
@@ -137,8 +140,8 @@ function setup() {
   clear(root).append(h('div', { class: 'screen center-card' }, h('div', { class: 'paper' },
     h('div', { class: 'setup-head' }, h('h2', null, '投胎設定'), next),
     h('p', { class: 'muted' }, '名字會喺出世嗰刻隨機抽，屋企人改嘅，你揀唔到。'),
-    h('h4', null, '速度'), speedSeg,
-    h('p', { class: 'muted small' }, '1× 大約 40 秒一年，等候期間可以調整投資同強積金，亦可以撳「下一年」直接跳。遊戲中隨時可以改速度。'),
+    h('h4', null, '速度'), speedSeg, estRow,
+    h('p', { class: 'muted small' }, '上面係玩完一局大約要幾耐（包括揀選項同答題時間）。1× 大約 40 秒一年，等候期間可以調整投資同強積金，亦可以撳「下一年」直接跳。遊戲中隨時可以改速度。'),
     second ? [
       h('h4', null, '出生時段'), periodSel,
       h('label', { class: 'check' }, autoBox, h('span', null, '自動揀：系統幫你揀人生抉擇。')),

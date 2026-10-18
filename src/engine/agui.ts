@@ -34,6 +34,23 @@ export function aguiYear(g: Game) {
   s.panel = s.age >= 40 ? ['checkup', 'dinner'] : s.age >= 18 ? ['dinner'] : [];
 }
 
+/** v1.1 自動揀：幫玩家設定理財（資產分配、投資比例、備用金、強積金）同最少一項消遣；玩家自己改過嘅就唔郁 */
+export function autoPlan(g: Game) {
+  const s = g.s;
+  if (s.age >= 18 && (s.status === 'work' || s.status === 'biz') && s.investRatio === 0 && !s.flags['autoPlanned']) {
+    g.flag('autoPlanned');
+    s.investRatio = s.age < 45 ? 0.15 : 0.1;
+    s.alloc = s.age < 35 ? { deposit: 10, plan: 0, index: 70, stock: 20, crypto: 0 } : s.age < 55 ? { deposit: 30, plan: 0, index: 60, stock: 10, crypto: 0 } : { deposit: 60, plan: 0, index: 40, stock: 0, crypto: 0 };
+    s.emergTarget = 6;
+    g.tick(`自動揀：每月人工 ${Math.round(s.investRatio * 100)}% 做投資，留 6 個月備用金。`);
+  }
+  if (s.age >= 18 && !s.flags['mpfManual']) s.mpfFund = s.age < 45 ? '增長' : s.age < 60 ? '均衡' : '保守';
+  if (s.age >= 15 && !s.panel.length) {
+    const want = s.age >= 18 && s.cash + s.deposit > 60000 * g.P ? ['dinner', 'travel'] : ['dinner'];
+    s.panel = want;
+  }
+}
+
 /** 自動揀模式嘅焦點（5.12.4 簡化） */
 export function autoFocus(g: Game) {
   const s = g.s;
@@ -57,6 +74,7 @@ export function playHeadless(seed: number, period: string | null, mode: Policy, 
     if (mode === 'agui') aguiYear(g);
     const st = g.startYear();
     if (mode !== 'agui' && (st.needFocus || !g.s.focus)) autoFocus(g);
+    if (mode === 'auto') autoPlan(g);
     if (mode === 'agui') aguiYear(g);
     let guard = 0;
     while (g.queue.length && guard++ < 40) {

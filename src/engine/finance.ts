@@ -1,7 +1,7 @@
 // 第 8 章財務系統 + 第 4 章 4.8 財務健康
 import { rentalYear, rentalsEquity } from './rental';
 import type { Game } from './game';
-import type { InsKind, State } from './state';
+import type { InsKind, Pet, State } from './state';
 import { clamp, interp, fmtMoney } from './util';
 import { streamRng } from './rng';
 
@@ -203,12 +203,19 @@ export function adoptPet(g: Game, kind: 'cat' | 'dog'): string {
   const r = streamRng(s.seed, 'pet', s.age * 10 + s.pets.length);
   const left = info.names.filter((n) => !used.includes(n));
   const name = left.length ? r.pick(left) : `${info.name}${s.pets.length + 1}號`;
-  s.pets.push({ kind, name, age: kind === 'cat' ? 1 : 1, since: s.age });
+  const pt: Pet = { kind, name, age: 1, since: s.age };
+  // v1.1 彩蛋：養貓各有約 3% 機會，過一兩年之後變超巨型 / 開口講嘢
+  if (kind === 'cat') {
+    if (r() < 0.03) pt.giantAt = s.age + r.int(1, 3);
+    if (r() < 0.03) pt.talkAt = s.age + r.int(1, 3);
+  }
+  s.pets.push(pt);
   const t = payCost(g, g.p(info.once));
   g.add('J', 3);
   g.log(`領養咗一隻${info.name}，叫「${name}」。`, '生活日常', true);
   return `你領養咗一隻${info.name}，叫「${name}」。一次過開支約 ${fmtMoney(g.p(info.once))}${t}，之後每年約 ${fmtMoney(g.p(info.year))}。`;
 }
+const CAT_TALK = ['唔好追高殺低，學我咁瞓多啲就得。', '備用金留六個月，我啲罐罐留一年。', '你今個月又碌咗幾多張卡？', '樓價升定跌，我都係瞓喺你個鍵盤度。', '買保險要趁後生，好似我買貓糧要趁減價。', '六星彩？不如買多兩包貓砂。', '你老細今日又鬧你？過嚟摸吓我啦。', '複息係世界第八大奇蹟，第九係我。'];
 /** 寵物每年：老一歲，有機會離開 */
 export function petsYear(g: Game) {
   const s = g.s;
@@ -216,6 +223,14 @@ export function petsYear(g: Game) {
   const r = streamRng(s.seed, 'petyear', s.age);
   for (const p of [...s.pets]) {
     p.age++;
+    if (p.giantAt !== undefined && s.age >= p.giantAt && !p.giant) {
+      p.giant = true; g.add('J', 5); g.ach('giant_cat');
+      g.log(`你隻貓「${p.name}」一夜之間變到超級巨型，大過張梳化！獸醫話佢好健康，只係……好大隻。`, '天馬行空', true);
+    }
+    if (p.talkAt !== undefined && s.age >= p.talkAt && !p.talk) {
+      p.talk = true; g.add('J', 5); g.ach('talking_cat');
+      g.log(`你隻貓「${p.name}」突然開口：「喂，罐罐唔夠喇。」你成個人呆咗。`, '天馬行空', true);
+    } else if (p.talk) g.tick(`「${p.name}」話：「${r.pick(CAT_TALK)}」`);
     const [a, b] = PET_INFO[p.kind].life;
     const die = p.age < a ? 0.01 : p.age >= b ? 0.6 : 0.08 + (0.4 * (p.age - a)) / (b - a);
     if (r() < die) {
@@ -679,11 +694,11 @@ function lotteryYear(g: Game): number {
   const r = streamRng(s.seed, 'lottery', s.age);
   // 逐級抽中獎注數（二項近似）
   const draw = (p: number) => { let c = 0; const lam = n * p; let L = Math.exp(-lam), k = 0, q = 1; do { k++; q *= r(); } while (q > L); c = k - 1; return c; };
-  const wins = [draw(1 / 61), draw(1 / 812), draw(1 / 1083), draw(1 / 22197), draw(1 / 55491), draw(1 / 2330636)];
+  const wins = [draw(1 / 61), draw(1 / 812), draw(1 / 1083), draw(1 / 22197), draw(1 / 55491), draw(10 / 2330636)]; // v1.1：二獎機率 ×10（用家要求，遊戲調整，唔係真實機率）
   let prize = wins[0] * 40 * mult + wins[1] * 320 * mult + wins[2] * 640 * mult + wins[3] * 9600 * mult;
   prize += wins[4] * r.uni(40000, 120000) * (s.year < 2010 ? 0.6 : 1) * Math.max(1, g.P);
   prize += wins[5] * r.uni(600000, 2500000) * (s.year < 2010 ? 0.6 : 1) * Math.max(1, g.P);
-  const jackpot = r() < 1 - Math.pow(1 - 1 / 13983816, n);
+  const jackpot = r() < 1 - Math.pow(1 - 10 / 13983816, n); // v1.1：頭獎機率 ×10
   if (jackpot) g.flag('jackpotYear', s.year);
   s.lotteryWon += prize;
   s.cash += prize;

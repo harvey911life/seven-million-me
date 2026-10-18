@@ -30,7 +30,7 @@ export interface JobState {
   firstType?: 'hard' | 'promo' | 'ontime'; firstYears: number; hopCool: number; promoBoost: number; promoBoostYears: number;
 }
 
-export interface Pet { kind: 'cat' | 'dog'; name: string; age: number; since: number }
+export interface Pet { kind: 'cat' | 'dog'; name: string; age: number; since: number; giant?: boolean; talk?: boolean; giantAt?: number; talkAt?: number }
 export interface Budget { income: number; expense: number; cf: number; mpfEE: number; items: [string, number][] }
 export interface LogEntry { age: number; year: number; text: string; cat?: Cat; star?: boolean; big?: boolean }
 export interface HistRow { age: number; year: number; H: number; J: number; K: number; R: number; F: number; net: number; income: number; P: number }
@@ -44,7 +44,7 @@ export interface State {
   fParts: { E: number; T: number; P: number; D: number; L: number; m: number; r: number; gap: number; untilAge: number };
   FL: number; IP: number; CP: number; GP: number; GR: number; HB: number;
   focus: string | null; focusStage: string; focusYears: Record<string, number>;
-  panel: string[]; panelStreak: Record<string, number>; panelCool: Record<string, number>; travelPick: '本地遊' | '日本'; givePick: '捐款' | '義工';
+  panel: string[]; panelStreak: Record<string, number>; panelCool: Record<string, number>; travelPick: '本地遊' | '日本' | '歐洲'; givePick: '捐款' | '義工';
 
   // 教育
   edu: Edu; major?: Major; track?: Track; overseas: boolean; stream?: '理科' | '商科' | '文科'; band?: number;

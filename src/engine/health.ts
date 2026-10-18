@@ -400,6 +400,8 @@ export function deathCheck(g: Game): boolean {
     if (d.kind === 'heart' && s.focus === '強身健體') dd *= 0.8;
     if (dd > 0) comps.push([{ cancer: '病逝（癌症）', stroke: '病逝（中風）', heart: '心臟病離世', kidney: '病逝（腎衰竭）', threeHigh: '病逝', dementia: '病逝' }[d.kind], dd]);
   }
+  // v1.1：幼年因病離世（白血病、先天心臟病、嚴重感染等），連原有病逝合共約 1%
+  if (a <= 12) comps.push(['病逝（兒童重病）', a <= 4 ? 0.001 : 0.0004]);
   if (s.flags['accFatal'] === s.year) comps.push(['意外離世', 1]);
   if (s.flags['fatalMinor']) { comps.push(['急病離世', 0.5]); delete s.flags['fatalMinor']; }
   if (s.H <= 0) comps.push(['急病離世', 0.4]); else if (s.H <= 5) comps.push(['急病離世', 0.1]);

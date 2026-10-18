@@ -74,7 +74,8 @@ const B = (g: Game) => Math.max(g.income(), 0.6 * Number(g.s.flags['lastNeed'] ?
 export const PANEL: PanelDef[] = [
   { id: 'checkup', name: '全身身體檢查', minAge: 18, cost: (g) => (g.s.age >= 50 ? 6000 : 4000) * g.P, desc: '健康 +1；之後 2 年早期發現重病' },
   { id: 'dinner', name: '同家人朋友食飯', minAge: 15, teen: true, cost: (g) => clamp(B(g) * 0.02, 3000 * g.P, 20000 * g.P) * (g.s.age < 18 ? 0.2 : 1), desc: '人際 +2、快樂 +1' },
-  { id: 'travel', name: '本地遊 / 去日本', minAge: 15, teen: true, cost: (g) => (g.s.travelPick === '日本' ? 12000 * (1 + 0.8 * (g.householdSize() - 1)) : 3000) * g.P, desc: '本地遊快樂 +2；日本快樂 +4' },
+  // v1.1 加歐洲：機票約 $8,000、10 日住宿食用交通約 $20,000，每人約 $28,000
+  { id: 'travel', name: '本地遊 / 日本 / 歐洲', minAge: 15, teen: true, cost: (g) => (g.s.travelPick === '歐洲' ? 28000 * (1 + 0.8 * (g.householdSize() - 1)) : g.s.travelPick === '日本' ? 12000 * (1 + 0.8 * (g.householdSize() - 1)) : 3000) * g.P, desc: '本地遊快樂 +2；日本 +4；歐洲 +6、知識 +1' },
   { id: 'course', name: '報興趣班 / 進修', minAge: 18, cost: (g) => clamp(B(g) * 0.05, 8000 * g.P, 40000 * g.P), desc: '知識 +2；轉行點 +1' },
   { id: 'jobhunt', name: '搵轉工機會', minAge: 18, cost: (g) => 1000 * g.P, desc: '下一年跳槽機會 ×2.5' },
   { id: 'give', name: '捐款 / 做義工', minAge: 15, teen: true, cost: (g) => (g.s.givePick === '捐款' ? Math.max(1000 * g.P, B(g) * 0.02) : 0), desc: '回饋社會 +2、快樂 +1' },
@@ -104,7 +105,13 @@ export function panelEffects(g: Game) {
     switch (id) {
       case 'checkup': g.add('H', half('H', 1) * dim); s.checkupUntil = s.age + 2; s.panelCool[id] = s.age < 50 ? s.age + 2 : 0; break;
       case 'dinner': g.add('R', half('R', 2) * dim + (s.support ? 0.5 : 0), '同屋企人食飯'); g.add('J', half('J', 1) * dim); break;
-      case 'travel': g.add('J', half('J', s.travelPick === '日本' ? 4 : 2) * dim, s.travelPick === '日本' ? '去日本旅行' : '本地遊'); if (s.travelPick === '日本' && g.householdSize() > 1) g.add('R', 1 * dim); g.flag('travelled', s.year); break;
+      case 'travel': {
+        const tp = s.travelPick;
+        g.add('J', half('J', tp === '歐洲' ? 6 : tp === '日本' ? 4 : 2) * dim, tp === '歐洲' ? '去歐洲旅行' : tp === '日本' ? '去日本旅行' : '本地遊');
+        if (tp === '歐洲') g.add('K', half('K', 1) * dim);
+        if (tp !== '本地遊' && g.householdSize() > 1) g.add('R', 1 * dim);
+        g.flag('travelled', s.year); break;
+      }
       case 'course': g.add('K', half('K', 2) * dim, '進修'); s.CP = Math.min(5, s.CP + 1); break;
       case 'jobhunt': g.add('J', -1); g.flag('jobhunt', s.year); break;
       case 'give': s.GP += 2; g.add('J', 1 * dim); if (s.givePick === '義工') g.add('R', (s.focus === '事業衝刺' ? 0.5 : 1) * dim); break;

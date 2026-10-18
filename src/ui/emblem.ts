@@ -75,6 +75,9 @@ const G: Record<string, string[]> = {
   alien: ['...kkkkk...', '..kaaaaak..', '.kaaaaaaak.', 'kaaaaaaaaak', 'kakkaaakkak', 'kakwaaakwak', 'kaaaaaaaaak', '.kaaakaaak.', '..kaaaaak..', '...kkkkk...'],
   zombie: ['..k.k.k....', '.kakakak...', '.kakakak.k.', '.kaaaaakak.', '.kaaaaaaak.', '..kaaaaak..', '...kaaak...', '...kaaak...', 'nnnkaaaknnn', 'nnnnnnnnnnn'],
   rewind: ['.....k....k', '....kk...kk', '...kak..kak', '..kaak.kaak', '.kaaakkaaak', '..kaak.kaak', '...kak..kak', '....kk...kk', '.....k....k'],
+  hat: ['............', '....kkkk....', '...kaaaak...', '...kaaaak...', '...kaaaak...', '...kbbbbk...', 'kkkkkkkkkkkk', 'kaaaaaaaaaak', '.kkkkkkkkkk.'],
+  catbig: ['k........k..', 'kak....kak..', 'kaakkkkaak..', 'kaaaaaaaak..', 'kawkaaakwk..', 'kaaaapaaak.k', 'kaaaaaaaak.k', 'kaaaaaaaaakk', 'kaaaaaaaaak.', 'kkkkkkkkkk..'],
+  catsay: ['......kkkkk.', '.....kwwwwwk', '.....kwdwdwk', '.k...kkwkkk.', 'kak.kak.k...', 'kaakkaak....', 'kaaaaaak....', 'kwkaakwk....', 'kaapaaak....', '.kkkkkk.....'],
   rainbow: ['...rrrrrr...', '..rooooooor.', '.royyyyyyor.', 'roygggggyor.', 'roygw..wgyor', 'royg....gyor', 'roy......yor'],
 };
 
@@ -97,6 +100,7 @@ const MAP: Record<string, [string, string]> = {
   cat_boss: ['cat', '#f08a3c'], lion_rock_astronaut: ['helmet', '#ffffff'], meteor: ['meteor', '#f08a3c'], will_matters: ['scroll', '#ffffff'], lookalike: ['camera', '#2f3b52'],
   first_love: ['letter', '#d6455d'], married: ['ring', '#f2c14e'], parent: ['pram', '#5aa9e6'], twins: ['twins', '#f29bb5'], grandparent: ['cane', '#9b6a43'],
   public_housing: ['tower', '#e07b39'], will: ['quill', '#2f3b52'],
+  green_hat: ['hat', '#4caf6d'], giant_cat: ['catbig', '#f08a3c'], talking_cat: ['catsay', '#d9d4c7'],
   earth_defense: ['alien', '#4caf6d'], zombie_survivor: ['zombie', '#8fbf6a'], redo_10y: ['rewind', '#8e4fd6'],
   treasure: ['chest', '#9b6a43'], duck_effect: ['duck', '#f2c14e'], blackout: ['candle', '#ffffff'], robot_gift: ['robot', '#7d8696'], rooftop_ufo: ['ufo', '#7d8696'], mars_scam: ['planet', '#d6455d'],
 };
@@ -189,8 +193,13 @@ export function achToast(id: string, ms = 3800) {
       const ang = (i / n) * 360 + (i % 3) * 9, dist = 46 + (i % 4) * 14;
       return h('i', { style: `--a:${ang}deg;--d:${dist}px;background:${cols[i % cols.length]};animation-delay:${(i % 5) * 0.02}s` });
     }));
-  const el = h('div', { class: `achpop t-${tier.name}`, role: 'status' }, h('span', { class: 'ap-e' }, burst, emblem(id, 72)),
-    h('div', { class: 'ap-t' }, h('small', null, `🏆 成就解鎖・${tier.name}`), h('b', null, a.name), h('span', null, a.desc)));
+  const el = h('div', { class: `achpop t-${tier.name}`, role: 'status' }, h('i', { class: 'ap-new', 'aria-hidden': 'true' }, 'NEW'), h('span', { class: 'ap-e' }, burst, emblem(id, 72)),
+    h('div', { class: 'ap-t' }, h('small', null, `🏆 全新成就・${tier.name}`), h('b', null, a.name), h('span', null, a.desc)));
+  // v1.1：全新成就加全畫面閃光同光芒，更加明顯
+  const flash = h('div', { class: `achflash t-${tier.name}`, 'aria-hidden': 'true' }, h('span', { class: 'rays' }));
+  document.body.append(flash);
+  setTimeout(() => flash.remove(), 1600);
+  if (navigator.vibrate) try { navigator.vibrate(tier.name === '傳說' ? [60, 40, 120] : 60); } catch { /* 忽略 */ }
   while (host.children.length >= 2) host.firstElementChild!.remove();
   host.append(el);
   setTimeout(() => { el.classList.add('out'); setTimeout(() => el.remove(), 400); }, ms);

@@ -32,12 +32,14 @@ export function rememberSeen(ids: string[]) {
 
 export function scheduleQuizzes(g: Game) {
   const r = streamRng(g.s.seed, 'quiz', 'schedule');
-  const n = 2; // 一生最多兩次突擊測驗：小學一次、中學一次
+  // v1.1：一生 1–3 次突擊測驗（平均約 1.5 次，比之前少）
+  const x0 = r();
+  const n = x0 < 0.55 ? 1 : x0 < 0.9 ? 2 : 3;
   // 公開試前兩年（16、17 歲）唔出測驗，免得似模擬試
   const ages = [6, 7, 8, 9, 10, 11, 12, 13, 14, 15];
   const all: number[][] = [];
   const rec = (start: number, cur: number[]) => {
-    if (cur.length === n) { if (cur.some((a) => a <= 11) && cur.some((a) => a >= 12)) all.push([...cur]); return; }
+    if (cur.length === n) { if (n === 1 || (cur.some((a) => a <= 11) && cur.some((a) => a >= 12))) all.push([...cur]); return; }
     for (let i = start; i < ages.length; i++) {
       if (cur.length && ages[i] - cur[cur.length - 1] < 2) continue;
       cur.push(ages[i]); rec(i + 1, cur); cur.pop();
@@ -51,7 +53,8 @@ export function scheduleQuizzes(g: Game) {
 function subjWeights(age: number, stream?: string): number[] {
   // 中文 英文 數學 公社 物理 化學 生物 經濟
   // 公民與社會發展（index 3）暫時移除
-  let w = age <= 8 ? [30, 30, 30, 0, 2, 2, 4, 2] : age <= 11 ? [24, 24, 24, 0, 4, 4, 8, 4] : age <= 14 ? [18, 18, 18, 0, 10, 10, 12, 10] : [16, 16, 16, 0, 12, 12, 12, 12];
+  // v1.1：中英數以外嘅科目大減
+  let w = age <= 8 ? [33, 33, 33, 0, 0, 0, 1, 0] : age <= 11 ? [30, 30, 30, 0, 1, 1, 2, 1] : age <= 14 ? [28, 28, 28, 0, 2, 2, 3, 2] : [26, 26, 26, 0, 3, 3, 3, 3];
   if (age >= 15 && stream) {
     const m = stream === '理科' ? [1, 1, 1, 0, 2, 2, 2, 0.5] : stream === '商科' ? [1, 1, 1, 0, 0.5, 0.5, 1, 3] : [1.5, 1.5, 1, 0, 0.5, 0.5, 1, 1];
     w = w.map((v, i) => v * m[i]);
@@ -147,11 +150,12 @@ export function examCard(g: Game, onDone: (g: Game) => void): Card {
   const spec = [
     { subj: 0, diff: 0 }, { subj: 1, diff: 0 }, { subj: 2, diff: 0 }, { subj: 2, diff: 0 },
     // v1.0：調易，5 條易、3 條中等，冇難題
-    { subj: r.pick(electives), diff: 0 }, { subj: undefined, diff: 1 }, { subj: undefined, diff: 1 }, { subj: undefined, diff: 1 },
+    // v1.1：中英數佔大多數，選修只得一條，另一條按科目權重抽
+    { subj: r.pick(electives), diff: 0 }, { subj: 0, diff: 1 }, { subj: 1, diff: 1 }, { subj: undefined, diff: 1 },
   ];
-  const qs = draw(g, r, 8, (i) => ({ subj: spec[i].subj, diff: spec[i].diff, exam: true, exclude }));
+  const qs = draw(g, r, 8, (i) => ({ subj: spec[i].subj, diff: spec[i].diff, exam: true, exclude: i === 7 ? new Set<number>() : exclude }));
   qs.sort(() => r() - 0.5);
-  const c = mkCard('EXAM', s.examTries ? '重考公開試' : '公開試', '8 條題目連續作答，每條 10 秒，中間唔會停。入大學最少要答啱 4 題。', [{ label: '入試場' }], (g2) => {
+  const c = mkCard('EXAM', s.examTries ? '重考公開試' : '公開試', '8 條題目連續作答，每條 15 秒，中間唔會停。入大學最少要答啱 4 題。', [{ label: '入試場' }], (g2) => {
     const res = applyExam(g2, c);
     onDone(g2);
     return res;

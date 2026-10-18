@@ -1249,6 +1249,7 @@ export const FAMILY_EVENTS: EventDef[] = [
       const again = !!g.s.flags['partnerAffairAgain'];
       if (!again) g.s.flags['af2Count'] = Number(g.s.flags['af2Count'] ?? 0) + 1;
       g.flag('tragedyYear', g.s.year);
+      g.ach('green_hat');
       return crisisCard(g, again ? 'partner2' : 'partner');
     },
   },

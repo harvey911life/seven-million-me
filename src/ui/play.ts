@@ -5,7 +5,7 @@ import type { Card } from '../engine/cards';
 import type { StatKey, InsKind } from '../engine/state';
 import { INS_NAME } from '../engine/state';
 import { focusList, PANEL } from '../engine/yearly';
-import { pickFor, autoFocus } from '../engine/agui';
+import { pickFor, autoFocus, autoPlan } from '../engine/agui';
 import { parallelNewsFor } from '../engine/parallel';
 import { premiumOf, canBuy, setIns, propValue, plansValue, PET_INFO, petBlock, adoptPet, petCostYear } from '../engine/finance';
 import { jobName } from '../engine/career';
@@ -28,6 +28,10 @@ const CAT_CLASS: Record<string, string> = {
 const SPEEDS: Settings['speed'][] = [1, 2, 4, 8, 16];
 const YEAR_MS = 40000; // 1 倍速：一年約 40 秒（v1.0）
 const CHILD_MS = 6000; // 0–5 歲（未有得揀）快啲行
+/** 一局大約幾多分鐘：0–5 歲 6 年 + 之後平均約 76 年，加揀選項、答題時間約 4.8 分鐘（同速度無關） */
+export function estMinutes(speed: number): number {
+  return Math.round((6 * CHILD_MS + 76 * YEAR_MS) / speed / 60000 + 4.8);
+}
 
 export function stageLabel(g: Game): string {
   const s = g.s;
@@ -114,6 +118,7 @@ export function playGame(root: HTMLElement, g: Game, settings: Settings, onEnd: 
   requestAnimationFrame(anim);
 
   // ---------- 狀態顯示 ----------
+  const knownAch = new Set(store.achs());
   let prevStats: Record<string, number> = {};
   let prevCash: number | null = null;
   function flashCash(up: boolean) {
@@ -367,7 +372,7 @@ export function playGame(root: HTMLElement, g: Game, settings: Settings, onEnd: 
         h('span', { class: 'sp-t' }, h('b', null, p.name), h('span', { class: 'muted' }, p.desc)),
         h('span', { class: 'sp-c' }, cost > 0 ? fmtMoney(cost) : '免費')));
     }
-    if (avail.some((p) => p.id === 'travel')) box.append(h('div', { class: 'qline' }, h('span', null, '旅行'), seg(['本地遊', '日本'], s.travelPick === '日本' ? 1 : 0, (i) => { s.travelPick = i ? '日本' : '本地遊'; renderSheet(); })));
+    if (avail.some((p) => p.id === 'travel')) box.append(h('div', { class: 'qline' }, h('span', null, '旅行'), seg(['本地遊', '日本', '歐洲'], (['本地遊', '日本', '歐洲'] as const).indexOf(s.travelPick), (i) => { s.travelPick = (['本地遊', '日本', '歐洲'] as const)[i]; renderSheet(); })));
     box.append(h('div', { class: 'qline' }, h('span', null, '回饋'), seg(['捐款', '義工'], s.givePick === '義工' ? 1 : 0, (i) => { s.givePick = i ? '義工' : '捐款'; renderSheet(); })));
     return box;
   }
@@ -393,7 +398,7 @@ export function playGame(root: HTMLElement, g: Game, settings: Settings, onEnd: 
       h('h4', null, '緊急備用金目標'),
       seg(['唔留', '3 個月', '6 個月'], [0, 3, 6].indexOf(s.emergTarget), (i) => { s.emergTarget = ([0, 3, 6] as const)[i]; }),
       h('h4', null, '強積金基金'),
-      seg(['保守', '均衡', '增長'], ['保守', '均衡', '增長'].indexOf(s.mpfFund), (i) => { s.mpfFund = (['保守', '均衡', '增長'] as const)[i]; }),
+      seg(['保守', '均衡', '增長'], ['保守', '均衡', '增長'].indexOf(s.mpfFund), (i) => { s.mpfFund = (['保守', '均衡', '增長'] as const)[i]; g.flag('mpfManual'); }),
       h('h4', null, '保險'));
     for (const k of ['med', 'ci', 'acc', 'life'] as InsKind[]) {
       const why = canBuy(g, k);
@@ -525,7 +530,7 @@ export function playGame(root: HTMLElement, g: Game, settings: Settings, onEnd: 
     });
   }
 
-  /** 突擊測驗 / 公開試：每題 10 秒；答完顯示答案，撳任何位置或 1 秒後自動下一題 */
+  /** 突擊測驗每題 10 秒、公開試每題 15 秒；答完顯示答案，撳任何位置或 1 秒後自動下一題 */
   // 第二局起可以自動答題：按學識擲骰，唔會拎答題成就
   function autoQuiz(c: Card) {
     s.flags['autoQuiz'] = true;
@@ -564,7 +569,7 @@ export function playGame(root: HTMLElement, g: Game, settings: Settings, onEnd: 
           h('div', { class: 'qopts' }, btns));
         const tick = () => {
           if (over) return;
-          const left = Math.max(0, 1 - (performance.now() - t0) / 10000);
+          const left = Math.max(0, 1 - (performance.now() - t0) / (exam ? 15000 : 10000));
           bar.style.width = `${left * 100}%`;
           bar.classList.toggle('warn', left < 0.3);
           if (left <= 0) answer(-1); else requestAnimationFrame(tick);
@@ -700,6 +705,7 @@ export function playGame(root: HTMLElement, g: Game, settings: Settings, onEnd: 
       if (settings.autoPick) autoFocus(g);
       else await focusPrompt();
     }
+    if (settings.autoPick) autoPlan(g);
     let guard = 0;
     while (g.queue.length && guard++ < 40 && !ended) await resolveCard(g.queue.shift()!);
     if (ended) return;
@@ -715,7 +721,8 @@ export function playGame(root: HTMLElement, g: Game, settings: Settings, onEnd: 
     if (end.summary) rows.push({ t: end.summary, k: 'sum' });
     addYear(s.age, s.year, rows);
     renderStats(); renderTop(); renderQuick();
-    s.achNew.forEach((id, i) => setTimeout(() => achToast(id), i * 1100));
+    // v1.1：以前嘅人生已經拎過嘅成就唔再彈出，只彈全新成就
+    s.achNew.filter((id) => !knownAch.has(id)).forEach((id, i) => setTimeout(() => achToast(id), i * 1500));
     s.achNew = [];
     const bigPar = par.filter((n) => n.key);
     if (bigPar.length && !end.dead) toast(bigPar.map((n) => n.text.replace('【平行人生】', '')).join('；'), 'info', 3000);
