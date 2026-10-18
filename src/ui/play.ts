@@ -11,7 +11,7 @@ import { premiumOf, canBuy, setIns, propValue, plansValue, PET_INFO, petBlock, a
 import { jobName } from '../engine/career';
 import { BIZ, bizBlock, bizName, startBiz, closeBiz } from '../engine/biz';
 import { LEVEL_NAME, EDU_NAME } from '../data/jobs';
-import { ACH_BY_ID } from '../engine/achievements';
+import { achToast } from './emblem';
 import type { QuizAnswer } from '../engine/quiz';
 import { fmtMoney } from '../engine/util';
 import { h, clear, sleep, toast } from './dom';
@@ -659,12 +659,14 @@ export function playGame(root: HTMLElement, g: Game, settings: Settings, onEnd: 
     const seen = new Set<string>();
     for (const l of s.log) if (l.age === s.age && !seen.has(l.text)) { seen.add(l.text); rows.push({ t: l.text, k: l.big ? 'imp' : 'log' }); }
     for (const t of g.ticker) if (!seen.has(t)) { seen.add(t); rows.push({ t, k: 'tick' }); }
-    const par = g.parallel ? parallelNewsFor(g.parallel, s.year, g.parMinor) : [];
+    // 「返到 10 年前」之後，平行人生嘅新聞唔再重播
+    const par = g.parallel && s.year > parSeen ? parallelNewsFor(g.parallel, s.year, g.parMinor) : [];
+    parSeen = Math.max(parSeen, s.year);
     for (const n of par) rows.push({ t: n.text, k: 'par' });
     if (end.summary) rows.push({ t: end.summary, k: 'sum' });
     addYear(s.age, s.year, rows);
     renderStats(); renderTop(); renderQuick();
-    for (const id of s.achNew) { const a = ACH_BY_ID[id]; if (a) toast(`★ 成就解鎖：${a.name}`, 'ach'); }
+    s.achNew.forEach((id, i) => setTimeout(() => achToast(id), i * 1100));
     s.achNew = [];
     const bigPar = par.filter((n) => n.key);
     if (bigPar.length && !end.dead) toast(bigPar.map((n) => n.text.replace('【平行人生】', '')).join('；'), 'info', 3000);
@@ -677,6 +679,7 @@ export function playGame(root: HTMLElement, g: Game, settings: Settings, onEnd: 
     }
   }
 
+  let parSeen = -1;
   async function loop() {
     renderTop(); renderStats(); renderQuick();
     addYear(0, s.year, [{ t: `${s.name}出世喇。名係屋企人改嘅，你揀唔到。`, k: 'imp' }, { t: '平淡嘅年份會自動行，等緊嘅時候可以改投資同強積金；唔想等可以撳「下一年」。', k: 'sum' }]);

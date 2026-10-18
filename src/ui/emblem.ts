@@ -65,6 +65,16 @@ const G: Record<string, string[]> = {
   robot: ['.....k.....', '.....y.....', '.kkkkkkkkk.', '.kdddddddk.', '.kdukdkudk.', '.kdddddddk.', '.kddkkkddk.', '.kkkkkkkkk.', 'kdkdddddkdk', 'kkkdddddkkk', '...kk.kk...'],
   ufo: ['....kkk.....', '...kuuuk....', '..kuwuuuk...', '.kkkkkkkkk..', 'kddddddddddk', '.kdydydydk..', '..kkkkkkk...', '...y...y....', '..y.....y...'],
   planet: ['....kkkk....', '..kkrrrrkk..', '.krrorrrrrk.', 'kkkkkkkkkkkk', 'krrrrrorrrrk', 'kkkkkkkkkkkk', '.krrrrrrrrk.', '..kkrrrrkk..', '....kkkk....'],
+  letter: ['kkkkkkkkkkkk', 'kwkwwwwwwkwk', 'kwwkwwwwkwwk', 'kwwwkrrkwwwk', 'kwwwrrrrwwwk', 'kwwwwrrwwwwk', 'kwwwwwwwwwwk', 'kkkkkkkkkkkk'],
+  ring: ['....kkk.....', '...kuwuk....', '....kuk.....', '...kyyyk....', '..ky...yk...', '.ky.....yk..', '.ky.....yk..', '.ky.....yk..', '..ky...yk...', '...kyyyk....'],
+  pram: ['..kkkk......', '.kaaaak.....', 'kaaaaaakkkkk', 'kaaaaaaaaaak', 'kabaaaaaaaak', '.kaaaaaaaak.', '..kkkkkkkk..', '..k......k..', '.kdk....kdk.', '..k......k..'],
+  twins: ['.aa....aa.', '.kk....kk.', 'kkkk..kkkk', 'kwwk..kwwk', 'kbwk..kbwk', 'kwwk..kwwk', 'kbbk..kbbk', 'kbbk..kbbk', 'kkkk..kkkk'],
+  cane: ['..kkkk.....', '.kaaaak....', '.ka..kak...', '..k..kak...', '.....kak.r.', '.....kakrrr', '.....kak.r.', '.....kak...', '.....kak...', '.....kkk...'],
+  tower: ['.kkkkkkkkk.', '.kaaaaaaak.', '.kawawawak.', '.kaaaaaaak.', '.kawawawak.', '.kaaaaaaak.', '.kawawawak.', '.kaaaaaaak.', '.kawawawak.', '.kaakkkaak.', 'kkkkkkkkkkk'],
+  quill: ['.........kk', '........kwk', '.......kwwk', '......kwwk.', '.....kwwk..', '....kwwk...', '...kwwk....', '..kkkk.....', '.kk........', 'kkkkkkk....'],
+  alien: ['...kkkkk...', '..kaaaaak..', '.kaaaaaaak.', 'kaaaaaaaaak', 'kakkaaakkak', 'kakwaaakwak', 'kaaaaaaaaak', '.kaaakaaak.', '..kaaaaak..', '...kkkkk...'],
+  zombie: ['..k.k.k....', '.kakakak...', '.kakakak.k.', '.kaaaaakak.', '.kaaaaaaak.', '..kaaaaak..', '...kaaak...', '...kaaak...', 'nnnkaaaknnn', 'nnnnnnnnnnn'],
+  rewind: ['.....k....k', '....kk...kk', '...kak..kak', '..kaak.kaak', '.kaaakkaaak', '..kaak.kaak', '...kak..kak', '....kk...kk', '.....k....k'],
   rainbow: ['...rrrrrr...', '..rooooooor.', '.royyyyyyor.', 'roygggggyor.', 'roygw..wgyor', 'royg....gyor', 'roy......yor'],
 };
 
@@ -85,6 +95,9 @@ const MAP: Record<string, [string, string]> = {
   jackpot: ['ball', '#d6455d'], lottery_vs_fund: ['ticket', '#4caf6d'], against_fate: ['rocket', '#d6455d'], gold_rush: ['nugget', '#f2c14e'], future_tip: ['hourglass', '#f2c14e'],
   biz_start: ['shop', '#4caf6d'], biz_exit: ['coins', '#f2c14e'], history_rewrite: ['hourglass', '#8e4fd6'],
   cat_boss: ['cat', '#f08a3c'], lion_rock_astronaut: ['helmet', '#ffffff'], meteor: ['meteor', '#f08a3c'], will_matters: ['scroll', '#ffffff'], lookalike: ['camera', '#2f3b52'],
+  first_love: ['letter', '#d6455d'], married: ['ring', '#f2c14e'], parent: ['pram', '#5aa9e6'], twins: ['twins', '#f29bb5'], grandparent: ['cane', '#9b6a43'],
+  public_housing: ['tower', '#e07b39'], will: ['quill', '#2f3b52'],
+  earth_defense: ['alien', '#4caf6d'], zombie_survivor: ['zombie', '#8fbf6a'], redo_10y: ['rewind', '#8e4fd6'],
   treasure: ['chest', '#9b6a43'], duck_effect: ['duck', '#f2c14e'], blackout: ['candle', '#ffffff'], robot_gift: ['robot', '#7d8696'], rooftop_ufo: ['ufo', '#7d8696'], mars_scam: ['planet', '#d6455d'],
 };
 
@@ -160,3 +173,17 @@ export function emblem(id: string, cssSize = 48, locked = false): HTMLCanvasElem
 }
 
 export const EMBLEM_IDS = Object.keys(MAP);
+
+/** 成就解鎖彈出：徽章大圖 + 名稱 + 稀有度 */
+export function achToast(id: string, ms = 3200) {
+  const a = ACH_BY_ID[id];
+  if (!a) return;
+  let host = document.getElementById('toasts');
+  if (!host) { host = h('div', { id: 'toasts', 'aria-live': 'polite' }); document.body.append(host); }
+  const tier = tierOf(id);
+  const el = h('div', { class: `achpop t-${tier.name}`, role: 'status' }, emblem(id, 64),
+    h('div', { class: 'ap-t' }, h('small', null, `成就解鎖・${tier.name}`), h('b', null, a.name), h('span', null, a.desc)));
+  while (host.children.length >= 2) host.firstElementChild!.remove();
+  host.append(el);
+  setTimeout(() => { el.classList.add('out'); setTimeout(() => el.remove(), 400); }, ms);
+}

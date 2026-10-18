@@ -57,8 +57,8 @@ export function computeFPI(g: Game): FPIResult {
   const fpi = clamp(40 * debtF + 25 * depF + 35 * gapRatio + willAdj + epaAdj, 0, 100);
   const band = fpi < 30 ? '低' : fpi <= 70 ? '中' : '高';
   const text: string[] = [];
-  if (lifePayout > 0 && sumW > 0) text.push('你嘅人壽保險令家人可以繼續原本嘅生活。');
-  if (lifePayout === 0 && sumW > 0) text.push('你冇買人壽，屋企人要自己頂起之後嘅開支。');
+  if (lifePayout > 0 && sumW > 0) text.push('你早早為家人準備咗一份心意，令佢哋可以繼續原本嘅生活。');
+  if (lifePayout === 0 && sumW > 0) text.push('你冇為家人預留心意，屋企人要自己頂起之後嘅開支。');
   if (debtF > 0.3) text.push('仲有一筆債要家人處理。');
   if (willAdj > 0) text.push('你冇立遺囑，屋企人為分遺產傷咗和氣。');
   if (willAdj < 0) text.push('你早已立好遺囑，家人唔使手忙腳亂。');

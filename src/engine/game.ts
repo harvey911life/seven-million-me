@@ -2,12 +2,12 @@
 import { Market, type YearEcon } from './market';
 import { rollOrigin, type Origin } from './origin';
 import type { ParallelLife } from './parallel';
-import { streamRng, type RNG } from './rng';
+import { streamRng, hash32, type RNG } from './rng';
 import { clamp, fmtMoney } from './util';
 import type { State, StatKey, Cat, LogEntry } from './state';
 import { settleYear, computeF, payCost, netWorth, liquidAssets, propEquity, petsYear } from './finance';
 import { focusEffects, naturalChanges, panelEffects } from './yearly';
-import { drawEvents } from './events';
+import { drawEvents, tianmaPlan } from './events';
 import { capOptions, type Card } from './cards';
 import { deathCheck } from './health';
 import { scheduleQuizzes } from './quiz';
@@ -34,6 +34,10 @@ export class Game {
   autoPick = false;
   parallel: ParallelLife[] | null = null; // 平行人生（開局後喺背景行好）
   parMinor = { y: -99 };
+  noTianma = false; // 某某人同平行人生唔抽天馬行空
+  redoAt: number | null = null; // 「返到 10 年前」發生嘅年齡（開局預先睇定）
+  redoSnap: State | null = null; // 嗰陣要還原嘅 10 年前狀態
+  redoYear = false;
 
   constructor(seed: number, period: string | null = null, force?: { year: number; day: number }) {
     this.m = new Market(seed);
@@ -42,6 +46,8 @@ export class Game {
     this.s.rewritten = rollRewrites(seed, o.birthYear, this.m);
     if (streamRng(seed, 'harbour')() < 0.01) this.s.flags['harbourNight'] = true; // 1%：夜晚場景用維港夜景相
     scheduleQuizzes(this);
+    const tm = tianmaPlan(seed, o.birthYear);
+    if (tm?.id === 'TM-REDO') this.redoAt = tm.age;
     this.er = streamRng(seed, 'events', 0);
     computeF(this);
     this.snapshot();
@@ -109,6 +115,7 @@ export class Game {
     this.yearDeltas = { H: 0, J: 0, K: 0, R: 0 };
     this.yearReasons = {};
     s.achNew = [];
+    this.redoYear = false;
     // ① 年齡 +1
     s.age += 1;
     s.year += 1;
@@ -155,7 +162,8 @@ export class Game {
   endYear(): YearEnd {
     const s = this.s;
     // ⑦ 死亡判定；未死就睇有冇破產（負債過多 → 強制結算）
-    const dead = deathCheck(this) || bankruptCheck(this);
+    if (this.redoYear) return { dead: false, summary: '', deltas: { ...this.yearDeltas }, saved: 0 };
+    const dead = !s.alive || deathCheck(this) || bankruptCheck(this);
     // ⑧ 總結
     computeF(this);
     checkAchievementsYear(this);
@@ -163,7 +171,35 @@ export class Game {
     let summary = '';
     if (!dead) summary = buildSummary(this, saved);
     this.snapshot();
+    if (!dead && this.redoAt !== null && s.age === this.redoAt - 10) this.redoSnap = structuredClone(s);
     return { dead, summary, deltas: { ...this.yearDeltas }, saved };
+  }
+
+  /** 天馬行空「一覺瞓醒返到 10 年前」：狀態還原，保留成就同記憶（知識 +5），之後 10 年遭遇唔同 */
+  rewind() {
+    const s = this.s;
+    const from = s.year;
+    const keepAch = s.ach.slice();
+    const keepNew = s.achNew.slice();
+    const seed0 = Number(s.flags['seed0'] ?? s.seed);
+    const snap = structuredClone(this.redoSnap!);
+    // 原地換內容，畫面拎住嘅 s 照用得
+    for (const k of Object.keys(s)) delete (s as unknown as Record<string, unknown>)[k];
+    Object.assign(s, snap);
+    s.ach = [...new Set([...snap.ach, ...keepAch])];
+    s.achNew = keepNew;
+    s.wonder = '重來一次';
+    s.flags['seed0'] = seed0;
+    s.flags['timeline'] = 1;
+    s.seed = hash32(seed0, 'timeline', 1);
+    this.queue = [];
+    this.ticker = [];
+    this.add('K', 5, '保留記憶');
+    this.log(`重來一次（奇遇）：你喺 ${from} 年瞓著，一覺瞓醒返咗去 ${s.year} 年，變返 ${s.age} 歲，仲記得之後發生過嘅事。`, '天馬行空', true);
+    this.tick('✨ 一覺瞓醒，你返到 10 年前！之後 10 年可以重新揀過。');
+    this.redoSnap = null;
+    this.redoAt = null;
+    this.redoYear = true;
   }
 
   pushCard(c: Card, front = false) {

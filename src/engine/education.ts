@@ -39,7 +39,9 @@ export function studyYear(g: Game) {
   if (st.kind === '出國升學') { s.overseas = true; g.ach('overseas_grad'); }
   if (s.edu >= 5 && ['公屋', '劏房'].includes(s.origin.housing)) g.ach('grassroots_grad');
   g.add('J', 3, '畢業');
-  g.tick(`你${st.kind === '碩士' ? '碩士' : st.kind}畢業喇！`);
+  g.tick(`你${st.kind === '出國升學' ? `喺${String(s.flags['abroadCountry'] ?? '外國')}` : st.kind}畢業喇！`);
+  if (st.kind === '碩士') { g.add('K', 5, '碩士'); g.flag('needFirstJob'); return; }
+  if ((st.kind === '學士' || st.kind === '出國升學') && !s.everEmployed && s.K >= 45 && s.edu < 6) { g.pushCard(masterCard(g, 'grad')); return; }
   if ((st.kind === '副學士' || st.kind === '高級文憑') && r() < clamp((st.kind === '副學士' ? 0.45 : 0.3) * Mpos(s.K) * (s.year >= 2012 ? 1 : 0.8), 0.05, 0.9)) {
     g.pushCard(bridgeCard(g));
     return;
@@ -97,7 +99,7 @@ export function routeCard(g: Game): Card {
       case 2: { const r = streamRng(t.seed, 'track', t.age); t.study = { kind: '高級文憑', left: 2, fee: 32000, years: 0 }; t.track = r.pick(['工程', '設計', '資訊科技', '醫護輔助', '酒店'] as Track[]); g2.add('J', 1); return `你讀${t.track}高級文憑，實用啲，出嚟易搵工。`; }
       case 3: { const r = streamRng(t.seed, 'track', t.age); const yj = t.edu < 2 || r() < 0.3; t.study = { kind: yj ? '毅進' : '職業學院', left: yj ? 1 : 2, fee: 5000, years: 0 }; t.track = yj ? '一般' : r.pick(['電機', '廚藝', '美容', '汽車維修', '建造'] as Track[]); return yj ? '你讀毅進，打好基礎。' : `你讀${t.track}，師傅話你手勢好。`; }
       case 4: t.study = { kind: '重讀', left: 1, fee: 15000, years: 0 }; g2.add('J', -3); g2.flag('retakeAt', t.age + 1); return '呢一年，你決定再搏一次。';
-      case 5: { t.study = { kind: '出國升學', left: kEff < 60 ? 4 : 3, fee: 420000, years: 0 }; t.major = t.stream === '理科' ? '工程' : t.stream === '商科' ? '商科' : '社科'; g2.fx({ J: 3, R: -3 }, '出國讀書'); return '你拖住兩個大喼飛去倫敦。'; }
+      case 5: { t.major = t.stream === '理科' ? '工程' : t.stream === '商科' ? '商科' : '社科'; g2.pushCard(abroadCard(g2), true); return '你決定出國讀書，下一步係揀國家。'; }
       default: t.edu = Math.max(t.edu, 2) as Edu; g2.add('J', -1); g2.pushCard(firstJobCard(g2), true); return '你一放榜就去見工。';
     }
   };
@@ -106,6 +108,74 @@ export function routeCard(g: Game): Card {
   c.def = firstEnabled(c, def);
   c.auto = c.def; c.agui = c.def;
   return c;
+}
+
+// ---------- 出國升學揀國家（6.7.6） ----------
+const ABROAD: [string, string, number, number][] = [
+  ['英國', '倫敦', 3, 420000], ['澳洲', '墨爾本', 4, 380000], ['加拿大', '多倫多', 4, 370000], ['美國', '波士頓', 4, 550000],
+];
+
+function abroadCard(g: Game): Card {
+  const s = g.s;
+  const r = streamRng(s.seed, 'abroad', s.age);
+  // 最多 3 個，隨機抽；美國只喺家庭財務健康 ≥ 70 先出現
+  let pool = ABROAD.filter((d) => d[0] !== '美國' || s.F >= 70);
+  if (pool.length > 3) pool = pool.map((d) => [r(), d] as const).sort((a, b) => a[0] - b[0]).slice(0, 3).map((x) => x[1]);
+  pool.sort((a, b) => ABROAD.indexOf(a) - ABROAD.indexOf(b));
+  const cheapest = pool.reduce((m, d, i) => (d[2] * d[3] < pool[m][2] * pool[m][3] ? i : m), 0);
+  return mkCard('E-ABROAD', '去邊個國家讀書？', '屋企人同你一齊睇學校資料，每個地方嘅年期同使費都唔同。', pool.map((d) => ({
+    label: d[0], note: `${d[2]} 年，學費連生活費每年約 ${fmtMoney(g.p(d[3]))}，總共約 ${fmtMoney(g.p(d[3] * d[2]))}`,
+  })), (g2, i) => {
+    const [country, city, yrs, fee] = pool[i];
+    const t = g2.s;
+    t.study = { kind: '出國升學', left: yrs, fee, years: 0 };
+    t.flags['abroadCountry'] = country;
+    g2.fx({ J: 3, R: -3 }, '出國讀書');
+    return `你拖住兩個大喼飛去${city}。`;
+  }, { pri: 863, def: cheapest, auto: cheapest, agui: cheapest, scene: 'school' });
+}
+
+// ---------- 碩士（6.9） ----------
+const MASTER_FT = 200000;
+const MASTER_PT = 110000;
+
+/** grad = 啱啱學士畢業；work = 在職 */
+export function masterCard(g: Game, mode: 'grad' | 'work'): Card {
+  const ft = { label: mode === 'grad' ? '讀一年全職碩士' : '辭工讀一年全職碩士', note: `學費約 ${fmtMoney(g.p(MASTER_FT))}${mode === 'work' ? '，嗰年冇人工' : ''}；知識 +5，之後搵工起薪高啲` };
+  const opts = mode === 'grad'
+    ? [ft, { label: '出嚟搵工' }]
+    : [{ label: '兼讀兩年碩士', note: `每年學費約 ${fmtMoney(g.p(MASTER_PT))}，保住份工；健康每年 −1` }, ft, { label: '唔讀' }];
+  const text = mode === 'grad' ? '你學士畢業，教授問你有冇興趣讀埋碩士。' : '公司有同事讀完碩士升咗職，你都諗緊要唔要再讀書。';
+  return mkCard(mode === 'grad' ? 'E-MASTER-GRAD' : 'E-MASTER', '讀唔讀碩士？', text, opts, (g2, i) => {
+    const s = g2.s;
+    const full = mode === 'grad' ? i === 0 : i === 1;
+    const part = mode === 'work' && i === 0;
+    if (full) {
+      if (mode === 'work') { s.job = null; }
+      s.status = 'study';
+      s.study = { kind: '碩士', left: 1, fee: MASTER_FT, years: 0 };
+      return mode === 'work' ? '你遞咗信，返學校做一年全職學生。' : '你決定讀多一年。';
+    }
+    if (part) { s.flags['ptMaster'] = 2; return '你放工就趕返學校上堂。'; }
+    if (mode === 'grad') g2.flag('needFirstJob');
+    return mode === 'grad' ? '你決定出嚟做嘢。' : '你覺得而家專心做好份工更實際。';
+  }, { pri: 800, def: mode === 'grad' ? 1 : 2, auto: mode === 'grad' ? 1 : (g.s.focus === '增值進修' ? 0 : 2), agui: mode === 'grad' ? 1 : 2, cat: '人生抉擇' });
+}
+
+/** 在職兼讀碩士：每年交學費、健康 −1，讀滿兩年學歷升碩士 */
+export function partTimeStudyYear(g: Game) {
+  const s = g.s;
+  const left = Number(s.flags['ptMaster'] ?? 0);
+  if (!left) return;
+  if (s.status !== 'work') { delete s.flags['ptMaster']; g.tick('你冇咗份工，兼讀碩士暫時停咗。'); return; }
+  const n = g.spend(g.p(MASTER_PT), '兼讀碩士');
+  g.add('H', -1, '兼讀碩士');
+  if (left > 1) { s.flags['ptMaster'] = left - 1; g.tick(`兼讀碩士第一年，日頭返工夜晚上堂${n}。`); return; }
+  delete s.flags['ptMaster'];
+  s.edu = 6 as Edu;
+  g.add('K', 5, '碩士');
+  g.add('J', 3, '畢業');
+  g.tick(`你兼讀碩士畢業喇${n}！`);
 }
 
 function loanNote(g: Game) {

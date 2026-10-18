@@ -369,3 +369,52 @@ export function drawTitle(c: Ctx, t: number, day: boolean) {
   const fx = ((t * 1.2) % (SW + 36)) - 28;
   R(c, fx, 52, 22, 4, '#2f7a57'); R(c, fx + 2, 49, 18, 3, '#fbf8ee'); R(c, fx + 4, 47, 14, 2, '#2f7a57');
 }
+
+/** 終局事件動畫（12.2）：外星人 = 維港上空飛碟光束、全城燈熄；殭屍 = 一堆綠色殭屍慢慢行近屋企 */
+export function drawApocalypse(c: Ctx, kind: 'alien' | 'zombie', t: number, fridgeFull = false) {
+  const alien = kind === 'alien';
+  const bands = alien ? ['#120f2a', '#1b1740', '#262055', '#302a66'] : ['#2b3a2a', '#3a4d34', '#4f6340', '#6a7a4c'];
+  bands.forEach((col, i) => R(c, 0, i * 14, SW, 15, col));
+  for (let i = 0; i < 24; i++) { const r = hash(i * 61 + 7); if ((t + i) % 11 !== 0) R(c, r % SW, (r >> 8) % 30, 1, 1, alien ? '#fff6d0' : '#c9d6a0'); }
+  // 天際線：外星人版全城燈熄
+  for (let i = 0; i < 20; i++) {
+    const r = hash(i * 37 + 11);
+    const w = 6 + (r % 5), hh = 10 + ((r >> 4) % 22), x = i * 8;
+    R(c, x, GROUND - hh, w, hh, alien ? '#0b0a1a' : '#26301f');
+    if (!alien) for (let j = GROUND - hh + 2; j < GROUND - 2; j += 3) if (hash(x * 3 + j) % 5 === 0) R(c, x + 2, j, 1, 1, '#9ec26a');
+  }
+  if (alien) {
+    const ux = 80 + Math.round(Math.sin(t / 12) * 18), uy = 12;
+    // 光束
+    const flick = (t >> 1) % 2 ? 'rgba(255,240,140,.30)' : 'rgba(255,240,140,.22)';
+    for (let y = uy + 5; y < GROUND; y++) { const half = 3 + Math.floor((y - uy) * 0.45); R(c, ux - half, y, half * 2, 1, flick); }
+    // 飛碟
+    R(c, ux - 6, uy - 4, 12, 3, '#9fe7ff'); R(c, ux - 4, uy - 6, 8, 2, '#c9f3ff');
+    R(c, ux - 16, uy - 1, 32, 3, '#8a93a6'); R(c, ux - 20, uy + 2, 40, 3, '#5d6578'); R(c, ux - 12, uy + 5, 24, 2, '#3f4657');
+    for (let i = 0; i < 7; i++) R(c, ux - 18 + i * 6, uy + 3, 2, 1, (t + i * 3) % 8 < 4 ? '#ffde59' : '#ff5f7e');
+    // 卡通像素煙花
+    for (let k = 0; k < 3; k++) {
+      const ph = (t + k * 17) % 34;
+      if (ph > 16) continue;
+      const cx = 24 + k * 52, cy = 18 + (k % 2) * 8, rr = ph >> 1;
+      const col = ['#ff9ac0', '#7ff0ff', '#ffd86b'][k];
+      for (const [dx, dy] of [[1, 0], [-1, 0], [0, 1], [0, -1], [1, 1], [-1, -1], [1, -1], [-1, 1]]) R(c, cx + dx * rr, cy + dy * rr, 1, 1, col);
+    }
+  } else {
+    // 右邊屋企，窗口望入去見到角色食罐頭
+    R(c, 118, GROUND - 30, 40, 30, '#7d6a55'); R(c, 116, GROUND - 32, 44, 3, '#4a3d30');
+    R(c, 126, GROUND - 24, 14, 10, '#ffe7a3'); R(c, 132, GROUND - 24, 1, 10, '#4a3d30');
+    R(c, 129, GROUND - 19, 3, 3, '#f3c9a4'); R(c, 130, GROUND - 16, 2, 2, '#c0c7cf');
+    R(c, 146, GROUND - 26, 8, 14, '#e8edf0'); R(c, 147, GROUND - 25, 6, 12, fridgeFull ? '#f2c14e' : '#ffffff');
+    if (fridgeFull) for (let j = 0; j < 3; j++) R(c, 148, GROUND - 24 + j * 4, 4, 2, ['#d6455d', '#4caf6d', '#f08a3c'][j]);
+    // 殭屍
+    for (let i = 0; i < 7; i++) {
+      const x = ((t * 0.35 + i * 17) % 112) - 6;
+      const bob = ((t >> 2) + i) % 2;
+      R(c, x + 1, GROUND - 13 + bob, 4, 4, '#8fbf6a'); R(c, x + 2, GROUND - 12 + bob, 1, 1, '#d6455d');
+      R(c, x, GROUND - 9 + bob, 6, 5, '#5b6e8a'); R(c, x + 5, GROUND - 9 + bob, 4, 1, '#8fbf6a');
+      R(c, x + 1, GROUND - 4, 2, 4, '#3d4a5e'); R(c, x + 3, GROUND - 4, 2, 4, '#3d4a5e');
+    }
+  }
+  ground(c, t);
+}

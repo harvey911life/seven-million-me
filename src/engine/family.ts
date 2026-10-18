@@ -62,7 +62,7 @@ export function makePartner(g: Game, r: RNG, teen = false): Partner {
   return {
     name: r.pick(GIVEN[sex][era]), age, job: job[1], income: Math.round(income), rel: clamp(55 + r.normal(0, 8), 30, 80),
     traits, health: clamp(r.normal(60, 12), 20, 95) + (traits.includes('愛運動') ? 5 : 0), alive: true,
-    sex, ins: r.weighted({ 0: 40, 1: 40, 2: 20 }) === '0' ? 0 : 1, smoker: r() < smokeP, debt: r() < 0.1 ? Math.round(job[2] * g.W * r.uni(1, 6)) : 0, origin,
+    sex, ins: r() < 0.4 ? 0 : 1, smoker: r() < smokeP, debt: r() < 0.1 ? Math.round(job[2] * g.W * r.uni(1, 6)) : 0, origin,
   };
 }
 
@@ -269,7 +269,7 @@ function widow(g: Game, r: RNG) {
   g.add('R', -10); g.add('H', -5);
   g.flag('tragedyYear', s.year);
   const yearInc = p.income;
-  const payout = p.ins === 2 ? yearInc * 8 : p.ins === 1 ? yearInc * 3 : 0;
+  const payout = p.ins ? yearInc * 3 : 0; // v0.9：伴侶保險只分有冇，唔再有第二級
   if (payout > 0) s.cash += payout;
   g.spend(g.p(r.uni(50000, 80000)), '喪禮');
   const mine = g.monthlyIncome() * 12;

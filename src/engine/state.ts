@@ -19,7 +19,7 @@ export interface Kid {
 }
 export interface Partner {
   name: string; age: number; job: string; income: number; rel: number; traits: string[]; health: number; alive: boolean;
-  sex: 'M' | 'F'; ins: 0 | 1 | 2; smoker: boolean; debt: number; origin: '本地' | '內地' | '外國'; ill?: number; remarry?: boolean;
+  sex: 'M' | 'F'; ins: 0 | 1; smoker: boolean; debt: number; origin: '本地' | '內地' | '外國'; ill?: number; remarry?: boolean;
 }
 export interface Parent { role: '父' | '母'; age: number; alive: boolean; working: boolean; income: number; health: number; needsCare: boolean; job: string }
 export interface Property { kind: string; price0: number; hpi0: number; mortgage: number; rate: number; monthsLeft: number; pmt: number; first: boolean; ltv: number; passedStress: boolean; boughtYear: number }

@@ -4,7 +4,7 @@ import { JOBS, JOB_BY_ID, capOf, jobDisplayName, industryFactor, LEVEL_NAME, typ
 import { clamp, Mneg, Mpos, fmtMoney } from './util';
 import { streamRng, type RNG } from './rng';
 import { mkCard, firstEnabled, type Card, type EventDef } from './cards';
-import { studyYear } from './education';
+import { studyYear, partTimeStudyYear, masterCard } from './education';
 import { insActive, premiumOf } from './finance';
 import { bizYear } from './biz';
 
@@ -257,6 +257,7 @@ export function careerYear(g: Game) {
   if (s.status === 'child' || s.status === 'retired') return;
   if (s.flags['mpfPending'] && s.year >= 2001 && s.status === 'work') { delete s.flags['mpfPending']; g.pushCard(mpfCard(g)); }
 
+  partTimeStudyYear(g);
   // 進修中（被裁後進修轉行 / 創業前進修）：今年冇收入
   if (s.flags['retrainYear'] === s.year) { s.status = 'unemp'; return; }
 
@@ -532,6 +533,15 @@ export function mpfDrawCard(g: Game): Card {
 }
 
 export const CAREER_EVENTS: EventDef[] = [
+  { // 6.9 在職讀碩士（一生問一次）
+    id: 'E-MASTER', pri: 520, ages: [24, 45], cat: '人生抉擇',
+    when: (g) => {
+      const s = g.s;
+      if (s.edu !== 5 || s.status !== 'work' || !s.job || s.flags['ptMaster'] || s.yearsWorked < 1) return 0;
+      return 0.06 * (s.focus === '增值進修' ? 2 : 1) * (s.K >= 60 ? 1.3 : 1);
+    },
+    make: (g) => masterCard(g, 'work'),
+  },
   { // 第一份工
     id: 'C-YA-01', pri: 870, fixed: true, once: false,
     when: (g) => (g.s.flags['needFirstJob'] ? 1 : 0),

@@ -45,7 +45,7 @@ function title() {
   clear(root).append(h('div', { class: 'screen title' },
     cv,
     h('div', { class: 'title-box' },
-      h('p', { class: 'ver' }, 'v0.5 試玩版 · 免費香港人生模擬'),
+      h('p', { class: 'ver' }, 'v0.9 試玩版 · 免費香港人生模擬'),
       h('h1', { class: 'logo' }, '七百萬', h('br'), '分之', h('em', null, '我')),
       h('p', { class: 'tagline' }, '香港七百幾萬人，你係其中一個。喺邊區出世、做邊個嘅仔女，都揀唔到；之後點過，就睇你點揀。'),
       h('div', { class: 'counts' },

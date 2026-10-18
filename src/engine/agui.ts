@@ -42,8 +42,10 @@ export function autoFocus(g: Game) {
   s.focus = map[low].find((f) => list.includes(f)) ?? list[list.length - 1];
 }
 
-export function playHeadless(seed: number, period: string | null, mode: Policy, maxAge = 120, force?: { year: number; day: number }, onYear?: (g: Game) => void): Game {
+export function playHeadless(seed: number, period: string | null, mode: Policy, maxAge = 120, force?: { year: number; day: number }, onYear?: (g: Game) => void, noTianma = false): Game {
   const g = new Game(seed, period, force);
+  // 天馬行空只會發生喺玩家身上（12.7）：某某人同平行人生唔抽
+  if (mode === 'agui' || noTianma) { g.noTianma = true; g.redoAt = null; }
   // 某某人係「每一步都有規劃」嘅示範人物：佢遇到財困會即刻重組，唔會行到破產結局
   if (mode === 'agui') g.s.flags['planner'] = true;
   while (g.s.alive && g.s.age < maxAge) {

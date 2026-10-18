@@ -601,7 +601,7 @@ function allocateSurplus(g: Game, cf: number) {
     s.index += (want * a.index) / tot;
     s.stock += (want * a.stock) / tot;
     if (s.year >= 2013) s.crypto += (want * a.crypto) / tot;
-    const planAmt = (want * a.plan) / tot;
+    const planAmt = (want * a.plan) / tot; // v0.9 已放棄儲蓄計劃：所有組合 plan 都係 0，呢段唔會再觸發
     if (planAmt > 0) {
       const paying = s.plans.some((p) => p.years < 5);
       if (!paying && s.plans.length < 3) { s.plans.push({ start: s.year, annual: Math.round(planAmt), paid: 0, years: 0, ng: 1 }); }

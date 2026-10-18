@@ -46,7 +46,7 @@ function lifeOf(seed: number, period: string | null, mode: Policy, who: string, 
     if (p.status === 'work' && now.status === 'unemp') add('失業');
     if (!s.alive) add(s.flags['bankrupt'] ? '破產' : `離世，享年 ${s.age} 歲`, true);
     prev = now;
-  });
+  }, true);
   const s = g.s;
   const e = computeEnding(g);
   endAchievements(g, e);

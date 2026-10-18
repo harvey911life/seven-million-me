@@ -7,7 +7,7 @@ import { ACHIEVEMENTS, ACH_BY_ID } from '../engine/achievements';
 import { fmtMoney } from '../engine/util';
 import { h, clear, copyText } from './dom';
 import { store } from './store';
-import { drawPortrait, drawScene, SW, SH } from './scene';
+import { drawPortrait, drawScene, drawApocalypse, SW, SH } from './scene';
 import QR from '../assets/ig-qr.png';
 import { emblem, rarityOf, rateText, tierOf } from './emblem';
 import { makeShareImage, shareImage, quoteFor } from './shareimg';
@@ -61,11 +61,19 @@ function spiderCanvas(me: Spider, ag: Spider, forceDpr?: number): HTMLCanvasElem
 
 export function showEnding(root: HTMLElement, g: Game, period: string | null, onRestart: () => void) {
   const s = g.s;
-  const ag = aguiEnding(s.seed, period);
+  const seed0 = Number(s.flags['seed0'] ?? s.seed); // 「返到 10 年前」之後 s.seed 會變，某某人同金句跟返出世嗰個
+  const ag = aguiEnding(seed0, period);
   const e: Ending = computeEnding(g, ag);
   const fresh = endAchievements(g, e, ag);
   const minor = s.age < 18;
   const bankrupt = !!s.flags['bankrupt'];
+  const apoc = s.flags['apocalypse'] as 'alien' | 'zombie' | undefined; // 終局事件
+  const ageLine = bankrupt ? `${s.age} 歲破產` : apoc ? `${s.age} 歲遇上世界末日` : `享年 ${s.age} 歲`;
+  const heroScene = (t = 0) => {
+    const sc = h('canvas', { width: SW, height: SH });
+    if (apoc) drawApocalypse(sc.getContext('2d')!, apoc, t, Number(s.flags['zombieDays'] ?? 0) >= 16); else drawScene(sc.getContext('2d')!, s, t);
+    return sc;
+  };
   store.addRun();
   store.addAchs(s.ach);
   const firstRun = store.runs() === 1;
@@ -77,6 +85,24 @@ export function showEnding(root: HTMLElement, g: Game, period: string | null, on
   const P = (id: string, render: () => HTMLElement) => pages.push({ id, render });
 
   P('death', () => {
+    if (apoc) {
+      // 終局事件：特別像素動畫，唔用一般死亡畫面
+      const cv = h('canvas', { class: 'apoc', width: SW, height: SH });
+      const ctx = cv.getContext('2d')!;
+      const full = Number(s.flags['zombieDays'] ?? 0) >= 16;
+      let tt = 0;
+      drawApocalypse(ctx, apoc, 0, full);
+      const iv = setInterval(() => { if (!cv.isConnected && tt > 2) { clearInterval(iv); return; } drawApocalypse(ctx, apoc, ++tt, full); }, 90);
+      const line = apoc === 'alien'
+        ? `${s.year} 年，地球被佔領。${s.name}嘅人生停喺 ${s.age} 歲。`
+        : `${s.year} 年，殭屍淹沒香港。${s.name}撐咗 ${Number(s.flags['zombieDays'] ?? 0)} 日，撐到最後一刻，${s.age} 歲。`;
+      return h('div', { class: 'epage death' }, cv,
+        h('h2', null, `${s.name}`),
+        h('p', { class: 'years' }, `${s.birthYear}–${s.year}，${s.age} 歲`),
+        h('p', { class: 'cause' }, line),
+        h('p', { class: 'muted' }, apoc === 'alien' ? '如果世界冇完，你嘅人生本來會走到哪裡？' : '全世界都一齊完結，冇人需要為你善後。'),
+        h('ul', { class: 'moments' }, moments(g).map((m) => h('li', null, m))));
+    }
     const pc = h('canvas', { class: 'portrait', width: 24, height: 24 });
     drawPortrait(pc.getContext('2d')!, s);
     return h('div', { class: 'epage death' }, pc,
@@ -85,14 +111,14 @@ export function showEnding(root: HTMLElement, g: Game, period: string | null, on
       h('p', { class: 'cause' }, bankrupt ? '破產結算：負債太多，人生遊戲提早結束，理財分數計 0 分。' : s.deathCause ?? '離世'),
       h('ul', { class: 'moments' }, moments(g).map((m) => h('li', null, m))));
   });
-  if (!bankrupt) P('after', () => {
+  if (!bankrupt && !apoc) P('after', () => {
     const f = e.fpi;
     if (minor) return h('div', { class: 'epage' }, h('h2', null, '你走咗之後'), h('p', null, '爸爸媽媽好長一段時間都唔習慣屋企少咗一個人。佢哋會一直記住你。'));
     return h('div', { class: 'epage' }, h('h2', null, '你走咗之後'),
       h('div', { class: `meter b-${f.band}` }, h('span', null, '家人壓力指數'), h('b', null, `${Math.round(f.fpi)}`), h('em', null, f.band)),
       h('div', { class: 'mbar' }, h('span', { style: `width:${Math.round(f.fpi)}%` })),
       h('ul', { class: 'plain' }, f.text.map((t) => h('li', null, t))),
-      f.lifePayout > 0 ? h('p', { class: 'muted' }, `人壽保險賠償大約 ${fmtMoney(f.lifePayout)}。`) : null);
+      f.lifePayout > 0 ? h('p', { class: 'muted' }, `你留俾家人嘅心意大約 ${fmtMoney(f.lifePayout)}。`) : null);
   });
   if (!minor && !bankrupt) P('retire', () => {
     const r = e.retire;
@@ -154,7 +180,7 @@ export function showEnding(root: HTMLElement, g: Game, period: string | null, on
     ].sort((a, b) => b.total - a.total);
     const rank = rows.findIndex((r) => r.me) + 1;
     return h('div', { class: 'epage' }, h('h2', null, '平行人生'),
-      h('p', { class: 'muted' }, `${s.birthYear} 年同一日，香港仲有其他人出世。某某人同你同一個出身；另外三個喺唔同屋企長大。`),
+      h('p', { class: 'muted' }, `${s.birthYear} 年同一日，香港仲有其他人出世。某某人同你同一個出身；另外三個喺唔同屋企長大。${apoc ? '佢哋活喺一個世界冇完結嘅時空。' : ''}`),
       h('div', { class: 'plist' }, rows.map((r, i) => h('div', { class: `pl-row${r.me ? ' me' : ''}` },
         h('span', { class: 'pl-rank' }, String(i + 1)),
         h('div', { class: 'pl-main' },
@@ -191,14 +217,15 @@ export function showEnding(root: HTMLElement, g: Game, period: string | null, on
     const top = sorted[0];
     const rest = sorted.slice(1);
     const grade = lifeGrade(e.total);
-    const cv = h('canvas', { class: 'sc-scene', width: SW, height: SH, 'aria-hidden': 'true' });
-    drawScene(cv.getContext('2d')!, s, 0);
+    const cv = heroScene(6);
+    cv.classList.add('sc-scene');
+    cv.setAttribute('aria-hidden', 'true');
     const tier = top ? tierOf(top.id) : null;
     const shown = rest.slice(0, 12);
     const card = h('div', { class: 'sharecard' },
       h('div', { class: 'sc-top' }, h('span', { class: 'sc-logo' }, '七百萬分之', h('em', null, '我')), h('span', { class: 'sc-tag' }, '人生成就卡')),
       h('div', { class: 'sc-hero' }, cv),
-      h('div', { class: 'sc-who' }, h('b', null, s.name), h('span', null, `${s.birthYear}–${s.year} · ${bankrupt ? `${s.age} 歲破產` : `享年 ${s.age} 歲`} · ${s.origin.district}出世`)),
+      h('div', { class: 'sc-who' }, h('b', null, s.name), h('span', null, `${s.birthYear}–${s.year} · ${ageLine} · ${s.origin.district}出世`)),
       top ? h('div', { class: `sc-star t-${tier!.name}` },
         h('span', { class: 'sc-star-tag' }, `最稀有成就 · ${tier!.name}`),
         emblem(top.id, 120),
@@ -214,18 +241,17 @@ export function showEnding(root: HTMLElement, g: Game, period: string | null, on
       rest.length ? h('div', { class: 'sc-list' }, h('h4', null, '其他成就'),
         h('p', null, shown.flatMap((a, i) => [i ? h('span', { class: 'dot' }, '・') : null, h('span', { class: fresh.includes(a.id) ? 'new' : '' }, a.name)])),
         rest.length > shown.length ? h('small', null, `仲有 ${rest.length - shown.length} 個`) : null) : null,
-      h('div', { class: 'sc-foot' }, h('span', null, quoteFor(s.seed)), h('span', null, '內容為模擬')));
-    const shareText = `我喺「七百萬分之我」做咗${s.name}，${bankrupt ? `${s.age} 歲破產收場` : `活到 ${s.age} 歲`}，人生評級 ${grade}（${e.total} 分），解鎖咗 ${mine.length} 個成就${top ? `，最稀有係「${top.name}」` : ''}。你又會點過？`;
+      h('div', { class: 'sc-foot' }, h('span', null, quoteFor(seed0)), h('span', null, '內容為模擬')));
+    const shareText = `我喺「七百萬分之我」做咗${s.name}，${bankrupt ? `${s.age} 歲破產收場` : apoc ? `${s.age} 歲遇上${apoc === 'alien' ? '外星人入侵' : '殭屍潮'}` : `活到 ${s.age} 歲`}，人生評級 ${grade}（${e.total} 分），解鎖咗 ${mine.length} 個成就${top ? `，最稀有係「${top.name}」` : ''}。你又會點過？`;
     const note = h('small', { class: 'copied' }, '');
     return h('div', { class: 'epage achpage' }, card,
       h('div', { class: 'row2' },
         h('button', { class: 'btn ghost', type: 'button', onclick: async () => { note.textContent = (await copyText(shareText)) ? '已複製，可以貼俾朋友' : shareText; } }, '複製文字'),
         h('button', { class: 'btn', type: 'button', onclick: async () => {
-          const line = bankrupt ? `我在${placeOf(g)}出世，${s.age} 歲破產，人生提早結算` : `我在${placeOf(g)}出世，享年 ${s.age} 歲`;
-          const sc = h('canvas', { width: SW, height: SH });
-          drawScene(sc.getContext('2d')!, s, 0);
+          const line = bankrupt ? `我在${placeOf(g)}出世，${s.age} 歲破產，人生提早結算` : apoc ? `我在${placeOf(g)}出世，${s.age} 歲遇上世界末日` : `我在${placeOf(g)}出世，享年 ${s.age} 歲`;
+          const sc = heroScene(6);
           const img = makeShareImage({
-            scene: sc, quote: quoteFor(s.seed), name: s.name, line, grade, gradeColor: GRADE_COLOR[grade] ?? '#8e1f3f', total: e.total, achCount: mine.length,
+            scene: sc, quote: quoteFor(seed0), name: s.name, line, grade, gradeColor: GRADE_COLOR[grade] ?? '#8e1f3f', total: e.total, achCount: mine.length,
             star: top ? { emblem: emblem(top.id, 120), name: top.name, tier: `最稀有成就・${tier!.name}`, desc: top.desc, rate: rateLine(top.id) } : null,
             spider: spiderCanvas(e.spider, ag.spider, 3),
           });
@@ -239,7 +265,7 @@ export function showEnding(root: HTMLElement, g: Game, period: string | null, on
     const lines = ['同一個起點，有冇規劃，結局差好遠。', '下一世，你想點過？', '人生唔可以重嚟，但遊戲可以。'];
     const sad = s.tragedies > 0 || !!s.mental || !!s.flags['mentalEver'];
     return h('div', { class: 'epage last' }, h('h2', null, '呢一世完咗。'),
-      h('p', { class: 'lead' }, lines[s.seed % 3]),
+      h('p', { class: 'lead' }, lines[seed0 % 3]),
       firstRun ? h('p', { class: 'unlock' }, '解鎖：自動揀、揀出生時段') : null,
       h('button', { class: 'btn big', type: 'button', onclick: () => onRestart() }, '再投胎一次'),
       h('button', { class: 'btn outline big', type: 'button', onclick: () => booking(root) }, '點擊查詢更多'),

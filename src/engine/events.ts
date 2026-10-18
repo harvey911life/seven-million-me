@@ -260,6 +260,36 @@ function longevityCard(g: Game): Card {
 }
 
 const GENERAL_EVENTS: EventDef[] = [
+  { // 11.14 銀行推介「保本」高息結構性產品（2004–2007），2008 年金融海嘯見真章
+    id: 'E-STRUCT', pri: 800, years: [2004, 2007], ages: [18, 80], cat: '生活陷阱',
+    when: (g) => (g.s.deposit >= g.p(100000) ? 0.05 * Mneg(g.s.K) : 0),
+    make: (g) => {
+      const amt = Math.round(g.s.deposit / 2);
+      return mkCard('E-STRUCT', '銀行嘅「保本」產品', '銀行職員好熱情咁介紹一隻高息產品，話「保本」又年息 6%，好多街坊都買咗。', [
+        { label: '買', note: `投入一半定期存款，約 ${fmtMoney(amt)}` },
+        { label: '唔買' },
+        { label: '先問家人', note: '人際 +1' },
+      ], (g2, i) => {
+        if (i === 0) { g2.s.deposit -= amt; g2.s.flags['structured'] = amt; return '你簽咗一疊好厚嘅文件，其實冇睇清楚條款。'; }
+        if (i === 2) { g2.add('R', 1); return '屋企人話「保本」兩個字最唔保本，你決定唔買。'; }
+        return '你覺得睇唔明嘅嘢唔好買。';
+      }, { pri: 800, def: 1, auto: 1, agui: 1, cat: '生活陷阱' });
+    },
+  },
+  {
+    id: 'E-STRUCT-END', pri: 800, years: [2008, 2008], cat: '財務衝擊',
+    when: (g) => (g.s.flags['structured'] ? 1 : 0),
+    tick: (g) => {
+      const amt = Number(g.s.flags['structured']);
+      delete g.s.flags['structured'];
+      if (rewritten(g, '2008')) { g.s.deposit += Math.round(amt * 1.18); return '你買嘅「保本」產品到期，連利息攞返本金。好彩今次冇金融海嘯。'; }
+      const back = Math.round(amt * streamRng(g.s.seed, 'structured', 0).uni(0, 0.7));
+      g.s.deposit += back;
+      g.add('J', -5, '保本產品');
+      g.ach('scammed');
+      return `金融海嘯之下，你買嘅「保本」產品變咗廢紙，${fmtMoney(amt)} 只攞返 ${fmtMoney(back)}。`;
+    },
+  },
   ...SCAMS.map(({ spec, ...d }) => ({ ...d, make: (g: Game) => scamCard(g, spec) })),
   // 「穩賺」群組爆煲
   T('S-CRYPTO-BOOM', [18, 110], (g) => (g.s.scamWatch && g.s.scamWatch.boomYear <= g.s.year ? 1 : 0), (g) => {
@@ -714,6 +744,19 @@ function ERA_TICKS(): EventDef[] {
     [2023, '通關，大家急不及待去旅行。', (g) => g.add('J', 1)],
     [2023, '世紀黑雨，部分地舖水浸。'],
     [2024, '樓市全面撤辣，地產代理又開始忙。'],
+    // v0.9 補充（11.14）
+    [1983, '港元急跌，大家搶購米同廁紙；之後港元同美元掛鈎，7.8 兌 1。', (g) => g.add('J', -2)],
+    [1991, '有銀行出事，市民排長龍擠提，大人都去咗攞錢出嚟。'],
+    [1993, '樓市狂升，地產舖門口日日排長龍；租屋嘅家庭又要加租。'],
+    [1994, '美國加息，供樓開支一下子重咗，樓價回落。', (g) => { if (g.s.prop && g.s.prop.mortgage > 0) g.add('J', -2); }],
+    [1997, '禽流感，街市暫停賣活雞。'],
+    [1998, '政府入市托股市；赤鱲角新機場啟用。'],
+    [2001, '九一一事件之後，旅遊同航空業受壓，好多公司凍薪。', (g) => { if (['J23', 'J30', 'J29'].includes(g.s.job?.id ?? '')) g.add('J', -2); }],
+    [2012, '樓市辣招一浪接一浪，買賣樓要交額外印花稅。'],
+    [2018, '超強颱風山竹襲港，周圍塌樹，第二朝好多人逼巴士返工。'],
+    [2019, '經濟轉差，零售同飲食業生意大跌。', (g) => { if (['J03', 'J24', 'J29', 'J30', 'J43'].includes(g.s.job?.id ?? '') || g.s.biz) g.add('J', -2); }],
+    [2022, '港股跌到十幾年嚟嘅低位。', (g) => { if (g.s.stock + g.s.index > 0) g.add('J', -1); }],
+    [2024, '開始減息，供樓嘅人鬆一口氣。', (g) => { if (g.s.prop && g.s.prop.mortgage > 0) g.add('J', 1); }],
   ];
   // 被改寫咗嘅歷史唔再出現原本嘅字幕
   // 字幕位置 → 改寫事件（2023 通關跟疫情）
@@ -728,7 +771,49 @@ function ERA_TICKS(): EventDef[] {
 // ---------- 天馬行空（11.17，一生合共 ≤ 0.05%） ----------
 const P_TIANMA_YEAR = 6.25e-6; // v0.7：一生合共約 0.05%
 interface Tianma { id: string; ach: string; name: string; ok: (g: Game) => boolean; card?: (g: Game) => Card; tick?: (g: Game) => string }
+/** 測試用：指定某個年齡一定出某件天馬行空 */
+export const TIANMA_FORCE: { id: string | null; age: number } = { id: null, age: 0 };
+
+/** 終局事件：世界完結，人生即時結算（12.1 apocalypse） */
+function apocalypse(g: Game, kind: 'alien' | 'zombie', cause: string) {
+  const s = g.s;
+  s.alive = false;
+  s.deathCause = cause;
+  s.deathKind = 'apocalypse';
+  s.flags['apocalypse'] = kind;
+}
+/** 殭屍潮：備用金每 1 個月多撐 3 日 */
+export function zombieDays(g: Game) {
+  const need = Math.max(g.p(6000), Number(g.s.flags['lastNeed'] ?? 0) / 12);
+  const months = Math.max(0, (g.s.cash + g.s.deposit) / need);
+  return Math.round(7 + Math.min(months, 60) * 3);
+}
+
 const TIANMA: Tianma[] = [
+  {
+    id: 'TM-ALIEN', ach: 'earth_defense', name: '地球保衛戰', ok: () => true,
+    tick: (g) => { apocalypse(g, 'alien', '地球被外星人佔領'); return `${g.s.year} 年，巨型飛碟停喺維港上空，一道光之後全城燈熄。地球被佔領喇。`; },
+  },
+  {
+    id: 'TM-ZOMBIE', ach: 'zombie_survivor', name: '殭屍潮倖存者', ok: () => true,
+    card: (g) => {
+      g.s.flags['apocalypse'] = 'zombie';
+      const days = zombieDays(g);
+      const fund = days >= 16;
+      return mkCard('TM-ZOMBIE', '殭屍潮', `新聞話殭屍潮由新界一路蔓延到市區，街上已經冇人。${fund ? '好彩屋企雪櫃同儲物櫃都仲有嘢食。' : '屋企得返幾罐罐頭。'}你點做？`, [
+        { label: '留喺屋企' }, { label: '逃去離島' }, { label: '幫鄰居' },
+      ], (g2, i) => {
+        g2.s.flags['zombieDays'] = days;
+        apocalypse(g2, 'zombie', '殭屍淹沒香港');
+        const how = ['你鎖實門，靠儲落嘅糧食', '你搭最後一班船去咗長洲', '你同鄰居合埋糧食互相照應'][i];
+        return `${how}，撐咗 ${days} 日，最後全城都淪陷。${fund ? '有備用金嘅你撐得比好多人耐。' : '如果早啲儲多啲備用金，可能撐得耐啲。'}`;
+      }, { pri: 1000, def: 0, auto: 0, agui: 0, cat: '天馬行空' });
+    },
+  },
+  {
+    id: 'TM-REDO', ach: 'redo_10y', name: '重來一次', ok: (g) => g.s.age >= 25,
+    tick: () => '', // 由 Game.rewind 處理（還原到 10 年前）
+  },
   { id: 'TM-GOLD', ach: 'gold_rush', name: '淘金熱', ok: (g) => g.s.age >= 5, tick: (g) => { g.add('J', 5); g.spend(g.p(500), '買鏟'); return '香港發現海底金礦！全港市民去海灘掘金，你最後只掘到蜆。'; } },
   { id: 'TM-CAT', ach: 'cat_boss', name: '貓老闆', ok: () => true, tick: (g) => { g.add('K', 3); g.add('J', 5); if (!g.s.pets.some((p) => p.kind === 'cat')) g.s.pets.push({ kind: 'cat', name: '貓老闆', age: 3, since: g.s.age }); return '屋企隻貓突然識講嘢，佢教你：「唔好追高殺低。」'; } },
   { id: 'TM-METEOR', ach: 'meteor', name: '天降橫財', ok: () => true, tick: (g) => { g.add('R', 8); g.add('J', 3); return '一粒隕石落喺你屋苑平台，變咗地標，成個屋苑都識你。'; } },
@@ -790,16 +875,32 @@ const TIANMA: Tianma[] = [
   },
 ];
 
+function tianmaAt(seed: number, age: number, elig: Tianma[]): Tianma | null {
+  if (TIANMA_FORCE.id) return TIANMA_FORCE.age === age ? elig.find((t) => t.id === TIANMA_FORCE.id) ?? null : null;
+  if (!elig.length || streamRng(seed, 'tianma', 'gate', age)() >= P_TIANMA_YEAR) return null;
+  return streamRng(seed, 'tianma', 'pick', age).pick(elig);
+}
+
+/** 開局預先睇吓呢一世第一件天馬行空係咩（「返到 10 年前」要預早存低 10 年前嘅狀態） */
+export function tianmaPlan(seed: number, birthYear: number): { age: number; id: string } | null {
+  for (let age = 1; age <= 120; age++) {
+    const fake = { s: { age, year: birthYear + age } } as unknown as Game;
+    const t = tianmaAt(seed, age, TIANMA.filter((x) => x.ok(fake)));
+    if (t) return { age, id: t.id };
+  }
+  return null;
+}
+
 function rollTianma(g: Game): Card | null {
   const s = g.s;
-  if (s.wonder) return null;
-  if (streamRng(s.seed, 'tianma', 'gate', s.age)() >= P_TIANMA_YEAR) return null;
-  const elig = TIANMA.filter((t) => t.ok(g));
-  if (!elig.length) return null;
-  const t = streamRng(s.seed, 'tianma', 'pick', s.age).pick(elig);
+  if (s.wonder || g.noTianma) return null;
+  const t = tianmaAt(s.seed, s.age, TIANMA.filter((x) => x.ok(g)));
+  if (!t) return null;
+  if (t.id === 'TM-REDO' && !g.redoSnap) return null; // 冇 10 年前嘅紀錄（理論上唔會發生）
   s.wonder = t.name;
   g.ach(t.ach);
-  g.log(`奇遇：${t.name}`, '天馬行空', true);
+  if (t.id === 'TM-REDO') { g.rewind(); return null; }
+  g.log(`${t.name}（奇遇）`, '天馬行空', true);
   if (t.tick) { g.tick(`✨ ${t.tick(g)}`); return null; }
   return t.card!(g);
 }
@@ -868,6 +969,11 @@ export function drawEvents(g: Game) {
 
   // 1. 天馬行空
   const tm = rollTianma(g);
+  if (s.flags['apocalypse'] || g.redoYear) {
+    // 終局事件 / 返到 10 年前：當年其他事件全部取消
+    if (tm) { if (s.age < 6) autoResolve(g, tm, '父母幫你決定：'); else g.queue.push(tm); }
+    return;
+  }
   if (tm) hits.push({ d: null, c: tm, forced: false });
 
   // 2–3. 候選池同擲骰
