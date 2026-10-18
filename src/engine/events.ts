@@ -336,6 +336,60 @@ const GENERAL_EVENTS: EventDef[] = [
       return i === 1 ? '新屋細咗，但租金平返啲。' : '返工遠咗，每日多咗一個鐘車程。';
     }, { pri: 200, def: 0, auto: 1, agui: 0 }),
   },
+  { // 健康 ≤ 25：強制出補救選項，令玩家即刻留意到
+    id: 'E-RESCUE-H', pri: 900, fixed: true, once: false, cool: 2, cat: '健康', ages: [6, 120],
+    when: (g) => (g.s.H <= 25 && g.s.alive ? 1 : 0),
+    make: (g) => {
+      const kid = g.s.age < 18;
+      const doc = g.p(kid ? 0 : 1500);
+      return mkCard('E-RESCUE-H', '身體響警號', `你嘅健康得返 ${Math.round(g.s.H)} 分，成日覺得好攰。要即刻做啲嘢。`, kid ? [
+        { label: '同屋企人去睇醫生', fx: { H: 5 } },
+        { label: '每日放學去公園跑步', fx: { H: 4, J: 1 } },
+        { label: '早啲瞓，唔再打機打通宵', fx: { H: 3, J: -1 } },
+      ] : [
+        { label: '睇醫生做身體檢查', note: `約 ${fmtMoney(doc)}`, fx: { H: 5 } },
+        { label: '開始每星期做運動', fx: { H: 4, J: 1 } },
+        { label: '早啲瞓、戒宵夜', fx: { H: 3 } },
+        { label: '請幾日假休息', fx: { H: 3, J: 2 } },
+      ], (g2, i) => {
+        if (!kid && i === 0) { g2.spend(doc, '身體檢查'); g2.add('H', 5); return '醫生幫你調整咗生活習慣，你精神咗好多。'; }
+        if (i === 0) { g2.add('H', 5); return '醫生開咗藥，叮囑你要多休息。'; }
+        if (i === 1) { g2.add('H', 4); g2.add('J', 1); return '頭幾日好辛苦，之後越跑越輕鬆。'; }
+        if (i === 2) { g2.add('H', 3); if (kid) g2.add('J', -1); return '瞓夠覺，成個人清醒咗。'; }
+        g2.add('H', 3); g2.add('J', 2); return '休息幾日，返工時有精神好多。';
+      }, { pri: 900, def: 1, auto: 1, agui: 0, cat: '健康' });
+    },
+  },
+  { // 快樂 ≤ 25：強制出補救選項
+    id: 'E-RESCUE-J', pri: 899, fixed: true, once: false, cool: 2, cat: '健康', ages: [6, 120],
+    when: (g) => (g.s.J <= 25 && g.s.alive ? 1 : 0),
+    make: (g) => {
+      const kid = g.s.age < 18;
+      const fee = g.p(3200);
+      const c = mkCard('E-RESCUE-J', '心情好差', `你嘅快樂得返 ${Math.round(g.s.J)} 分，最近成日唔想出門口。`, kid ? [
+        { label: '同爸爸媽媽傾吓', fx: { J: 4, R: 1 } },
+        { label: '搵學校社工', fx: { J: 5 } },
+        { label: '約同學出去玩', fx: { J: 3, R: 2 } },
+      ] : [
+        { label: '見輔導員傾幾次', note: `約 ${fmtMoney(fee)}`, fx: { J: 6 } },
+        { label: '約朋友食飯傾偈', fx: { J: 3, R: 2 } },
+        { label: '去行山散吓心', fx: { J: 3, H: 1 } },
+        { label: '打去「情緒通」18111', note: '免費，24 小時', fx: { J: 4 } },
+      ], (g2, i) => {
+        if (kid) {
+          if (i === 0) { g2.add('J', 4); g2.add('R', 1); return '講咗出嚟，心入面輕鬆咗。'; }
+          if (i === 1) { g2.add('J', 5); return '社工姑娘教咗你幾個減壓方法。'; }
+          g2.add('J', 3); g2.add('R', 2); return '同朋友玩咗一日，暫時唔諗啲煩惱。';
+        }
+        if (i === 0) { g2.spend(fee, '輔導'); g2.add('J', 6); return '輔導員幫你理清思緒，你慢慢搵返方向。'; }
+        if (i === 1) { g2.add('J', 3); g2.add('R', 2); return '朋友聽你講咗成晚，你覺得冇咁孤單。'; }
+        if (i === 2) { g2.add('J', 3); g2.add('H', 1); return '企喺山頂吹吓風，個心靜咗落嚟。'; }
+        g2.add('J', 4); return '電話另一邊嘅人好耐心咁聽你講。';
+      }, { pri: 899, def: 1, auto: 1, agui: 0, cat: '健康' });
+      c.hotline = true;
+      return c;
+    },
+  },
   {
     id: 'E-PET', pri: 200, ages: [10, 75], cat: '生活日常',
     when: (g) => (g.s.age >= 18 && !g.s.pets.length ? 0.03 * Math.sqrt(Mneg(g.s.J)) * (g.s.home === 'subdiv' ? 0.3 : 1) : 0),

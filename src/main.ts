@@ -8,7 +8,7 @@ import { h, clear } from './ui/dom';
 import { drawTitle, drawScene, SW, SH } from './ui/scene';
 import { store, type Settings } from './ui/store';
 import { playGame } from './ui/play';
-import { showEnding, boardTable, booking, placeOf } from './ui/ending';
+import { showEnding, boardTable, booking, placeOf, achGrid } from './ui/ending';
 
 const root = document.getElementById('app')!;
 let settings: Settings = store.settings();
@@ -44,7 +44,7 @@ function title() {
   clear(root).append(h('div', { class: 'screen title' },
     cv,
     h('div', { class: 'title-box' },
-      h('p', { class: 'ver' }, 'v0.3 試玩版 · 免費香港人生模擬'),
+      h('p', { class: 'ver' }, 'v0.5 試玩版 · 免費香港人生模擬'),
       h('h1', { class: 'logo' }, '七百萬', h('br'), '分之', h('em', null, '我')),
       h('p', { class: 'tagline' }, '香港七百幾萬人，你係其中一個。喺邊區出世、做邊個嘅仔女，都揀唔到；之後點過，就睇你點揀。'),
       h('div', { class: 'counts' },
@@ -56,7 +56,31 @@ function title() {
         h('button', { class: 'btn ghost small', type: 'button', onclick: () => boardScreen() }, '排行榜'),
         h('button', { class: 'btn ghost small', type: 'button', onclick: () => achScreen() }, '成就'),
         h('button', { class: 'btn outline small', type: 'button', onclick: () => booking(root) }, '點擊查詢更多'))),
-    h('footer', { class: 'title-foot' }, h('span', null, '同一個起點，有冇規劃，結局差好遠。'), h('span', null, '內容為模擬，不構成投資建議'))));
+    h('footer', { class: 'title-foot' }, h('span', null, '同一個起點，有冇規劃，結局差好遠。'),
+      h('button', { class: 'linkbtn', type: 'button', onclick: () => fullDisclaimer() }, '免責聲明'))));
+}
+
+// ---------- 詳細免責聲明（首頁底部） ----------
+const DISCLAIMER: [string, string][] = [
+  ['純屬模擬', '「七百萬分之我」是一個人生模擬遊戲，只供娛樂及理財教育用途。遊戲中的人物、家庭、事件同結局全部由程式隨機產生，與任何真實人物無關，如有雷同，純屬巧合。'],
+  ['不構成任何建議', '遊戲內所有內容，包括投資、強積金、儲蓄、保障、買樓、借貸同消費的結果，均不構成任何投資、保險、財務、稅務、法律或醫療建議。現實決定請按自己情況，向持牌專業人士查詢。內容為模擬，不構成投資建議。'],
+  ['數字與機率', '收入、開支、樓價、回報、疾病同壽命等數字，參考香港公開統計及網上資料作粗略估算，並經大幅簡化，未必反映最新或真實情況。投資回報按歷史大概範圍隨機產生，過往表現不代表將來；遊戲不會刻意調高或調低任何虧損機率。'],
+  ['名稱純屬虛構', '遊戲中的機構、彩票、建築同活動名稱（例如六星彩、保幼局、公開試）均為虛構或改編，並非指任何真實機構或產品。本遊戲不提及、亦不推介任何保險公司或金融產品。'],
+  ['敏感內容', '遊戲內容涉及疾病、意外、失業、離婚同死亡等情節，建議 15 歲或以上人士遊玩。如果你感到困擾或有情緒需要，可致電 18111「情緒通」精神健康支援熱線（24 小時）。'],
+  ['私隱', '遊戲不設登入，不會收集或上傳任何個人資料。成績、成就同設定只儲存在你自己部機的瀏覽器入面，清除瀏覽器資料就會刪除。排行榜暱稱亦只會留喺你部機。'],
+  ['查詢', '遊戲入面「點擊查詢更多」只會顯示 IG 專頁同聯絡電話，係咪聯絡由你自己決定。'],
+  ['靈感來源', '玩法概念受 1in8b.life 啟發，內容、程式同美術均為本遊戲自行製作，與原作並無關連。'],
+];
+function fullDisclaimer() {
+  const wrap = h('div', { class: 'mwrap in' });
+  const close = () => wrap.remove();
+  wrap.append(h('div', { class: 'modal disc', role: 'dialog', 'aria-modal': 'true', 'aria-label': '免責聲明' },
+    h('button', { class: 'mx', type: 'button', 'aria-label': '關閉', onclick: close }, '✕'),
+    h('h3', { class: 'ctitle' }, '免責聲明'),
+    DISCLAIMER.map(([t, d]) => h('section', null, h('h4', null, t), h('p', null, d))),
+    h('button', { class: 'btn', type: 'button', onclick: close }, '明白')));
+  wrap.addEventListener('click', (ev) => { if (ev.target === wrap) close(); });
+  root.append(wrap);
 }
 
 function boardScreen() {
@@ -68,10 +92,7 @@ function achScreen() {
   fab(true);
   const got = new Set(store.achs());
   clear(root).append(h('div', { class: 'screen sub' }, h('h2', null, `成就 ${ACHIEVEMENTS.filter((a) => got.has(a.id)).length} / ${ACHIEVEMENTS.length}`),
-    h('div', { class: 'achs' }, ACHIEVEMENTS.map((a) => {
-      const on = got.has(a.id);
-      return h('div', { class: `ach ${on ? '' : 'locked'}` }, h('b', null, on || !a.hidden ? a.name : '？？？'), h('span', null, on || !a.hidden ? a.desc : '隱藏成就'), a.pts ? h('em', null, `${a.pts} 分`) : null);
-    })),
+    achGrid(got),
     h('button', { class: 'btn ghost', type: 'button', onclick: () => title() }, '返回')));
 }
 
@@ -103,22 +124,22 @@ function setup() {
       periodSel.querySelectorAll('.period').forEach((b) => b.classList.toggle('on', b === e.currentTarget));
     },
   }, h('b', null, p), h('span', null, PERIOD_NOTE[p] ?? ''))));
+  const next = h('button', { class: 'btn', type: 'button', onclick: () => {
+    settings.autoPick = second && autoBox.checked;
+    if (!second) settings.period = '隨機時段';
+    store.saveSettings(settings);
+    const period = settings.period === '隨機時段' ? null : settings.period;
+    originCard(new Game(newSeed(), period), period);
+  } }, '下一步 ›');
   clear(root).append(h('div', { class: 'screen center-card' }, h('div', { class: 'paper' },
-    h('h2', null, '投胎設定'),
+    h('div', { class: 'setup-head' }, h('h2', null, '投胎設定'), next),
     h('p', { class: 'muted' }, '名字會喺出世嗰刻隨機抽，屋企人改嘅，你揀唔到。'),
     h('h4', null, '速度'), speedSeg,
     h('p', { class: 'muted small' }, '1× 大約 45 秒一年，等候期間可以調整投資同強積金，亦可以撳「下一年」直接跳。遊戲中隨時可以改速度。'),
     second ? [
       h('h4', null, '出生時段'), periodSel,
       h('label', { class: 'check' }, autoBox, h('span', null, '自動揀：系統幫你揀人生抉擇，測驗同公開試仍然要自己答。')),
-    ] : h('p', { class: 'muted small' }, '玩完第一局會解鎖「揀出生時段」同「自動揀」。'),
-    h('button', { class: 'btn big', type: 'button', onclick: () => {
-      settings.autoPick = second && autoBox.checked;
-      if (!second) settings.period = '隨機時段';
-      store.saveSettings(settings);
-      const period = settings.period === '隨機時段' ? null : settings.period;
-      originCard(new Game(newSeed(), period), period);
-    } }, '下一步'))));
+    ] : h('p', { class: 'muted small' }, '玩完第一局會解鎖「揀出生時段」同「自動揀」。'))));
 }
 
 function dateOf(year: number, day: number) {

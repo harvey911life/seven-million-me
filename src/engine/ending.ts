@@ -208,3 +208,14 @@ export function spiderLine(me: Spider, ag: Spider): string {
   if (d.every((x) => x.d >= -5)) return `你喺每一方面都唔輸某某人，${N[best.k]}仲贏佢 ${Math.round(best.d)} 分。`;
   return `某某人喺每一方面都贏你少少，最大分別係${N[worst.k]}。`;
 }
+
+/** 人生排行榜評級：A+ 最高，F 低於 300 分 */
+export const GRADE_CUTS: [string, number][] = [['A+', 780], ['A', 700], ['B', 600], ['C', 500], ['D', 400], ['E', 300], ['F', -Infinity]];
+export const lifeGrade = (total: number) => GRADE_CUTS.find(([, t]) => total >= t)![0];
+
+/** 收入最高嘅一年（按 2026 年幣值比較） */
+export function bestEarnYear(s: { hist: { age: number; year: number; income: number; P: number }[] }) {
+  let best: { age: number; year: number; income: number; real: number } | null = null;
+  for (const r of s.hist) if (r.income > 0 && (!best || r.income / r.P > best.real)) best = { age: r.age, year: r.year, income: r.income, real: r.income / r.P };
+  return best;
+}

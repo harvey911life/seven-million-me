@@ -1,5 +1,6 @@
 // 每年流程 ③ 焦點 / 花錢面板、④ 自然變化（第 4 章 4.5–4.16、第 5 章 5.3）
 import type { Game } from './game';
+import { streamRng } from './rng';
 import type { StatKey } from './state';
 import { clamp, Mneg, Mpos } from './util';
 
@@ -132,10 +133,11 @@ export function naturalChanges(g: Game) {
   } else if (s.status === 'study' && s.study) {
     g.add('K', s.study.kind === '職業學院' ? 1.5 : 2);
   }
-  if (a >= 40 && a < 50) g.add('H', -0.25);
-  else if (a >= 50 && a < 60) g.add('H', -0.5);
-  else if (a >= 60 && a < 70) g.add('H', -0.75);
-  else if (a >= 70 && a < 80) { g.add('H', -1, '年紀大'); g.add('K', -0.25); if (s.focus !== '含飴弄孫' && s.focus !== '服務社區') g.add('R', -0.5); }
+  // 年紀大自然退化（v0.5 調慢：原本 60 歲平均健康只剩十幾分）
+  if (a >= 40 && a < 50) g.add('H', -0.2);
+  else if (a >= 50 && a < 60) g.add('H', -0.35);
+  else if (a >= 60 && a < 70) g.add('H', -0.5);
+  else if (a >= 70 && a < 80) { g.add('H', -0.8, '年紀大'); g.add('K', -0.25); if (s.focus !== '含飴弄孫' && s.focus !== '服務社區') g.add('R', -0.5); }
   else if (a >= 80 && a < 90) { g.add('H', -1.5, '年紀大'); g.add('K', -0.5); if (s.focus !== '含飴弄孫' && s.focus !== '服務社區') g.add('R', -0.5); }
   else if (a >= 90) { g.add('H', -2, '年紀大'); g.add('K', -0.75); g.add('R', -0.75); }
 
@@ -144,15 +146,21 @@ export function naturalChanges(g: Game) {
     const j = s.job;
     if (s.status === 'unemp') g.add('J', -2, '失業');
     else {
-      let dh = s.focus === '強身健體' ? 0 : -0.5;
+      let dh = s.focus === '強身健體' ? 0 : -0.3;
       const dj = s.focus === '培養嗜好' ? 0 : -1;
       if (j?.firstType === 'ontime' && j.firstYears < 5) dh *= 0.5;
       g.add('H', dh, dh < 0 ? '工作忙，冇時間做運動' : undefined);
       g.add('J', dj + (j?.firstType === 'ontime' ? 0.5 : 0));
-      if (j?.firstType === 'hard') g.add('H', -0.5, '超時工作');
-      if (s.overtime) g.add('H', -2, '日日超時');
+      if (j?.firstType === 'hard' && j.firstYears < 5) g.add('H', -0.3, '超時工作');
+      if (s.overtime) {
+        g.add('H', -1, '日日超時');
+        // 超時唔會一世：每年大約四分一機會完咗個 project / 換上司
+        if (streamRng(s.seed, 'ot', s.age)() < 0.25) { s.overtime = false; g.tick('公司請多咗人，你終於唔使日日超時。'); }
+      }
     }
   }
+  // 身體有自我修復：成年後健康低過 60，每年慢慢回升少少（冇病喺度治療時）
+  if (a >= 18 && s.H < 60 && !s.diseases.some((d) => d.status === 'treating')) g.add('H', (60 - s.H) * 0.04);
   // ④c 住屋
   switch (s.home) {
     case 'subdiv': g.add('H', -0.5); g.add('J', -1.5, '劏房擠迫'); break;

@@ -1,6 +1,6 @@
 // 結局畫面（第 12 章，v0.1 精簡版）：離世 → 身後 → 退休 → 蜘蛛網 → 計分 → 賺錢 → 上榜 → 成就 → 最後一頁
 import type { Game } from '../engine/game';
-import { computeEnding, endAchievements, spiderLine, type Ending, type Spider } from '../engine/ending';
+import { computeEnding, endAchievements, spiderLine, lifeGrade, bestEarnYear, GRADE_CUTS, type Ending, type Spider } from '../engine/ending';
 import { aguiEnding } from '../engine/agui';
 import { ACHIEVEMENTS, ACH_BY_ID } from '../engine/achievements';
 import { fmtMoney } from '../engine/util';
@@ -8,6 +8,7 @@ import { h, clear, copyText } from './dom';
 import { store } from './store';
 import { drawPortrait, drawScene, SW, SH } from './scene';
 import QR from '../assets/ig-qr.png';
+import { emblem, rarityOf, rateText, tierOf } from './emblem';
 
 const HOUSE_DESC: Record<string, string> = { 公屋: '公屋', 資助出售: '居屋', 私樓自置: '自置私樓', 私樓租住: '租嚟嘅私樓', 劏房: '劏房', 村屋: '村屋', 跨境: '', 保幼局院舍: '保幼局', 寄養家庭: '寄養家庭' };
 export const placeOf = (g: Game) => `${g.s.origin.subArea}${HOUSE_DESC[g.s.origin.housing] ?? ''}`;
@@ -108,13 +109,24 @@ export function showEnding(root: HTMLElement, g: Game, period: string | null, on
   P('score', () => {
     const rows = e.items.map((it) => h('div', { class: 'srow' }, h('span', null, it.name), h('span', { class: 'sbar' }, h('span', { style: `width:${Math.round(it.v)}%` })), h('b', null, String(Math.round(it.v)))));
     const beat = e.nine > ag.nine;
+    const grade = lifeGrade(e.total);
     return h('div', { class: 'epage' }, h('h2', null, '人生排行榜計分'), h('div', { class: 'scores' }, rows),
       e.wonder ? h('p', { class: 'wonder' }, `天馬行空奇遇 +${e.wonder}`) : null,
       h('div', { class: 'total' }, h('span', null, '總分'), h('b', null, String(e.total)), h('small', null, '/ 1,000')),
+      h('div', { class: `lgrade lg-${grade.replace('+', 'p')}` }, h('span', null, '人生評級'), h('b', null, grade)),
+      h('p', { class: 'fine' }, GRADE_CUTS.slice(0, -1).map(([g, t]) => `${g} ≥ ${t}`).join('・') + '・F < 300'),
       h('p', { class: beat ? 'lead good' : 'lead' }, beat ? `你贏咗某某人！（某某人 ${Math.round(ag.total)} 分）` : `某某人有 ${Math.round(ag.total)} 分。下一世再試吓贏佢。`));
   });
   P('earn', () => h('div', { class: 'epage' }, h('h2', null, '賺錢榜'),
     h('div', { class: 'total' }, h('span', null, '一生收入'), h('b', null, fmtMoney(s.earnReal)), h('small', null, '2026 年幣值')),
+    (() => {
+      const b = bestEarnYear(s);
+      if (!b) return h('p', { class: 'muted' }, '呢一世未有過收入。');
+      return h('div', { class: 'bestyr' }, h('span', null, '賺得最多嘅一年'),
+        h('b', null, `${b.year} 年（${b.age} 歲）`),
+        h('em', null, `全年收入 ${fmtMoney(b.income)}`),
+        Math.abs(b.real - b.income) > 1000 ? h('small', null, `約等於 2026 年嘅 ${fmtMoney(b.real)}`) : null);
+    })(),
     h('p', { class: 'lead' }, `某某人一生賺咗 ${fmtMoney(ag.earnReal)}。${s.earnReal > ag.earnReal ? '你賺得比佢多，但賺得多唔等於夠用。' : '賺得少唔緊要，規劃先係關鍵。'}`)));
   P('board', () => {
     const box = h('div', { class: 'epage' }, h('h2', null, '上榜'));
@@ -136,33 +148,37 @@ export function showEnding(root: HTMLElement, g: Game, period: string | null, on
     return box;
   });
   P('ach', () => {
-    // 成就卡：設計成適合截圖分享
-    const mine = s.ach.map((id) => ACH_BY_ID[id]).filter(Boolean);
-    const ICON: Record<string, string> = { 出身: '🏠', 學業: '🎓', 事業: '💼', 理財: '💰', 保障: '🛡️', 人生: '🌱', 特殊: '✨' };
-    const rare = (a: (typeof mine)[number]) => a.hidden || a.pts >= 5;
-    const sorted = [...mine].sort((x, y) => Number(rare(y)) - Number(rare(x)) || y.pts - x.pts);
-    const sp = e.spider;
-    const keys = ['H', 'J', 'K', 'R', 'F'] as const;
-    const best = keys.reduce((m, k) => (sp[k] > sp[m] ? k : m), 'H' as (typeof keys)[number]);
-    const TITLE = { H: '健康達人', J: '開心果', K: '知識份子', R: '萬人迷', F: '理財高手' };
-    const title = s.ach.includes('pentagon') ? '五邊形戰士' : minor ? '小天使' : TITLE[best];
+    // 成就卡：中間放今世最稀有嘅成就（大圖），其他成就用文字排喺下面；設計成適合截圖分享
+    const mine = s.ach.map((id) => ACH_BY_ID[id]).filter((a) => a && a.id !== 'beat_agui');
+    const sorted = [...mine].sort((x, y) => rarityOf(x.id) - rarityOf(y.id) || y.pts - x.pts || Number(!!y.hidden) - Number(!!x.hidden));
+    const top = sorted[0];
+    const rest = sorted.slice(1);
+    const grade = lifeGrade(e.total);
     const cv = h('canvas', { class: 'sc-scene', width: SW, height: SH, 'aria-hidden': 'true' });
     drawScene(cv.getContext('2d')!, s, 0);
-    const shown = sorted.slice(0, 9);
+    const tier = top ? tierOf(top.id) : null;
+    const shown = rest.slice(0, 12);
     const card = h('div', { class: 'sharecard' },
       h('div', { class: 'sc-top' }, h('span', { class: 'sc-logo' }, '七百萬分之', h('em', null, '我')), h('span', { class: 'sc-tag' }, '人生成就卡')),
-      h('div', { class: 'sc-hero' }, cv, h('span', { class: 'sc-title' }, title)),
+      h('div', { class: 'sc-hero' }, cv),
       h('div', { class: 'sc-who' }, h('b', null, s.name), h('span', null, `${s.birthYear}–${s.year} · 享年 ${s.age} 歲 · ${s.origin.district}出世`)),
+      top ? h('div', { class: `sc-star t-${tier!.name}` },
+        h('span', { class: 'sc-star-tag' }, `最稀有成就 · ${tier!.name}`),
+        emblem(top.id, 120),
+        h('b', null, top.name),
+        h('span', null, top.desc),
+        h('small', null, `大約 ${rateText(top.id)} 嘅人生會解鎖`),
+        fresh.includes(top.id) ? h('i', { class: 'sc-new' }, 'NEW') : null)
+        : h('div', { class: 'sc-star' }, h('b', null, '呢一世未解鎖成就'), h('span', null, '下一世再嚟過。')),
       h('div', { class: 'sc-nums' },
         h('div', null, h('b', null, String(e.total)), h('span', null, '人生總分')),
-        h('div', null, h('b', null, String(mine.length)), h('span', null, '解鎖成就')),
-        h('div', null, h('b', null, e.nine > ag.nine ? '勝' : '負'), h('span', null, '對某某人'))),
-      h('div', { class: 'sc-badges' }, shown.map((a) => h('div', { class: `sc-b ${rare(a) ? 'rare' : ''} ${fresh.includes(a.id) ? 'new' : ''}` },
-        h('i', null, ICON[a.cat] ?? '★'), h('span', null, a.name)))),
-      mine.length > shown.length ? h('p', { class: 'sc-more' }, `仲有 ${mine.length - shown.length} 個成就`) : null,
+        h('div', null, h('b', { class: `lgc lg-${grade.replace('+', 'p')}` }, grade), h('span', null, '人生評級')),
+        h('div', null, h('b', null, String(mine.length)), h('span', null, '解鎖成就'))),
+      rest.length ? h('div', { class: 'sc-list' }, h('h4', null, '其他成就'),
+        h('p', null, shown.flatMap((a, i) => [i ? h('span', { class: 'dot' }, '・') : null, h('span', { class: fresh.includes(a.id) ? 'new' : '' }, a.name)])),
+        rest.length > shown.length ? h('small', null, `仲有 ${rest.length - shown.length} 個`) : null) : null,
       h('div', { class: 'sc-foot' }, h('span', null, '同一個起點，有冇規劃，結局差好遠。'), h('span', null, '內容為模擬')));
-    const best1 = sorted[0];
-    const shareText = `我喺「七百萬分之我」做咗${s.name}，活到 ${s.age} 歲，人生總分 ${e.total}，解鎖咗 ${mine.length} 個成就${best1 ? `（最難得：${best1.name}）` : ''}。你又會點過？`;
+    const shareText = `我喺「七百萬分之我」做咗${s.name}，活到 ${s.age} 歲，人生評級 ${grade}（${e.total} 分），解鎖咗 ${mine.length} 個成就${top ? `，最稀有係「${top.name}」` : ''}。你又會點過？`;
     const note = h('small', { class: 'copied' }, '');
     return h('div', { class: 'epage achpage' }, card,
       h('div', { class: 'row2' },
@@ -170,7 +186,7 @@ export function showEnding(root: HTMLElement, g: Game, period: string | null, on
         h('button', { class: 'btn ghost', type: 'button', onclick: () => { note.textContent = '手機截圖就可以分享呢張卡。'; card.scrollIntoView({ block: 'center' }); } }, '點樣分享')),
       note,
       h('details', { class: 'allach' }, h('summary', null, `全部成就（累積 ${store.achs().filter((id) => ACH_BY_ID[id]).length} / ${ACHIEVEMENTS.length}）`),
-        h('div', { class: 'achs' }, mine.map((a) => h('div', { class: `ach ${fresh.includes(a.id) ? 'new' : ''}` }, h('b', null, a.name), h('span', null, a.desc), a.pts ? h('em', null, `${a.pts} 分`) : null)))));
+        achGrid(new Set(store.achs()), new Set(fresh))));
   });
   P('last', () => {
     const lines = ['同一個起點，有冇規劃，結局差好遠。', '下一世，你想點過？', '人生唔可以重嚟，但遊戲可以。'];
@@ -203,6 +219,18 @@ export function showEnding(root: HTMLElement, g: Game, period: string | null, on
     (next.hidden ? (stage.querySelector('button, input') as HTMLElement | null) : next)?.focus({ preventScroll: true });
   }
   go(0);
+}
+
+/** 成就圖鑑：每個成就一張顯示圖，未解鎖顯示剪影 */
+export function achGrid(got: Set<string>, fresh = new Set<string>()): HTMLElement {
+  return h('div', { class: 'achs' }, ACHIEVEMENTS.map((a) => {
+    const on = got.has(a.id);
+    const open = on || !a.hidden;
+    return h('div', { class: `ach ${on ? '' : 'locked'} ${fresh.has(a.id) ? 'new' : ''}` },
+      emblem(a.id, 44, !on),
+      h('div', null, h('b', null, open ? a.name : '？？？'), h('span', null, open ? a.desc : '隱藏成就'),
+        h('small', null, `${tierOf(a.id).name} · ${rateText(a.id)}${a.pts ? ` · ${a.pts} 分` : ''}`)));
+  }));
 }
 
 export function boardTable(hi: number | null = null): HTMLElement {

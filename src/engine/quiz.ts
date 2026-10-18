@@ -33,7 +33,8 @@ export function rememberSeen(ids: string[]) {
 export function scheduleQuizzes(g: Game) {
   const r = streamRng(g.s.seed, 'quiz', 'schedule');
   const n = 2; // 一生最多兩次突擊測驗：小學一次、中學一次
-  const ages = [6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17];
+  // 公開試前兩年（16、17 歲）唔出測驗，免得似模擬試
+  const ages = [6, 7, 8, 9, 10, 11, 12, 13, 14, 15];
   const all: number[][] = [];
   const rec = (start: number, cur: number[]) => {
     if (cur.length === n) { if (cur.some((a) => a <= 11) && cur.some((a) => a >= 12)) all.push([...cur]); return; }

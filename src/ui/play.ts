@@ -267,8 +267,8 @@ export function playGame(root: HTMLElement, g: Game, settings: Settings, onEnd: 
   function focusPanel(): HTMLElement {
     if (s.age < 6) return h('p', { class: 'muted' }, '仲細，未有得揀。6 歲入學之後就可以揀每年嘅人生焦點。');
     return h('div', { class: 'list' },
-      h('p', { class: 'hint' }, `而家：${s.focus ?? '未揀'}。揀一個新焦點，再撳上面「確認」，下一年開始生效。`),
-      focusList(g).map((f) => h('button', { class: `opt-card ${(pendFocus ?? s.focus) === f.id ? 'on' : ''}`, type: 'button', onclick: () => { pendFocus = f.id; renderSheet(); } },
+      h('p', { class: 'hint' }, `而家：${s.focus ?? '未揀'}。揀一個新焦點，再撳多一次（或者撳上面「確認」），下一年開始生效。`),
+      focusList(g).map((f) => h('button', { class: `opt-card ${(pendFocus ?? s.focus) === f.id ? 'on' : ''}`, type: 'button', onclick: () => { if (pendFocus === f.id) { sheetOk.click(); return; } pendFocus = f.id; renderSheet(); } },
         h('b', null, f.id, s.focus === f.id ? h('small', { class: 'now' }, '而家') : null), h('span', { class: 'fx' }, fxText(f.fx)), h('span', { class: 'muted' }, f.desc))));
   }
   function spendPanel(): HTMLElement {
@@ -516,12 +516,12 @@ export function playGame(root: HTMLElement, g: Game, settings: Settings, onEnd: 
       const list = focusList(g).slice(0, 4);
       let pick: string | null = null;
       const ok = h('button', { class: 'btn small', type: 'button', hidden: true, onclick: () => { if (!pick) return; s.focus = pick; keyEnter = null; keyPick = null; hideEvent(); renderTop(); done(); } }, '確認');
-      const choose = (id: string) => { pick = id; ok.hidden = false; box.querySelectorAll('.copt').forEach((b, j) => b.classList.toggle('sel', list[j].id === id)); keyEnter = () => ok.click(); };
+      const choose = (id: string) => { if (pick === id) { ok.click(); return; } pick = id; ok.hidden = false; box.querySelectorAll('.copt').forEach((b, j) => b.classList.toggle('sel', list[j].id === id)); keyEnter = () => ok.click(); };
       keyPick = (n) => { if (list[n]) choose(list[n].id); };
       const box = h('div', { class: 'ecard' },
         h('div', { class: 'ctop' }, h('span', { class: 'tag c-yellow' }, '人生焦點'), ok),
         h('h3', null, title),
-        h('p', { class: 'muted' }, '揀一個，再撳上面「確認」。之後隨時可以喺底部「焦點」改，嗰度仲有其他選擇。'),
+        h('p', { class: 'muted' }, '揀一個，再撳多一次（或者撳上面「確認」）。之後隨時可以喺底部「焦點」改，嗰度仲有其他選擇。'),
         h('div', { class: 'copts' }, list.map((f, i) => h('button', { class: 'copt', type: 'button', onclick: () => choose(f.id) },
           h('span', { class: 'cn' }, String(i + 1)),
           h('span', { class: 'ol' }, f.id, h('small', null, `${fxText(f.fx)}・${f.desc}`))))));
