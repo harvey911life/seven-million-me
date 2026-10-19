@@ -236,14 +236,17 @@ const PET_SPR: Record<'cat' | 'dog', string[]> = {
   cat: ['k...k..', 'kak.ak.', 'aeaeaa.', 'aaaaa.k', '.aaaaak', '.a.a.a.'],
   dog: ['kk......', 'kaa.....', 'aeaa...k', 'aaaaaaak', '.aaaaaa.', '.a.a.aa.', '.a.a..a.'],
 };
+// 楊桃：白底啡花（a 白、b 啡）
+const YT_SPR = ['k...k..', 'kbk.ak.', 'aeaebb.', 'abbaa.k', '.aabbak', '.a.a.b.'];
 const PET_COL = ['#f0a04b', '#8a6a4a', '#d9d4c7', '#444a52'];
-function pet(c: Ctx, x: number, kind: 'cat' | 'dog', i: number, t: number, giant = false, talk = false) {
+function pet(c: Ctx, x: number, kind: 'cat' | 'dog', i: number, t: number, giant = false, talk = false, yt = false) {
   const col = giant ? '#f0a04b' : PET_COL[(hash(i * 31 + (kind === 'cat' ? 1 : 7)) >> 3) % PET_COL.length];
   const bob = ((t + i * 3) >> 3) % 2;
   const k = giant ? 5 : 1;
   // 彩蛋：超巨型貓企喺最右邊，大過成棟樓
   const px = giant ? SW - 19 : x;
-  drawSprite(c, PET_SPR[kind], px, GROUND, { h: col, s: col, t: col, b: col, k: '#2a2a33', m: col, a: col } as unknown as Pal, giant ? 0 : bob, k);
+  const pal = yt ? { k: '#2a2a33', a: '#f6f2ea', b: '#9a6234' } : { h: col, s: col, t: col, b: col, k: '#2a2a33', m: col, a: col };
+  drawSprite(c, yt ? YT_SPR : PET_SPR[kind], px, GROUND, pal as unknown as Pal, giant ? 0 : bob, k);
   if (talk && (t >> 4) % 3 !== 2) {
     // 對話氣泡：白色框 + 三點
     const bx = px - 2, by = GROUND - 6 * k - 9 - (giant ? 0 : bob);
@@ -358,7 +361,7 @@ function people(c: Ctx, s: State, t: number) {
   person(c, meX, { sex: s.gender, age: s.age, role: 'me', status: s.status, level: s.job?.level }, t, 0, s.age >= 65 && s.H < 30);
   // 寵物排喺右邊
   // 第 5 隻起（有自住物業最多 10 隻）排喺最左邊
-  (s.pets ?? []).slice(0, 10).forEach((pt, i) => pet(c, i < 4 ? 127 + i * 9 : 2 + (i - 4) * 8, pt.kind, i, t, !!pt.giant, !!pt.talk));
+  (s.pets ?? []).slice(0, 10).forEach((pt, i) => pet(c, i < 4 ? 127 + i * 9 : 2 + (i - 4) * 8, pt.kind, i, t, !!pt.giant, !!pt.talk, !!pt.yt));
 }
 
 /** 頭像（結局用） */

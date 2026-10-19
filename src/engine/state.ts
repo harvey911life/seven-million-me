@@ -30,7 +30,7 @@ export interface JobState {
   firstType?: 'hard' | 'promo' | 'ontime'; firstYears: number; hopCool: number; promoBoost: number; promoBoostYears: number;
 }
 
-export interface Pet { kind: 'cat' | 'dog'; name: string; age: number; since: number; giant?: boolean; talk?: boolean; giantAt?: number; talkAt?: number }
+export interface Pet { kind: 'cat' | 'dog'; name: string; age: number; since: number; giant?: boolean; talk?: boolean; giantAt?: number; talkAt?: number; yt?: boolean }
 export interface Budget { income: number; expense: number; cf: number; mpfEE: number; items: [string, number][] }
 export interface LogEntry { age: number; year: number; text: string; cat?: Cat; star?: boolean; big?: boolean }
 export interface HistRow { age: number; year: number; H: number; J: number; K: number; R: number; F: number; net: number; income: number; P: number }

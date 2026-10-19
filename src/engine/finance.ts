@@ -213,12 +213,14 @@ export function adoptPet(g: Game, kind: 'cat' | 'dog'): string {
     const pEgg = Math.min(0.06, 0.03 + 0.01 * s.pets.filter((p) => p.kind === 'cat').length);
     if (r() < pEgg) pt.giantAt = s.age + r.int(1, 3);
     if (r() < pEgg) pt.talkAt = s.age + r.int(1, 3);
+    // v1.4（用家指定）：1% 機會叫「楊桃」，白底啡花，必定變超巨型
+    if (r() < 0.01 && !used.includes('楊桃')) { pt.name = '楊桃'; pt.yt = true; pt.giantAt = s.age + r.int(1, 3); }
   }
   s.pets.push(pt);
   const t = payCost(g, g.p(info.once));
   g.add('J', 3);
-  g.log(`領養咗一隻${info.name}，叫「${name}」。`, '生活日常', true);
-  return `你領養咗一隻${info.name}，叫「${name}」。一次過開支約 ${fmtMoney(g.p(info.once))}${t}，之後每年約 ${fmtMoney(g.p(info.year))}。`;
+  g.log(`領養咗一隻${info.name}，叫「${pt.name}」。`, '生活日常', true);
+  return `你領養咗一隻${info.name}，叫「${pt.name}」。一次過開支約 ${fmtMoney(g.p(info.once))}${t}，之後每年約 ${fmtMoney(g.p(info.year))}。`;
 }
 const CAT_TALK = ['唔好追高殺低，學我咁瞓多啲就得。', '備用金留六個月，我啲罐罐留一年。', '你今個月又碌咗幾多張卡？', '樓價升定跌，我都係瞓喺你個鍵盤度。', '買保險要趁後生，好似我買貓糧要趁減價。', '六星彩？不如買多兩包貓砂。', '你老細今日又鬧你？過嚟摸吓我啦。', '複息係世界第八大奇蹟，第九係我。'];
 /** 寵物每年：老一歲，有機會離開 */
@@ -237,7 +239,8 @@ export function petsYear(g: Game) {
       g.log(`你隻貓「${p.name}」突然開口：「喂，罐罐唔夠喇。」你成個人呆咗。`, '天馬行空', true);
     } else if (p.talk) g.tick(`「${p.name}」話：「${r.pick(CAT_TALK)}」`);
     const [a, b] = PET_INFO[p.kind].life;
-    const die = p.age < a ? 0.01 : p.age >= b ? 0.6 : 0.08 + (0.4 * (p.age - a)) / (b - a);
+    // 楊桃未變大之前唔會離開，確保 100% 變超巨型
+    const die = p.yt && !p.giant ? 0 : p.age < a ? 0.01 : p.age >= b ? 0.6 : 0.08 + (0.4 * (p.age - a)) / (b - a);
     if (r() < die) {
       s.pets = s.pets.filter((x) => x !== p);
       g.add('J', -6, '寵物離開');
