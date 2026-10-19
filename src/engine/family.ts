@@ -977,14 +977,14 @@ function emigrateCard(g: Game): Card {
   const fam = s.married || s.kids.length > 0;
   const cost = g.p(fam ? 300000 : 150000);
   return mkCard('C-FM-07', fam ? '移民' : '移居外地', s.year >= 2020 && s.year <= 2024 ? '身邊好多朋友都走咗。你哋要唔要移民？' : '有機會去外國重新開始。你去唔去？', [
-    { label: fam ? '一家移民' : '去', money: -cost, note: '首 3 年收入 ×0.7', fx: { J: -5, R: -10 } },
+    { label: fam ? '一家移民' : '去', money: -cost, note: '首 3 年收入 ×0.7', fx: { R: -10 } },
     { label: '留港', fx: { J: -1, R: -2 } },
     { label: '一個留港搵錢、其他人移民', disabled: fam && s.married ? undefined : '要有家庭先揀到', note: `每月寄 ${fmtMoney(g.p(25000))}，離婚風險 ×1.5` },
   ], (g2, i) => {
     const s2 = g2.s;
     if (i === 0) {
       g2.spend(cost, '移民');
-      g2.add('J', -5); g2.add('R', -10);
+      g2.add('R', -10); // v1.5（用家指定）：移民唔再扣快樂
       s2.emigrated = true;
       g2.flag('emigratedYear', s2.year);
       g2.ach('emigrate');
@@ -1090,7 +1090,8 @@ export const FAMILY_EVENTS: EventDef[] = [
       const s = g.s;
       if (!spouse(g) || s.flags['tryBaby'] || s.kids.length >= 5 || s.age >= 70) return 0;
       if (femaleAge(g) > 44) return 0;
-      return s.babyAskAge <= s.age && s.babyAskAge > 0 ? 1 : 0;
+      // v1.5（用家指定）：45 歲或以上少啲再問（到期後每年 40% 機會先問）
+      return s.babyAskAge <= s.age && s.babyAskAge > 0 ? (s.age >= 45 ? 0.4 : 1) : 0;
     },
     make: babyCard,
   },

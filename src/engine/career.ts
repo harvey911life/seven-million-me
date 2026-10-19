@@ -664,12 +664,12 @@ export const CAREER_EVENTS: EventDef[] = [
       return g.s.status === 'work' && j && ['文書支援', '專業人員', '經理及行政級'].includes(j.cat) ? 0.03 : 0;
     },
     make: (g) => mkCard('C-MA-07', '公司搬去大灣區', '公司宣佈將部門搬去深圳。你點揀？', [
-      { label: '跟去', note: '人工 +10%，生活開支 ×0.8', fx: { J: -1, R: -2 } },
+      { label: '跟去', note: '人工 +10%，生活開支 ×0.8', fx: { R: -2 } },
       { label: '辭職', fx: { J: 1 } },
       { label: '每星期兩地走', note: `交通每年約 ${fmtMoney(g.p(18000))}；每年健康、快樂、人際 −1` },
     ], (g2, i) => {
       const s = g2.s;
-      if (i === 0) { g2.flag('gbaJob'); g2.add('J', -1); return '深圳嘅新辦公室好大，但夜晚得你一個。'; }
+      if (i === 0) { g2.flag('gbaJob'); return '深圳嘅新辦公室好大，放工仲可以去試新餐廳。'; } // v1.5：移居大灣區唔再扣快樂
       if (i === 1) { s.lastSalary = s.job?.salary ?? 0; s.status = 'unemp'; g2.add('J', 1); return '你揀咗留喺屋企附近搵工。'; }
       g2.flag('gbaCommute');
       g2.spend(g2.p(18000), '交通');
