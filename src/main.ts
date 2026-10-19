@@ -6,7 +6,7 @@ import { WEALTH_LABEL } from './data/origin';
 import { ACHIEVEMENTS } from './engine/achievements';
 import { h, clear } from './ui/dom';
 import { drawTitle, drawScene, SW, SH } from './ui/scene';
-import { store, type Settings } from './ui/store';
+import { store, speedList, type Settings } from './ui/store';
 import { playGame, estMinutes } from './ui/play';
 import { simulateParallel } from './engine/parallel';
 import { showEnding, boardTable, booking, placeOf, achGrid } from './ui/ending';
@@ -45,7 +45,7 @@ function title() {
   clear(root).append(h('div', { class: 'screen title' },
     cv,
     h('div', { class: 'title-box' },
-      h('p', { class: 'ver' }, 'v1.2 試玩版 · 香港人Soci Game'),
+      h('p', { class: 'ver' }, 'v1.3 試玩版 · 香港人Soci Game'),
       h('h1', { class: 'logo' }, '七百萬', h('br'), '分之', h('em', null, '我')),
       h('p', { class: 'tagline' }, '香港七百幾萬人，你係其中一個。喺邊區出世、做邊個嘅仔女，都揀唔到；之後點過，就睇你點揀。'),
       h('div', { class: 'counts' },
@@ -112,7 +112,8 @@ function disclaimer() {
 function setup() {
   fab(true);
   const second = store.runs() >= 1;
-  const SPEEDS = [1, 2, 4, 8, 16] as const;
+  const SPEEDS = speedList();
+  if (!SPEEDS.includes(settings.speed)) settings.speed = 16;
   const estRow = h('div', { class: 'est' }, SPEEDS.map((v) => h('span', { class: settings.speed === v ? 'on' : '' }, `約 ${estMinutes(v)} 分鐘`)));
   const speedSeg = h('div', { class: 'seg' }, SPEEDS.map((v, i) => h('button', {
     type: 'button', class: settings.speed === v ? 'on' : '', onclick: (e: Event) => {

@@ -197,6 +197,12 @@ export function showEnding(root: HTMLElement, g: Game, period: string | null, on
     return h('div', { class: 'epage' }, h('h2', null, '你走咗之後'),
       h('div', { class: `meter b-${f.band}` }, h('span', null, '家人壓力指數'), h('b', null, `${Math.round(f.fpi)}`), h('em', null, f.band)),
       h('div', { class: 'mbar' }, h('span', { style: `width:${Math.round(f.fpi)}%` })),
+      h('h4', { class: 'src-h' }, '壓力來源'),
+      f.sources.length
+        ? h('ul', { class: 'fpi-src' }, f.sources.map((x) => h('li', { class: x.pts < 0 ? 'minus' : '' },
+          h('span', null, h('b', null, x.label), x.detail ? h('small', null, x.detail) : null),
+          h('em', null, `${x.pts > 0 ? '+' : '−'}${Math.max(1, Math.round(Math.abs(x.pts)))}`))))
+        : h('p', { class: 'muted' }, '冇明顯壓力來源：冇債、冇人要靠你生活。'),
       h('ul', { class: 'plain' }, f.text.map((t) => h('li', null, t))),
       f.lifePayout > 0 ? h('p', { class: 'muted' }, `你留俾家人嘅心意大約 ${fmtMoney(f.lifePayout)}。`) : null);
   });

@@ -744,7 +744,7 @@ export function buyCard(g: Game): Card {
   const liq = s.cash + s.deposit + s.index + s.stock;
   return mkCard('C-FM-03', '上車首期', `上車盤樓價 ${fmtMoney(price)}，按揭利率 ${(g.e.rmort * 100).toFixed(1)}%。你手上可動用 ${fmtMoney(liq)}。（遊戲模擬，不構成投資建議）`, [
     { label: '自己儲夠先買', note: `七成按揭：首期連使費 ${fmtMoney(m70.upfront)}，月供 ${fmtMoney(m70.pmt)}`, disabled: m70.stress ? undefined : '入息唔夠，銀行唔批' },
-    { label: '父母幫手', note: parentsCan ? `父母出約 ${fmtMoney(help)}` : undefined, disabled: !parentsCan ? '父母冇可動用資產' : !m70.stress ? '入息唔夠，銀行唔批' : undefined, fx: { J: 2, R: 2 } },
+    { label: '父母幫手', note: parentsCan ? `首期連使費 ${fmtMoney(m70.upfront)}：父母出約 ${fmtMoney(help)}，你出 ${fmtMoney(Math.max(0, m70.upfront - help))}` : undefined, disabled: !parentsCan ? '父母冇可動用資產' : !m70.stress ? '入息唔夠，銀行唔批' : undefined, fx: { J: 2, R: 2 } },
     { label: '借按揭保險做高成數', note: `首期一成：連使費 ${fmtMoney(m90.upfront)}，月供 ${fmtMoney(m90.pmt)}`, disabled: m90.stress ? undefined : '入息唔夠，銀行唔批' },
     { label: '暫時唔買', note: '繼續租樓，遲啲再諗' },
   ], (g2, i) => {
@@ -776,7 +776,7 @@ function babyCard(g: Game): Card {
   const s = g.s;
   const second = s.kids.length > 0;
   return mkCard('C-FM-04', second ? `生唔生第 ${s.kids.length + 1} 個？` : '生仔', second ? '屋企多咗個小朋友，熱鬧咗好多。要唔要再生？' : '結咗婚，長輩已經開始問幾時有好消息。', [
-    { label: '生', note: '每名仔女每年約 $4.5–11 萬（官津）', fx: { J: 2 } },
+    { label: '生', note: `每名仔女每年約 ${fmtMoney(g.p(45000))}–${fmtMoney(g.p(110000))}（官津）`, fx: { J: 2 } },
     { label: '唔生' },
     { label: '遲啲先' },
   ], (g2, i) => {
@@ -796,7 +796,7 @@ function ivfCard(g: Game): Card {
   const s = g.s;
   const fa = femaleAge(g);
   return mkCard('E-IVF', '醫生建議做檢查', s.flags['infertile'] ? '檢查結果：要靠人工受孕先有機會。' : '檢查結果一切正常，醫生叫你哋繼續努力。不過都可以考慮人工受孕。', [
-    { label: '私家人工受孕', note: `每個周期 $10–15 萬，${fa < 35 ? '成功率約 35%' : fa < 40 ? '成功率約 25%' : '成功率低'}`, disabled: fa > 47 ? '年齡太大' : undefined },
+    { label: '私家人工受孕', note: `每個周期 ${fmtMoney(g.p(100000))}–${fmtMoney(g.p(150000))}，${fa < 35 ? '成功率約 35%' : fa < 40 ? '成功率約 25%' : '成功率低'}`, disabled: fa > 47 ? '年齡太大' : undefined },
     { label: '公立輪候', note: '平好多，但要等 1–2 年', disabled: fa >= 40 ? '女方要 40 歲以下' : undefined },
     { label: '順其自然' },
   ], (g2, i) => {
@@ -813,8 +813,8 @@ function childcareCard(g: Game): Card {
   const grand = s.parents.some((x) => x.alive && x.age < 75 && x.health >= 40);
   const selfLower = !!p && g.monthlyIncome() * 12 < p.income;
   return mkCard('C-FM-05', '湊仔', 'BB 出世咗，邊個湊？', [
-    { label: '請外傭', money: -g.p(90000), note: '每年約 $9 萬' },
-    { label: '父母幫手湊', note: '每月俾父母 $4,000', disabled: grand ? undefined : '父母要健在、75 歲以下', fx: { R: 3 } },
+    { label: '請外傭', money: -g.p(90000), note: `每年約 ${fmtMoney(g.p(90000))}` },
+    { label: '父母幫手湊', note: `每月俾父母 ${fmtMoney(g.p(4000))}`, disabled: grand ? undefined : '父母要健在、75 歲以下', fx: { R: 3 } },
     { label: `一方辭工（${!p ? '你' : selfLower ? '你' : p.name}）`, note: '少一份收入，4 年', fx: { R: 3, J: 2 } },
   ], (g2, i) => {
     const s2 = g2.s;
@@ -837,8 +837,8 @@ function schoolCard(g: Game, k: Kid): Card {
   const okInt = yf >= 100000 * g.W;
   const sec = k.age >= 12;
   return mkCard('C-FM-06', sec ? `${k.name}升中` : `${k.name}讀幼稚園`, sec ? `${k.name}要升中學喇，想讀邊類學校？` : `${k.name} 3 歲，要揀學校。`, [
-    { label: '官津校', note: '每年約 $6–11 萬' },
-    { label: '直資或私立', note: '每年約 $11–18 萬', disabled: okDss ? undefined : '家庭收入要全港中位數 1.5 倍', fx: { J: 1 } },
+    { label: '官津校', note: `每年約 ${fmtMoney(g.p(60000))}–${fmtMoney(g.p(110000))}` },
+    { label: '直資或私立', note: `每年約 ${fmtMoney(g.p(110000))}–${fmtMoney(g.p(180000))}`, disabled: okDss ? undefined : '家庭收入要全港中位數 1.5 倍', fx: { J: 1 } },
     { label: '國際學校', note: `每年約 $18–32 萬，另建校費 ${fmtMoney(g.p(150000))}`, disabled: okInt ? undefined : '家庭收入要全港頭 10%', fx: { J: 2, R: -1 } },
   ], (g2, i) => {
     k.school = i as 0 | 1 | 2;
@@ -853,9 +853,9 @@ function supportCard(g: Game): Card {
   const s = g.s;
   const care = s.parents.some((p) => p.alive && p.needsCare);
   return mkCard('C-MA-01', '供養父母', care ? '父母開始需要人照顧。你點安排？' : '父母年紀大，你諗緊點樣供養佢哋。', [
-    { label: '每月俾家用', note: '每月約 $5,000–8,000' },
-    { label: '接返嚟同住', note: '每月生活費約 $4,000', fx: { R: 3 } },
-    { label: '安排入安老院', note: '私營每月約 $1.4 萬', fx: { J: -2, R: -2 } },
+    { label: '每月俾家用', note: `每月約 ${fmtMoney(g.p(5000))}–${fmtMoney(g.p(8000))}` },
+    { label: '接返嚟同住', note: `每月生活費約 ${fmtMoney(g.p(4000))}`, fx: { R: 3 } },
+    { label: '安排入安老院', note: `私營每月約 ${fmtMoney(g.p(14000))}`, fx: { J: -2, R: -2 } },
   ], (g2, i) => {
     const s2 = g2.s;
     s2.support = (['money', 'live', 'home'] as const)[i];
@@ -979,7 +979,7 @@ function emigrateCard(g: Game): Card {
   return mkCard('C-FM-07', fam ? '移民' : '移居外地', s.year >= 2020 && s.year <= 2024 ? '身邊好多朋友都走咗。你哋要唔要移民？' : '有機會去外國重新開始。你去唔去？', [
     { label: fam ? '一家移民' : '去', money: -cost, note: '首 3 年收入 ×0.7', fx: { J: -5, R: -10 } },
     { label: '留港', fx: { J: -1, R: -2 } },
-    { label: '一個留港搵錢、其他人移民', disabled: fam && s.married ? undefined : '要有家庭先揀到', note: '每月寄 $2.5 萬，離婚風險 ×1.5' },
+    { label: '一個留港搵錢、其他人移民', disabled: fam && s.married ? undefined : '要有家庭先揀到', note: `每月寄 ${fmtMoney(g.p(25000))}，離婚風險 ×1.5` },
   ], (g2, i) => {
     const s2 = g2.s;
     if (i === 0) {
@@ -1022,8 +1022,8 @@ export const FAMILY_EVENTS: EventDef[] = [
     when: (g) => (g.s.age >= 20 && yaDue(g, 'ya_move') && g.s.status === 'work' && g.s.home === 'parents' ? 1 : 0),
     make: (g) => mkCard('C-YA-04', '搬出去住？', '出嚟做咗一排嘢，你諗緊要唔要搬出去住。', [
       { label: '留喺屋企', note: '住屋開支 0，儲首期最快' },
-      { label: '同朋友夾租', money: -g.p(6500 * 12), note: '每月約 $6,500', fx: { J: 2, R: 2 } },
-      { label: '自己租', money: -g.p(11000 * 12), note: '每月約 $11,000', fx: { J: 3, R: -1 } },
+      { label: '同朋友夾租', money: -g.p(6500 * 12), note: `每月約 ${fmtMoney(g.p(6500))}`, fx: { J: 2, R: 2 } },
+      { label: '自己租', money: -g.p(11000 * 12), note: `每月約 ${fmtMoney(g.p(11000))}`, fx: { J: 3, R: -1 } },
     ], (g2, i) => {
       const s = g2.s;
       if (i === 1) { s.home = 'share'; g2.add('J', 2); g2.add('R', 2); return '三個大學同學夾租太子一個單位。'; }
@@ -1163,10 +1163,10 @@ export const FAMILY_EVENTS: EventDef[] = [
     id: 'E-KIDTUTOR', pri: 280, once: true,
     when: (g) => (g.s.kids.some((k) => k.age >= 8 && k.age <= 16 && k.acad < 45 && !k.away) ? 0.5 : 0),
     make: (g) => mkCard('E-KIDTUTOR', '仔女成績追唔上', '老師打電話嚟，話小朋友成績追唔上。', [
-      { label: '報補習社', money: -g.p(18000) }, { label: '自己教' }, { label: '私補', money: -g.p(48000) },
+      { label: '報補習社', note: `每年約 ${fmtMoney(g.p(18000))}` }, { label: '自己教' }, { label: '私補', note: `每年約 ${fmtMoney(g.p(48000))}` },
     ], (g2, i) => {
       g2.flag('kidTutor', [1, 0.5, 1.5][i]);
-      g2.flag('kidClasses', [1.3, 1, 1.8][i]);
+      g2.flag('tutorFee', [18000, 0, 48000][i]);
       if (i === 1) g2.add('J', -1);
       return ['逢星期二四去補習社。', '你每晚陪佢做功課。', '請咗個大學生上門補習。'][i];
     }, { pri: 280, def: 0, auto: 0, agui: 0, cat: '生活日常' }),
@@ -1225,7 +1225,7 @@ export const FAMILY_EVENTS: EventDef[] = [
       return mkCard('E-FM-AF1', '你遇到誘惑', '公司新同事成日搵你食飯傾偈，佢好明白你。', [
         { label: '即刻拉開距離', fx: { J: -1 } },
         { label: '曖昧下去', fx: { J: 2 } },
-        { label: '出軌', fx: { J: 3 }, note: '每年開支 +$2–6 萬' },
+        { label: '出軌', fx: { J: 3 }, note: `每年開支 +${fmtMoney(g.p(20000))}–${fmtMoney(g.p(60000))}` },
       ], (g2, i) => {
         if (!g2.s.partner) return '';
         if (i === 0) { g2.add('J', -1); g2.s.partner.rel = clamp(g2.s.partner.rel + 2, 0, 100); return '你刪咗佢個電話，返屋企同另一半去咗食飯。'; }
@@ -1266,8 +1266,8 @@ export const FAMILY_EVENTS: EventDef[] = [
       g.s.flags['upCount'] = Number(g.s.flags['upCount'] ?? 0) + 1;
       return mkCard('E-FM-UP', '驚喜！', '你哋有咗BB。', [
         { label: '重新做家庭預算', fx: { J: 2 } },
-        { label: '搬大啲', note: '搬屋雜費 $2–5 萬，租金 +25%', fx: { J: 3 } },
-        { label: '請父母幫手湊', note: '每月俾父母 $4,000', disabled: g.s.parents.some((p) => p.alive && p.age < 75) ? undefined : '父母要健在、75 歲以下' },
+        { label: '搬大啲', note: `搬屋雜費 ${fmtMoney(g.p(20000))}–${fmtMoney(g.p(50000))}，租金 +25%`, fx: { J: 3 } },
+        { label: '請父母幫手湊', note: `每月俾父母 ${fmtMoney(g.p(4000))}`, disabled: g.s.parents.some((p) => p.alive && p.age < 75) ? undefined : '父母要健在、75 歲以下' },
       ], (g2, i) => {
         const s = g2.s;
         const r = streamRng(s.seed, 'oops', s.age);

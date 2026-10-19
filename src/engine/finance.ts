@@ -121,7 +121,6 @@ export function kidCostYear(g: Game): number {
     else if (k.age <= 11) c = [85000, 150000, 260000][k.school];
     else if (k.age <= 17) c = [110000, 180000, 320000][k.school];
     else if (k.age <= 21 && !k.married) c = k.overseas ? (k.age <= 20 ? 420000 : 0) : 110000;
-    if (s.flags['kidClasses'] && k.age >= 4 && k.age <= 10) c *= Number(s.flags['kidClasses']);
     t += c * 0.75; // v0.6：跟人工一齊下調
     tFloor += c * 0.75 * 0.5;
   }
@@ -132,6 +131,8 @@ export function kidCostYear(g: Game): number {
   }
   // 收入低嘅家庭會揀平啲嘅選擇（最少一半），唔會超過住戶收入三成
   t = Math.max(tFloor, Math.min(t, (hhMonthly(g) * 12 * 0.3) / g.P));
+  // v1.3：補習費照卡上標價收，仔女 8–17 歲期間每年一份
+  if (s.flags['tutorFee'] && s.kids.some((k) => k.age >= 8 && k.age <= 17 && !k.away)) t += Number(s.flags['tutorFee']);
   return Math.round(t * g.P);
 }
 

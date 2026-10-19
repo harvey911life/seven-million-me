@@ -1,10 +1,11 @@
 // 第 12 章 結局：家人壓力指數、退休成績表、蜘蛛網圖、人生排行榜十項計分
 import type { Game } from './game';
-import { clamp, interp } from './util';
+import { clamp, interp, fmtMoney } from './util';
 import { liquidAssets, plansValue, kidCostYear, supportCostYear, propValue } from './finance';
 import { ACH_BY_ID, SPECIAL_ACH, aRet } from './achievements';
 
-export interface FPIResult { fpi: number; band: '低' | '中' | '高'; debtF: number; depF: number; gapRatio: number; lifePayout: number; text: string[] }
+export interface FPISource { label: string; pts: number; detail: string }
+export interface FPIResult { fpi: number; band: '低' | '中' | '高'; debtF: number; depF: number; gapRatio: number; lifePayout: number; text: string[]; sources: FPISource[] }
 export interface RetireReport { aRet65: number | null; monthly65: number | null; M: number; grade: 'A' | 'B' | 'C' | 'D' | 'E'; comment: string; leftover: number }
 export interface Spider { H: number; J: number; K: number; R: number; F: number }
 export interface ScoreItem { key: string; name: string; v: number }
@@ -63,7 +64,23 @@ export function computeFPI(g: Game): FPIResult {
   if (willAdj > 0) text.push('你冇立遺囑，屋企人為分遺產傷咗和氣。');
   if (willAdj < 0) text.push('你早已立好遺囑，家人唔使手忙腳亂。');
   if (!sumW && debtF === 0) text.push('冇人要靠你生活，你走得乾手淨腳。');
-  return { fpi, band, debtF, depF, gapRatio, lifePayout, text };
+  // v1.3：逐項列出壓力來源（分數相加 = 家人壓力指數，最低 0、最高 100）
+  const sources: FPISource[] = [];
+  if (debtF > 0) {
+    const parts = [mortgage > 0 ? `按揭 ${fmtMoney(mortgage)}` : '', personal > 0 ? `卡數同私人貸款 ${fmtMoney(personal)}` : ''].filter(Boolean).join('、');
+    sources.push({ label: '留低嘅債', pts: 40 * debtF, detail: `${parts}，扣除你留低嘅錢之後仲差 ${fmtMoney(uncovered)}` });
+  }
+  if (depF > 0) {
+    const who = [kids.length ? `${kids.length} 個未出身嘅仔女` : '', p && p.income < 100000 * g.W ? (p.income <= 0 ? '冇收入嘅另一半' : '收入唔高嘅另一半') : '', supported.length ? `${supported.length} 位要供養嘅父母` : ''].filter(Boolean).join('、');
+    sources.push({ label: '要靠你生活嘅人', pts: 25 * depF, detail: who });
+  }
+  if (gapRatio > 0) sources.push({ label: '生活費缺口', pts: 35 * gapRatio, detail: `家人之後大約要用 ${fmtMoney(need)}，你留低 ${fmtMoney(res)}，差 ${fmtMoney(need - res)}` });
+  if (willAdj > 0) sources.push({ label: '冇立遺囑', pts: willAdj, detail: `遺產約 ${fmtMoney(estate * P)}，${heirs} 個家人要自己分` });
+  if (willAdj < 0) sources.push({ label: '已立遺囑', pts: willAdj, detail: '減輕家人負擔' });
+  if (epaAdj > 0) sources.push({ label: '冇做持久授權書', pts: epaAdj, detail: '你失去自理能力嗰陣，家人要申請監護令先可以幫你處理財務' });
+  if (epaAdj < 0) sources.push({ label: '已做持久授權書', pts: epaAdj, detail: '減輕家人負擔' });
+  sources.sort((a, b) => b.pts - a.pts);
+  return { fpi, band, debtF, depF, gapRatio, lifePayout, text, sources };
 }
 
 // ---------- 退休成績表（12.6） ----------

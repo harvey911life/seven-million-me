@@ -296,7 +296,7 @@ export const EDU_EVENTS: EventDef[] = [
       const cost = g.p(800);
       return mkCard('C-SS-01', '同學叫你課金', '你有咗第一部手機，同學個個都課金買限定角色。', [
         { label: '用自己儲嘅錢課', disabled: g.s.piggy >= cost ? undefined : '錢罐唔夠錢', money: -cost, fx: { J: 2 } },
-        { label: '問屋企攞', fx: { J: 2, R: -1 } },
+        { label: '問屋企攞', note: `屋企俾 ${fmtMoney(cost)}`, fx: { J: 2, R: -1 } },
         { label: '唔課', fx: { J: -1, R: -1 } },
       ], (g2, i) => {
         const s = g2.s;

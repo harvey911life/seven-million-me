@@ -66,7 +66,7 @@ export const MIDLIFE_EVENTS: EventDef[] = [
       const cost = g.p(8000 * 12);
       const sib = g.s.siblings > 0;
       return mkCard('E-ML-SANDWICH', '上有高堂下有細', '阿媽行路開始唔穩，仔女又要人湊。你一個人分身不暇。', [
-        { label: '請鐘點照顧阿媽', money: -cost, note: '每月約 $8,000，請一年', fx: { J: 1 } },
+        { label: '請鐘點照顧阿媽', money: -cost, note: `每月約 ${fmtMoney(g.p(8000))}，請一年`, fx: { J: 1 } },
         { label: '自己減少工作時間', note: '今年收入少一成', fx: { R: 3, J: -2 } },
         { label: '同兄弟姊妹輪流照顧', disabled: sib ? undefined : '你冇兄弟姊妹', fx: { R: 1 } },
       ], (g2, i) => {

@@ -44,7 +44,7 @@ function scamCard(g: Game, sp: ScamSpec): Card | null {
   return mkCard(sp.id, sp.title, sp.text, [
     { label: sp.believe, money: -amt },
     { label: '唔信' },
-    askOpt(g),
+    askOpt(g, `大家都信嘅話，${sp.crypto ? '入' : '使'} ${fmtMoney(amt / 2)}`),
   ], (g2, i) => {
     const s2 = g2.s;
     const lose = (x: number) => {
@@ -200,9 +200,9 @@ function borrowCard(g: Game): Card {
   const amt = Math.round(guarantee ? 300000 * g.P : clamp(liq(g) * 0.2, 20000 * g.P, 200000 * g.P));
   const why = s.flags['jackpotYear'] && s.year - Number(s.flags['jackpotYear']) <= 5 ? '（中咗獎之後，搵你借錢嘅人多咗）' : undefined;
   return mkCard('C-AN-04', guarantee ? '親戚叫你做擔保人' : '朋友借錢', guarantee ? `表哥做生意要借錢，叫你做 ${fmtMoney(amt)} 貸款嘅擔保人。` : `舊同學話周轉唔靈，想借 ${fmtMoney(amt)}，「三個月內一定還」。`, [
-    { label: guarantee ? '做擔保' : '借', money: guarantee ? 0 : -amt, fx: { R: 1 } },
+    { label: guarantee ? '做擔保' : '借', money: guarantee ? 0 : -amt, note: guarantee ? `佢還唔到就要代還 ${fmtMoney(amt)}` : undefined, fx: { R: 1 } },
     { label: guarantee ? '唔擔保' : '唔借', fx: { R: -3 } },
-    { label: guarantee ? '擔保一半' : '借一半', money: guarantee ? 0 : -Math.round(amt / 2), fx: { R: -1 } },
+    { label: guarantee ? '擔保一半' : '借一半', money: guarantee ? 0 : -Math.round(amt / 2), note: guarantee ? `佢還唔到就要代還 ${fmtMoney(amt / 2)}` : undefined, fx: { R: -1 } },
   ], (g2, i) => {
     const s2 = g2.s;
     const r = streamRng(s2.seed, 'borrow', s2.age);
@@ -570,7 +570,7 @@ const GENERAL_EVENTS: EventDef[] = [
     make: (g) => {
       const amt = Math.round(g.s.cash * 0.3);
       return mkCard('E-IPO', '新股熱潮', '同事個個都話抽新股，一手中簽即刻賺。（遊戲模擬，不構成投資建議）', [
-        { label: '抽', money: -amt }, { label: '唔抽' }, { label: '借孖展抽', note: `本金 ${fmtMoney(amt)}，盈虧放大 5 倍` },
+        { label: '抽', note: `認購 ${fmtMoney(amt)}，上市後升跌約 5–20%` }, { label: '唔抽' }, { label: '借孖展抽', note: `本金 ${fmtMoney(amt)}，盈虧放大 5 倍` },
       ], (g2, i) => {
         if (i === 1) return '你冇跟風。';
         const r = streamRng(g2.s.seed, 'ipo', g2.s.age);
@@ -713,7 +713,7 @@ const GENERAL_EVENTS: EventDef[] = [
       const s = g.s;
       const val = s.prop!.price0 * (g.e.hpi / s.prop!.hpi0);
       return mkCard('C-MA-02', '中年住屋', `你層樓而家值大約 ${fmtMoney(val)}。要唔要換樓？`, [
-        { label: '換大屋', note: `新樓約 ${fmtMoney(val * 1.6)}，使費約 ${fmtMoney(val * 1.6 * 0.05)}，再供多啲年`, fx: { J: 3 } }, { label: '留原址' }, { label: '賣樓套現', note: `套現約 ${fmtMoney(val * 0.98 - s.prop!.mortgage)}，之後租樓`, fx: { J: -2 } },
+        { label: '換大屋', note: `新樓約 ${fmtMoney(val * 1.6)}；用三成現金 ${fmtMoney(s.cash * 0.3)} 做首期，使費 ${fmtMoney(val * 1.6 * 0.05)} 計入按揭`, fx: { J: 3 } }, { label: '留原址' }, { label: '賣樓套現', note: `套現約 ${fmtMoney(val * 0.98 - s.prop!.mortgage)}，之後租樓`, fx: { J: -2 } },
       ], (g2, i) => {
         const s2 = g2.s;
         if (i === 1) return '住慣咗，街坊都識晒。';
@@ -845,11 +845,11 @@ const TIANMA: Tianma[] = [
   {
     id: 'TM-UNCLE', ach: 'will_matters', name: '遺囑的重要', ok: (g) => g.s.age >= 18,
     card: (g) => mkCard('TM-UNCLE', '南美舅公嘅遺產', '你從來冇見過嘅南美舅公過咗身，佢冇立遺囑，幾個親戚爭緊遺產。', [
-      { label: '打官司', note: '律師費 $20 萬' }, { label: '和解', note: '淨收 $50 萬' }, { label: '放棄' },
+      { label: '打官司', note: `律師費 ${fmtMoney(g.p(200000))}` }, { label: '和解', note: `淨收 ${fmtMoney(g.p(500000))}` }, { label: '放棄' },
     ], (g2, i) => {
       g2.flag('uncleHint');
-      if (i === 0) { g2.spend(g2.p(200000), '律師費'); if (g2.er() < 0.6) { g2.gain(g2.p(2_000_000)); return '官司贏咗，你分到 $200 萬！'; } return '官司輸咗，律師費白白冇咗。'; }
-      if (i === 1) { g2.gain(g2.p(500000)); return '大家各退一步，你收到 $50 萬。'; }
+      if (i === 0) { g2.spend(g2.p(200000), '律師費'); if (g2.er() < 0.6) { g2.gain(g2.p(2_000_000)); return `官司贏咗，你分到 ${fmtMoney(g2.p(2_000_000))}！`; } return '官司輸咗，律師費白白冇咗。'; }
+      if (i === 1) { g2.gain(g2.p(500000)); return `大家各退一步，你收到 ${fmtMoney(g2.p(500000))}。`; }
       return '你覺得唔關自己事。';
     }, { pri: 150, def: 1, auto: 1, agui: 1, cat: '天馬行空' }),
   },
@@ -862,17 +862,18 @@ const TIANMA: Tianma[] = [
   },
   {
     id: 'TM-ANTIQUE', ach: 'treasure', name: '尋寶達人', ok: (g) => g.s.age >= 12,
-    card: (g) => mkCard('TM-ANTIQUE', '舊樓雜物房嘅古董', '你喺舊樓雜物房搵到一個好似好值錢嘅花樽。', [{ label: '賣' }, { label: '留' }, { label: '捐博物館' }], (g2, i) => {
+    card: (g) => mkCard('TM-ANTIQUE', '舊樓雜物房嘅古董', '你喺舊樓雜物房搵到一個好似好值錢嘅花樽。', [{ label: '賣', note: `鑒定費 ${fmtMoney(g.p(3000))}` }, { label: '留' }, { label: '捐博物館' }], (g2, i) => {
       if (i === 1) return '你將佢擺喺客廳。';
       if (i === 2) { g2.add('J', 3); g2.s.GP += 5; return '博物館將你個名寫喺展品旁邊。'; }
-      if (g2.er() < 0.5) { g2.gain(g2.p(500000)); return '鑒定係真貨！賣咗 $50 萬。'; }
+      if (g2.er() < 0.5) { g2.gain(g2.p(500000)); return `鑒定係真貨！賣咗 ${fmtMoney(g2.p(500000))}。`; }
       g2.spend(g2.p(3000), '鑒定費'); return '鑒定係假貨，白俾咗鑒定費。';
     }, { pri: 150, def: 1, auto: 1, agui: 1, cat: '天馬行空' }),
   },
   {
     id: 'TM-FUTURE', ach: 'future_tip', name: '未來人的忠告', ok: (g) => g.s.age >= 18,
-    card: (g) => mkCard('TM-FUTURE', '時光旅人', '一個自稱嚟自未來嘅人話你知下期六星彩號碼。', [{ label: '買' }, { label: '唔買' }, { label: '買多幾注' }], (g2, i) => {
+    card: (g) => mkCard('TM-FUTURE', '時光旅人', '一個自稱嚟自未來嘅人話你知下期六星彩號碼。', [{ label: '買', note: '一注 $10' }, { label: '唔買' }, { label: '買多幾注', note: '三注 $30' }], (g2, i) => {
       if (i === 1) { g2.add('J', -2); return '之後你一直諗，佢係咪真係未來人。'; }
+      g2.spend(i === 2 ? 30 : 10, '六星彩');
       const prize = g2.p(640) * (i === 2 ? 3 : 1);
       g2.gain(prize);
       return `佢記錯咗兩個號碼，你只中咗三獎 ${fmtMoney(prize)}。`;
@@ -880,14 +881,14 @@ const TIANMA: Tianma[] = [
   },
   {
     id: 'TM-MARS', ach: 'mars_scam', name: '火星樓盤騙局', ok: (g) => g.s.age >= 18,
-    card: (g) => mkCard('TM-MARS', '火星樓盤', '一個外太空商人邀請你投資「火星樓盤」，保證回報。', [{ label: '投資' }, { label: '唔信' }, askOpt(g)], (g2, i) => {
+    card: (g) => mkCard('TM-MARS', '火星樓盤', '一個外太空商人邀請你投資「火星樓盤」，保證回報。', [{ label: '投資', money: -Math.round(g.s.cash * 0.3) }, { label: '唔信' }, askOpt(g)], (g2, i) => {
       if (i === 0) { const c = Math.round(g2.s.cash * 0.3); g2.spend(c, '火星樓盤'); return `火星冇樓。你損失咗 ${fmtMoney(c)}。`; }
       return '你保住咗身家。宇宙都有騙徒。';
     }, { pri: 150, def: 2, auto: 2, agui: 1, cat: '天馬行空' }),
   },
 ];
 
-// v1.2：一般奇遇（唔包三個隱藏結局）會跟玩家狀態加權，等玩家有方向追成就；總機率仍然係一生約 4%
+// v1.2：一般奇遇（唔包三個隱藏結局）會跟玩家狀態加權，等玩家有方向追成就；總機率仍然係一生約 5%
 const ENDINGS = ['TM-ALIEN', 'TM-ZOMBIE', 'TM-REDO'];
 const TM_WEIGHT: Record<string, (g: Game) => number> = {
   'TM-CAT': (g) => (g.s.pets.some((p) => p.kind === 'cat') ? 6 : 1),

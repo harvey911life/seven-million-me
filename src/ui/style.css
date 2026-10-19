@@ -570,10 +570,18 @@ a { color: var(--teal); }
 .rv-h span { font-size: 12px; color: var(--muted); }
 .rv-stage ul { list-style: none; margin: 0; padding: 0; display: grid; gap: 3px; }
 .rv-stage li { font-size: 13px; line-height: 1.5; padding-left: 10px; border-left: 2px solid var(--line); }
-.est { display: grid; grid-template-columns: repeat(5, 1fr); gap: 4px; margin-top: 4px; }
+.est { display: grid; grid-auto-flow: column; grid-auto-columns: 1fr; gap: 4px; margin-top: 4px; }
 .est span { font-size: 11px; text-align: center; color: var(--muted); line-height: 1.3; }
 .est span.on { color: var(--accent); font-weight: 700; }
 .hints { text-align: left; background: #fff8e6; border: 1px dashed #e0ac2b; border-radius: 14px; padding: 10px 14px; animation: secretin .6s .6s both; }
 .hints b { font-size: 14px; color: #a2741a; }
 .hints ul { margin: 6px 0 0; padding-left: 18px; display: grid; gap: 4px; }
 .hints li { font-size: 13px; line-height: 1.5; }
+/* v1.3 家人壓力來源 */
+.src-h { margin: 14px 0 4px; font-size: 14px; }
+.fpi-src { list-style: none; margin: 0 0 10px; padding: 0; }
+.fpi-src li { display: flex; justify-content: space-between; align-items: flex-start; gap: 10px; padding: 7px 0; border-bottom: 1px dashed var(--line); }
+.fpi-src li span { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
+.fpi-src li small { color: var(--muted); font-size: 12px; line-height: 1.4; }
+.fpi-src li em { font-style: normal; font-weight: 800; color: var(--red); white-space: nowrap; font-variant-numeric: tabular-nums; }
+.fpi-src li.minus em { color: var(--green); }

@@ -1,6 +1,7 @@
 // 抉擇卡 / 事件卡共用格式（第 5 章 5.1、第 11 章 11.4）
 import type { Game } from './game';
 import type { Cat, StatKey } from './state';
+import { fmtMoney } from './util';
 
 export interface Question { id: string; subj: string; diff: 0 | 1 | 2; q: string; opts: string[]; ans: number; expl: string }
 
@@ -48,9 +49,16 @@ export function mkCard(
 ): Card {
   return {
     id, title, text, run, pri: 500, def: 0, kind: 'choice',
-    options: options.map((o) => (typeof o === 'string' ? { label: o } : o)),
+    options: options.map((o) => withPrice(typeof o === 'string' ? { label: o } : o)),
     ...extra,
   };
+}
+
+/** v1.3：有 money 但細字冇寫價錢嘅選項，自動補返金額，確保使錢嘅選項全部標價 */
+function withPrice(o: Opt): Opt {
+  if (!o.money || /\$/.test(`${o.label}${o.note ?? ''}`)) return o;
+  const verb = o.money > 0 ? '收' : /借/.test(o.label) ? '借出' : '使';
+  return { ...o, note: `${verb} ${fmtMoney(Math.abs(o.money))}${o.note ? '；' + o.note : ''}` };
 }
 
 /** 第一個可以揀嘅選項 */

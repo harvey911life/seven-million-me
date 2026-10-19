@@ -18,14 +18,13 @@ import type { QuizAnswer } from '../engine/quiz';
 import { fmtMoney } from '../engine/util';
 import { h, clear, sleep, toast, reduceMotion, type Chip } from './dom';
 import { drawScene, drawPortrait, SW, SH } from './scene';
-import { store, type Settings } from './store';
+import { store, speedList, type Settings } from './store';
 
 const STAT_NAME: Record<StatKey | 'F', string> = { H: '健康', J: '快樂', K: '知識', R: '人際', F: '財務' };
 const CAT_CLASS: Record<string, string> = {
   人生抉擇: 'c-yellow', 生活日常: 'c-green', 財務衝擊: 'c-red', 時代事件: 'c-purple', 國際都會: 'c-blue', 悲劇: 'c-grey',
   生活陷阱: 'c-orange', 政策衍生: 'c-cyan', 天馬行空: 'c-gold', 健康: 'c-pink',
 };
-const SPEEDS: Settings['speed'][] = [1, 2, 4, 8, 16];
 const YEAR_MS = 40000; // 1 倍速：一年約 40 秒（v1.0）
 const CHILD_MS = 6000; // 0–5 歲（未有得揀）快啲行
 /** 一局大約幾多分鐘：0–5 歲 6 年 + 之後平均約 76 年，加揀選項、答題時間約 4.8 分鐘（同速度無關） */
@@ -63,6 +62,7 @@ export function playGame(root: HTMLElement, g: Game, settings: Settings, onEnd: 
   const progFill = h('span');
   const progLabel = h('span', { class: 'prog-l' });
   const pauseBtn = h('button', { type: 'button', class: 'pz', 'aria-label': '暫停或繼續', onclick: () => togglePause() });
+  const SPEEDS = speedList();
   const speedSeg = h('div', { class: 'speeds', role: 'radiogroup', 'aria-label': '速度' },
     pauseBtn, SPEEDS.map((v) => h('button', { type: 'button', role: 'radio', 'data-v': v, onclick: () => setSpeed(v) }, `${v}×`)));
   const nextBtn = h('button', { class: 'nextb', type: 'button', onclick: () => { skipYear = true; nudge(); } }, '下一年 »');

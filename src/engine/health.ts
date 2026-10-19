@@ -140,7 +140,7 @@ function cancerCard(g: Game): Card {
   const c = mkCard('C-AN-01', '確診重病', `醫生話你患上${SN[stage]}癌症。${lump > 0 ? `危疾保障會賠你 ${fmtMoney(lump)}。` : ''}點樣治療？`, [
     { label: '公立醫院輪候', note: `約 ${fmtMoney(pub)}`, fx: { J: -20 } },
     { label: '私家治療', note: `自付約 ${fmtMoney(self)}${self > liq + lump ? `（你要借 ${fmtMoney(self - liq - lump)}）` : ''}`, fx: { J: -15 } },
-    { label: '唔治療', fx: { J: -25 } },
+    { label: '唔治療', money: -Math.round(10000 * g.P), note: '止痛同檢查', fx: { J: -25 } },
   ], (g2, i) => {
     const t = g2.s;
     const ci = ciClaim(g2);
@@ -156,7 +156,7 @@ function cancerCard(g: Game): Card {
     let note = '';
     if (i === 0) note = g2.spend(pub, '治療');
     if (i === 1) { const m = medClaim(g2, priv); paid += m; note = g2.spend(priv - m, '治療'); }
-    if (i === 2) note = g2.spend(10000 * g2.P);
+    if (i === 2) note = g2.spend(Math.round(10000 * g2.P), '止痛');
     const off = i === 2 ? (stage === 2 ? 12 : 0) : [[6, 12, 21], [4, 10, 18]][i][stage];
     g2.flag('offMonths', Math.min(12, off));
     checkPaidOff(g2, (i === 1 ? priv : pub) + monthlyPay(g2) * off, paid);

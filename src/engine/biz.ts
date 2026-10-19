@@ -207,7 +207,7 @@ export const BIZ_EVENTS: EventDef[] = [
       const work = s.status === 'work';
       return mkCard('BIZ-OFFER', '打工定創業？', `舊同學搵你一齊做生意，話而家係好時機。你想唔想自己做老闆？（自己出最少三成本錢，其餘借銀行，年息 7%）`, [
         { label: work ? '繼續打工' : '唔創業', note: work ? '穩定有人工' : '繼續搵工' },
-        ...pick.map((d) => ({ label: `開${bizName(g, d.id)}`, disabled: bizBlock(g, d) ?? undefined, note: `本錢約 ${fmtMoney(g.p(d.cap))}${g.p(d.cap) > s.cash + s.deposit + s.index + s.stock ? `，要借銀行約 ${fmtMoney(g.p(d.cap) - (s.cash + s.deposit + s.index + s.stock))}` : ''}` })),
+        ...pick.map((d) => ({ label: `開${bizName(g, d.id)}`, disabled: bizBlock(g, d) ?? undefined, note: `本錢約 ${fmtMoney(g.p(d.cap))}${g.p(d.cap) > s.cash + s.deposit + s.index + s.stock ? `：自己出 ${fmtMoney(s.cash + s.deposit + s.index + s.stock)}，借銀行約 ${fmtMoney(g.p(d.cap) - (s.cash + s.deposit + s.index + s.stock))}` : ''}` })),
       ], (g2, i) => (i === 0 ? '你決定唔做生意，夢想留返第日先。' : startBiz(g2, pick[i - 1].id)), { pri: 500, def: 0, auto: 0, agui: 0, cat: '人生抉擇', scene: 'office' });
     },
   },
