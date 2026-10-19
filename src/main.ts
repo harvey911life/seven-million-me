@@ -45,7 +45,7 @@ function title() {
   clear(root).append(h('div', { class: 'screen title' },
     cv,
     h('div', { class: 'title-box' },
-      h('p', { class: 'ver' }, 'v1.3 試玩版 · 香港人Soci Game'),
+      h('p', { class: 'ver' }, 'v1.4 試玩版 · 香港人Soci Game'),
       h('h1', { class: 'logo' }, '七百萬', h('br'), '分之', h('em', null, '我')),
       h('p', { class: 'tagline' }, '香港七百幾萬人，你係其中一個。喺邊區出世、做邊個嘅仔女，都揀唔到；之後點過，就睇你點揀。'),
       h('div', { class: 'counts' },
@@ -132,7 +132,7 @@ function setup() {
   }, h('b', null, p), h('span', null, PERIOD_NOTE[p] ?? ''))));
   const next = h('button', { class: 'btn', type: 'button', onclick: () => {
     settings.autoPick = second && autoBox.checked;
-    settings.autoQuiz = second && quizBox.checked;
+    settings.autoQuiz = store.autoQuizOk() && quizBox.checked;
     if (!second) settings.period = '隨機時段';
     store.saveSettings(settings);
     const period = settings.period === '隨機時段' ? null : settings.period;
@@ -146,8 +146,10 @@ function setup() {
     second ? [
       h('h4', null, '出生時段'), periodSel,
       h('label', { class: 'check' }, autoBox, h('span', null, '自動揀：系統幫你揀人生抉擇。')),
-      h('label', { class: 'check' }, quizBox, h('span', null, '自動答題：測驗同公開試由系統按你嘅學識自動作答，不過拎唔到答題相關成就。')),
-    ] : h('p', { class: 'muted small' }, '玩完第一局會解鎖「揀出生時段」、「自動揀」同「自動答題」。'))));
+      store.autoQuizOk()
+        ? h('label', { class: 'check' }, quizBox, h('span', null, '自動答題：測驗同公開試由系統按你嘅學識自動作答，不過拎唔到答題相關成就。'))
+        : h('p', { class: 'muted small' }, '🔒 自動答題：自己答公開試，答啱 6 題或以上就會解鎖。'),
+    ] : h('p', { class: 'muted small' }, '玩完第一局會解鎖「揀出生時段」同「自動揀」；自己答公開試答啱 6 題或以上會解鎖「自動答題」。'))));
 }
 
 function dateOf(year: number, day: number) {

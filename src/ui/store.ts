@@ -2,7 +2,7 @@
 export interface Settings { speed: 1 | 2 | 4 | 8 | 16 | 20; autoPick: boolean; autoQuiz?: boolean; period: string }
 export interface BoardRow { nick: string; score: number; age: number; born: number; place: string; date: string }
 
-const K = { settings: '7m:settings', runs: '7m:runs', board: '7m:board', ach: '7m:ach' };
+const K = { settings: '7m:settings', runs: '7m:runs', exam6: '7m:exam6', board: '7m:board', ach: '7m:ach' };
 
 function read<T>(key: string, fallback: T): T {
   try {
@@ -19,6 +19,9 @@ export const store = {
   saveSettings(s: Settings) { write(K.settings, s); },
   runs(): number { return read<number>(K.runs, 0); },
   addRun() { write(K.runs, this.runs() + 1); },
+  /** v1.3：自己答公開試答啱 6 題或以上（最少一次）先解鎖自動答題 */
+  autoQuizOk(): boolean { return read<boolean>(K.exam6, false); },
+  unlockAutoQuiz() { write(K.exam6, true); },
   board(): BoardRow[] { return read<BoardRow[]>(K.board, []); },
   addBoard(r: BoardRow): number {
     const b = this.board().concat(r).sort((a, z) => z.score - a.score).slice(0, 30);

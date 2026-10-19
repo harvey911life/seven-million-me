@@ -112,7 +112,9 @@ export function playGame(root: HTMLElement, g: Game, settings: Settings, onEnd: 
   let lastDraw = 0;
   const anim = (ts: number) => {
     if (ended) return;
-    if (ts - lastDraw > 160) { lastDraw = ts; frame++; drawScene(ctx, s, frame); }
+    // v1.3：動畫跟倍速加快，1× 正常、2× 1.25 倍、4× 1.5 倍、8× 或以上封頂 2 倍
+    const animMul = settings.speed >= 8 ? 2 : settings.speed >= 4 ? 1.5 : settings.speed >= 2 ? 1.25 : 1;
+    if (ts - lastDraw > 160 / animMul) { lastDraw = ts; frame++; drawScene(ctx, s, frame); }
     requestAnimationFrame(anim);
   };
   requestAnimationFrame(anim);
@@ -551,7 +553,7 @@ export function playGame(root: HTMLElement, g: Game, settings: Settings, onEnd: 
           h('h3', null, c.title), h('p', { class: 'ctext' }, c.text),
           h('div', { class: 'qstart' },
             h('button', { class: 'btn', type: 'button', onclick: () => ask(0) }, c.options[0]?.label ?? '開始'),
-            store.runs() >= 1 ? h('button', { class: 'btn ghost', type: 'button', onclick: () => { keyEnter = null; autoQuiz(c); fin(); } }, '自動作答') : null));
+            store.autoQuizOk() ? h('button', { class: 'btn ghost', type: 'button', onclick: () => { keyEnter = null; autoQuiz(c); fin(); } }, '自動作答') : null));
         keyEnter = () => ask(0);
       };
       const ask = (i: number) => {
@@ -596,7 +598,9 @@ export function playGame(root: HTMLElement, g: Game, settings: Settings, onEnd: 
         keyEnter = null;
         (c as Card & { answers?: QuizAnswer[] }).answers = answers;
         const text = g.choose(c, 0);
-        toast(`${exam ? '公開試放榜' : '測驗完'}：${text}`, 'info', exam ? 5000 : 3000);
+        const unlock = exam && !store.autoQuizOk() && answers.filter((a) => a.correct).length >= 6;
+        if (unlock) store.unlockAutoQuiz();
+        toast(`${exam ? '公開試放榜' : '測驗完'}：${text}${unlock ? '　🔓 解鎖咗「自動答題」，下一局開始可以用。' : ''}`, 'info', exam ? 6000 : 3000);
         renderStats();
         fin();
       };
@@ -693,7 +697,7 @@ export function playGame(root: HTMLElement, g: Game, settings: Settings, onEnd: 
       g.tick(`自動揀「${c.title}」：${c.options[i]?.label ?? ''}${text ? `，${text}` : ''}`);
       return;
     }
-    if ((c.kind === 'quiz' || c.kind === 'exam') && settings.autoQuiz) { autoQuiz(c); return; }
+    if ((c.kind === 'quiz' || c.kind === 'exam') && settings.autoQuiz && store.autoQuizOk()) { autoQuiz(c); return; }
     if (c.kind === 'quiz' || c.kind === 'exam') await quizEvent(c);
     else await cardEvent(c);
   }

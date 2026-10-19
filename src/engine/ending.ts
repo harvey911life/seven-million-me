@@ -228,9 +228,10 @@ export function spiderLine(me: Spider, ag: Spider): string {
   return `某某人喺每一方面都贏你少少，最大分別係${N[worst.k]}。`;
 }
 
-/** 人生排行榜評級：A+ 最高，F 低於 470 分 */
+/** 人生排行榜評級：A+ 最高，F 低於 350 分 */
 // v1.2：收緊評級（試玩 100 局有 57% A+，太易）
-export const GRADE_CUTS: [string, number][] = [['A+', 850], ['A', 790], ['B', 720], ['C', 640], ['D', 560], ['E', 470], ['F', -Infinity]];
+// v1.3（用家指定）：A+ 801、F 低過 350，中間按比例
+export const GRADE_CUTS: [string, number][] = [['A+', 801], ['A', 730], ['B', 647], ['C', 552], ['D', 457], ['E', 350], ['F', -Infinity]];
 export const lifeGrade = (total: number) => GRADE_CUTS.find(([, t]) => total >= t)![0];
 
 /** 收入最高嘅一年（按 2026 年幣值比較） */
