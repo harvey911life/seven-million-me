@@ -357,7 +357,8 @@ function people(c: Ctx, s: State, t: number) {
   }
   person(c, meX, { sex: s.gender, age: s.age, role: 'me', status: s.status, level: s.job?.level }, t, 0, s.age >= 65 && s.H < 30);
   // 寵物排喺右邊
-  (s.pets ?? []).slice(0, 4).forEach((pt, i) => pet(c, 127 + i * 9, pt.kind, i, t, !!pt.giant, !!pt.talk));
+  // 第 5 隻起（有自住物業最多 10 隻）排喺最左邊
+  (s.pets ?? []).slice(0, 10).forEach((pt, i) => pet(c, i < 4 ? 127 + i * 9 : 2 + (i - 4) * 8, pt.kind, i, t, !!pt.giant, !!pt.talk));
 }
 
 /** 頭像（結局用） */

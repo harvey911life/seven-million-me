@@ -191,7 +191,9 @@ export function petCostYear(g: Game): number {
 export function petBlock(g: Game, kind: 'cat' | 'dog'): string | null {
   const s = g.s;
   if (s.age < 18) return '18 歲先可以自己養';
-  if (s.pets.length >= 4) return '最多養 4 隻';
+  // v1.4（用家指定）：有自住物業可以養到 10 隻，否則最多 4 隻
+  const cap = s.home === 'own' ? 10 : 4;
+  if (s.pets.length >= cap) return cap === 10 ? '最多養 10 隻' : '最多養 4 隻（有自住物業可以養到 10 隻）';
   if (kind === 'dog' && s.home === 'public') return '公屋唔准養狗';
   if (s.home === 'institution') return '院舍唔養得';
   return null;
