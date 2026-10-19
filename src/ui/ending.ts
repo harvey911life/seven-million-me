@@ -246,8 +246,6 @@ export function showEnding(root: HTMLElement, g: Game, period: string | null, on
         Math.abs(b.real - b.income) > 1000 ? h('small', null, `約等於 2026 年嘅 ${fmtMoney(b.real)}`) : null);
     })(),
     h('dl', { class: 'facts money-sum' },
-      h('dt', null, '強積金賺咗'), h('dd', { class: s.mpfGain >= 0 ? 'up' : 'dn' }, `${s.mpfGain < 0 ? '−' : ''}${fmtMoney(Math.abs(s.mpfGain))}`),
-      h('dt', null, '投資賺咗'), h('dd', { class: s.investGain >= 0 ? 'up' : 'dn' }, `${s.investGain < 0 ? '−' : ''}${fmtMoney(Math.abs(s.investGain))}`),
       h('dt', null, '買六星彩用咗'), h('dd', null, fmtMoney(s.lotterySpent)),
       h('dt', null, '六星彩一共中咗'), h('dd', null, fmtMoney(s.lotteryWon)),
       h('dt', null, '離世時淨資產'), h('dd', { class: g.net >= 0 ? 'up' : 'dn' }, `${g.net < 0 ? '−' : ''}${fmtMoney(Math.abs(g.net))}`)),
@@ -263,7 +261,7 @@ export function showEnding(root: HTMLElement, g: Game, period: string | null, on
         h('ul', { class: 'plain' }, debts.filter(([, v]) => v > 1).map(([k, v]) => h('li', null, `${k} ${fmtMoney(v)}`))),
         h('small', null, '負債唔會因為離世消失，要由遺產先還；遺產唔夠還，債權人通常就收唔返。'));
     })(),
-    h('p', { class: 'fine' }, '強積金同投資回報以 2026 年幣值計（包括定期存款利息）；六星彩按當年銀碼計。內容為模擬，不構成投資建議。'),
+    h('p', { class: 'fine' }, '六星彩按當年銀碼計。內容為模擬，不構成投資建議。'),
     h('p', { class: 'lead' }, `某某人一生賺咗 ${fmtMoney(ag.earnReal)}。${s.earnReal > ag.earnReal ? '你賺得比佢多，但賺得多唔等於夠用。' : '賺得少唔緊要，規劃先係關鍵。'}`)));
   P('parallel', () => {
     const lives = g.parallel ?? simulateParallel(g, period);
