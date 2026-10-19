@@ -46,7 +46,7 @@ export function stageLabel(g: Game): string {
 
 type PauseWhy = 'user' | 'sheet' | 'card' | 'hidden' | 'home';
 
-export function playGame(root: HTMLElement, g: Game, settings: Settings, onEnd: (g: Game) => void, onQuit: () => void) {
+export function playGame(root: HTMLElement, g: Game, settings: Settings, onEnd: (g: Game) => void, onQuit: () => void, opts: { resumed?: boolean; onSave?: () => void } = {}) {
   clear(root);
   const s = g.s;
   g.autoPick = settings.autoPick;
@@ -633,7 +633,7 @@ export function playGame(root: HTMLElement, g: Game, settings: Settings, onEnd: 
     paused.add('home');
     const wrap = h('div', { class: 'confirm' }, h('div', { class: 'confirm-box' },
       h('h3', null, '返回主頁？'),
-      h('p', { class: 'muted' }, '今局人生會冇咗，唔會儲低。'),
+      h('p', { class: 'muted' }, '進度每年自動儲存。下次喺主頁撳「繼續上一局」，會由今年年頭繼續。'),
       h('div', { class: 'row2' },
         h('button', { class: 'btn ghost', type: 'button', onclick: () => { wrap.remove(); paused.delete('home'); nudge(); } }, '繼續玩'),
         h('button', { class: 'btn', type: 'button', onclick: () => { wrap.remove(); quit(); } }, '返回主頁'))));
@@ -643,6 +643,7 @@ export function playGame(root: HTMLElement, g: Game, settings: Settings, onEnd: 
     ended = true;
     document.removeEventListener('keydown', onKey);
     document.removeEventListener('visibilitychange', onVis);
+    document.getElementById('toasts')?.replaceChildren(); // 返主頁就收起遊戲入面嘅提示
     nudge();
     onQuit();
   }
@@ -730,6 +731,7 @@ export function playGame(root: HTMLElement, g: Game, settings: Settings, onEnd: 
     s.achNew = [];
     const bigPar = par.filter((n) => n.key);
     if (bigPar.length && !end.dead) toast(bigPar.map((n) => n.text.replace('【平行人生】', '')).join('；'), 'info', 3000);
+    if (!end.dead) opts.onSave?.();
     if (end.dead) {
       ended = true;
       document.removeEventListener('keydown', onKey);
@@ -742,7 +744,15 @@ export function playGame(root: HTMLElement, g: Game, settings: Settings, onEnd: 
   let parSeen = -1;
   async function loop() {
     renderTop(); renderStats(); renderQuick();
-    addYear(0, s.year, [{ t: `${s.name}出世喇。名係屋企人改嘅，你揀唔到。`, k: 'imp' }, { t: '平淡嘅年份會自動行，等緊嘅時候可以改投資同強積金；唔想等可以撳「下一年」。', k: 'sum' }]);
+    if (opts.resumed) {
+      // v1.5 讀檔：補返最近幾年嘅人生紀錄，平行人生舊新聞唔再重播
+      parSeen = s.year;
+      for (let a = Math.max(0, s.age - 7); a <= s.age; a++) {
+        const rows = s.log.filter((l) => l.age === a).map((l) => ({ t: l.text, k: (l.big ? 'imp' : 'log') as 'imp' | 'log' }));
+        if (rows.length) addYear(a, s.year - (s.age - a), rows);
+      }
+      addYear(s.age, s.year, [{ t: `繼續上一局：${s.name}，${s.age} 歲。`, k: 'sum' }]);
+    } else addYear(0, s.year, [{ t: `${s.name}出世喇。名係屋企人改嘅，你揀唔到。`, k: 'imp' }, { t: '平淡嘅年份會自動行，等緊嘅時候可以改投資同強積金；唔想等可以撳「下一年」。', k: 'sum' }]);
     while (!ended && s.alive) {
       await waitYear();
       if (ended) break;

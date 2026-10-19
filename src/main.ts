@@ -10,6 +10,9 @@ import { store, speedList, type Settings } from './ui/store';
 import { playGame, estMinutes } from './ui/play';
 import { simulateParallel } from './engine/parallel';
 import { showEnding, boardTable, booking, placeOf, achGrid } from './ui/ending';
+import { makeSave, restoreSave, type SaveData } from './engine/save';
+
+const VERSION = 'v1.5';
 
 const root = document.getElementById('app')!;
 let settings: Settings = store.settings();
@@ -42,16 +45,22 @@ function title() {
   const loop = (ts: number) => { if (!cv.isConnected && t) return; if (ts - last > 120) { last = ts; t++; drawTitle(c, t, day); } titleAnim = requestAnimationFrame(loop); };
   titleAnim = requestAnimationFrame(loop);
   const runs = store.runs();
+  const saved = store.save();
   clear(root).append(h('div', { class: 'screen title' },
     cv,
     h('div', { class: 'title-box' },
-      h('p', { class: 'ver' }, 'v1.4 試玩版 · 香港人Soci Game'),
+      h('p', { class: 'ver' }, `${VERSION} 試玩版 · 香港人Soci Game`),
       h('h1', { class: 'logo' }, '七百萬', h('br'), '分之', h('em', null, '我')),
       h('p', { class: 'tagline' }, '香港七百幾萬人，你係其中一個。喺邊區出世、做邊個嘅仔女，都揀唔到；之後點過，就睇你點揀。'),
       h('div', { class: 'counts' },
         h('div', null, h('b', null, String(runs)), h('span', null, '你投胎過嘅次數')),
         h('div', null, h('b', null, String(new Set(store.achs()).size)), h('span', null, '已解鎖成就'))),
-      h('button', { class: 'btn big', type: 'button', onclick: () => { cancelAnimationFrame(titleAnim); disclaimer(); } }, '出生'),
+      saved ? h('button', { class: 'btn big', type: 'button', onclick: () => { cancelAnimationFrame(titleAnim); resume(saved); } },
+        '繼續上一局', h('small', { class: 'cont-sub' }, `${saved.s.name}・${saved.s.age} 歲・${saved.s.year} 年`)) : null,
+      h('button', { class: saved ? 'btn ghost big' : 'btn big', type: 'button', onclick: () => {
+        if (saved) { confirmNew(saved); return; }
+        cancelAnimationFrame(titleAnim); disclaimer();
+      } }, saved ? '重新出生' : '出生'),
       runs ? h('p', { class: 'muted small' }, '已解鎖：揀出生時段、自動揀、自動答題') : null,
       h('div', { class: 'title-row' },
         h('button', { class: 'btn ghost small', type: 'button', onclick: () => boardScreen() }, '排行榜'),
@@ -61,6 +70,35 @@ function title() {
       h('button', { class: 'linkbtn', type: 'button', onclick: () => fullDisclaimer() }, '免責聲明'))));
 }
 
+// ---------- v1.5 存檔：繼續上一局 / 開新局前確認 ----------
+function resume(d: SaveData) {
+  let g: Game;
+  try { g = restoreSave(d); } catch {
+    store.clearSave();
+    alertBox('上一局嘅進度讀唔到（遊戲可能更新咗），要重新開始。');
+    return;
+  }
+  start(g, d.period, d.seed0, true);
+}
+function alertBox(msg: string) {
+  const wrap = h('div', { class: 'mwrap in' });
+  const close = () => { wrap.remove(); title(); };
+  wrap.append(h('div', { class: 'modal savebox', role: 'dialog', 'aria-modal': 'true' }, h('p', null, msg), h('button', { class: 'btn', type: 'button', onclick: close }, '明白')));
+  root.append(wrap);
+}
+function confirmNew(d: SaveData) {
+  const wrap = h('div', { class: 'mwrap in' });
+  const close = () => wrap.remove();
+  wrap.append(h('div', { class: 'modal savebox', role: 'dialog', 'aria-modal': 'true', 'aria-label': '重新出生' },
+    h('h3', { class: 'ctitle' }, '重新出生？'),
+    h('p', null, `上一局（${d.s.name}，${d.s.age} 歲）嘅進度會刪除，唔可以再繼續。`),
+    h('div', { class: 'row2' },
+      h('button', { class: 'btn ghost', type: 'button', onclick: close }, '取消'),
+      h('button', { class: 'btn', type: 'button', onclick: () => { close(); store.clearSave(); cancelAnimationFrame(titleAnim); disclaimer(); } }, '確定'))));
+  wrap.addEventListener('click', (ev) => { if (ev.target === wrap) close(); });
+  root.append(wrap);
+}
+
 // ---------- 詳細免責聲明（首頁底部） ----------
 const DISCLAIMER: [string, string][] = [
   ['純屬模擬', '「七百萬分之我」是一個人生模擬遊戲，只供娛樂及理財教育用途。遊戲中的人物、家庭、事件同結局全部由程式隨機產生，與任何真實人物無關，如有雷同，純屬巧合。'],
@@ -68,7 +106,7 @@ const DISCLAIMER: [string, string][] = [
   ['數字與機率', '收入、開支、樓價、回報、疾病同壽命等數字，參考香港公開統計及網上資料作粗略估算，並經大幅簡化，未必反映最新或真實情況。投資回報按歷史大概範圍隨機產生，過往表現不代表將來；遊戲不會刻意調高或調低任何虧損機率。'],
   ['名稱純屬虛構', '遊戲中的機構、彩票、建築同活動名稱（例如六星彩、保幼局、公開試）均為虛構或改編，並非指任何真實機構或產品。本遊戲不提及、亦不推介任何保險公司或金融產品。'],
   ['敏感內容', '遊戲內容涉及疾病、意外、失業、離婚同死亡等情節，建議 15 歲或以上人士遊玩。如果你感到困擾或有情緒需要，可致電 18111「情緒通」精神健康支援熱線（24 小時）。'],
-  ['私隱', '遊戲不設登入，遊戲本身不會收集或上傳任何個人資料。成績、成就同設定只儲存在你自己部機的瀏覽器入面，清除瀏覽器資料就會刪除。排行榜暱稱亦只會留喺你部機。網站寄存服務商可能會按其私隱政策記錄一般瀏覽紀錄（例如 IP 位址），遊戲作者不會用嚟識別個人。'],
+  ['私隱', '遊戲不設登入，遊戲本身不會收集或上傳任何個人資料。成績、成就、設定同遊戲進度只儲存在你自己部機的瀏覽器入面，清除瀏覽器資料就會刪除。排行榜暱稱亦只會留喺你部機。網站寄存服務商可能會按其私隱政策記錄一般瀏覽紀錄（例如 IP 位址），遊戲作者不會用嚟識別個人。'],
   ['查詢', '遊戲入面「點擊查詢更多」只會顯示 IG 專頁，係咪聯絡由你自己決定。'],
   ['靈感來源', '玩法概念受 1in8b.life 啟發，內容、程式同美術均為本遊戲自行製作，與原作並無關連。'],
 ];
@@ -205,14 +243,21 @@ function originCard(g: Game, period: string | null) {
       h('div', { class: 'ostats' }, stat('H', '健康'), stat('J', '快樂'), stat('K', '知識'), stat('R', '人際')),
       h('div', { class: 'row2' },
         h('button', { class: 'btn ghost', type: 'button', onclick: () => originCard(new Game(newSeed(), period), period) }, '重洗'),
-        h('button', { class: 'btn', type: 'button', onclick: () => start(g, period) }, '開始這一生'))))));
+        h('button', { class: 'btn', type: 'button', onclick: () => start(g, period, g.s.seed) }, '開始這一生'))))));
 }
 
-function start(g: Game, period: string | null) {
+function start(g: Game, period: string | null, seed0: number, resumed = false) {
   fab(false);
-  // 平行人生：等畫面出咗先喺背景行（約 0.1 秒），玩家 18 歲前一定行完
-  setTimeout(() => { g.parallel = simulateParallel(g, period); }, 300);
-  playGame(root, g, settings, (gg) => { fab(true); showEnding(root, gg, period, () => { settings = store.settings(); disclaimer(); }); }, () => title());
+  // 平行人生：等畫面出咗先喺背景行（約 0.1 秒），玩家 18 歲前一定行完；讀檔就用返開局局號重新計
+  setTimeout(() => {
+    const cur = g.s.seed;
+    g.s.seed = seed0;
+    g.parallel = simulateParallel(g, period);
+    g.s.seed = cur;
+  }, 300);
+  const save = () => store.writeSave(makeSave(g, seed0, period, VERSION));
+  if (!resumed) save();
+  playGame(root, g, settings, (gg) => { store.clearSave(); fab(true); showEnding(root, gg, period, () => { settings = store.settings(); disclaimer(); }); }, () => title(), { resumed, onSave: save });
 }
 
 title();

@@ -1,8 +1,9 @@
-// 本地儲存：設定、局數、本機排行榜、累積成就（讀唔到就當冇）
+// 本地儲存：設定、局數、本機排行榜、累積成就、進度存檔（讀唔到就當冇）
+import type { SaveData } from '../engine/save';
 export interface Settings { speed: 1 | 2 | 4 | 8 | 16 | 20; autoPick: boolean; autoQuiz?: boolean; period: string }
 export interface BoardRow { nick: string; score: number; age: number; born: number; place: string; date: string }
 
-const K = { settings: '7m:settings', runs: '7m:runs', exam6: '7m:exam6', board: '7m:board', ach: '7m:ach' };
+const K = { settings: '7m:settings', runs: '7m:runs', exam6: '7m:exam6', board: '7m:board', ach: '7m:ach', save: '7m:save' };
 
 function read<T>(key: string, fallback: T): T {
   try {
@@ -30,6 +31,10 @@ export const store = {
   },
   achs(): string[] { return read<string[]>(K.ach, []); },
   addAchs(ids: string[]) { write(K.ach, Array.from(new Set(this.achs().concat(ids)))); },
+  /** v1.5：只得一格存檔 */
+  save(): SaveData | null { return read<SaveData | null>(K.save, null); },
+  writeSave(d: SaveData) { write(K.save, d); },
+  clearSave() { try { localStorage.removeItem(K.save); } catch { /* 忽略 */ } },
 };
 
 /** v1.3：玩完三局之後（第四局起）多一個 20 倍速 */
