@@ -1059,8 +1059,10 @@ export function drawEvents(g: Game) {
       continue;
     }
     if (s.age < 6) { autoResolve(g, c, '父母幫你決定：'); continue; }
+    // v1.4：奇遇一世最多一次，唔受每年張數上限限制（之前會俾其他卡擠走、變咗自動揀）
+    if (c.cat === '天馬行空') { out.push(c); continue; }
     const isRandom = !(h.d?.fixed) && c.kind === 'choice' && !h.forced;
-    const important = h.d?.tragedy || c.cat === '財務衝擊' || c.cat === '健康' || c.cat === '天馬行空';
+    const important = h.d?.tragedy || c.cat === '財務衝擊' || c.cat === '健康';
     if (isRandom && !gateOpen && !important && h.d) {
       // 今年唔出：當冇發生過，之後年份仲可以再抽到
       const d = h.d;
