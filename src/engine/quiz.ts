@@ -142,7 +142,7 @@ const DELTA = (c: number) => (c >= 8 ? 15 : c === 7 ? 10 : c === 6 ? 5 : c === 5
 export const GRADE = (c: number) => (c >= 8 ? 'S' : c === 7 ? 'A' : c === 6 ? 'B' : c === 5 ? 'C' : c === 4 ? 'D' : c === 3 ? 'E' : 'F');
 const eraUni = (y: number) => (y < 2000 ? 0.5 : y < 2012 ? 0.75 : 1);
 // v1.7：8 題全對必入大學；4–6 題收緊（用戶 10-20），少過 4 題入唔到
-const C_UNI: Record<number, number> = { 4: 0.2, 5: 0.3, 6: 0.45, 7: 1 };
+const C_UNI: Record<number, number> = { 4: 0.2, 5: 0.55, 6: 0.65, 7: 1 };
 const UNI_MIN = 4;
 const pUni = (k: number, c: number, y: number) => (c >= 8 ? 1 : c < UNI_MIN ? 0 : P_UNI(k) * eraUni(y) * C_UNI[c]);
 

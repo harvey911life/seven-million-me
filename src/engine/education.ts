@@ -185,10 +185,12 @@ function loanNote(g: Game) {
 
 function majorCard(g: Game): Card {
   const s = g.s;
-  const k = s.examR ?? s.K;
   const sci = s.stream === '理科';
+  // v1.7（用戶 10-20）：醫科、法律、藥劑要公開試 8 題全對；7 題一半機會；6 題或以下唔揀得
+  const best = s.examCorrect ?? 0;
+  const pro = best >= 8 || (best === 7 && streamRng(s.seed, 'proMajor', s.age)() < 0.5);
   const all: [Major, number, boolean][] = [
-    ['醫科', 6, sci && k >= 90], ['法律', 5, k >= 80], ['藥劑', 5, sci && k >= 80], ['護理', 5, sci], ['工程', 4, sci],
+    ['醫科', 6, sci && pro], ['法律', 5, pro], ['藥劑', 5, sci && pro], ['護理', 5, sci], ['工程', 4, sci],
     ['商科', 4, true], ['教育', 5, true], ['社科', 4, true],
   ];
   const ok = all.filter((m) => m[2]);
@@ -197,7 +199,8 @@ function majorCard(g: Game): Card {
   const rest = ok.slice(1).sort(() => r() - 0.5).slice(0, 2);
   const show = [first, ...rest];
   const desc: Record<string, string> = { 醫科: '6 年，之後做醫生', 法律: '4 年 + 1 年專業證書', 藥劑: '5 年，做藥劑師', 護理: '5 年，做註冊護士', 工程: '4 年，工程師 / 程式員', 商科: '4 年，會計 / 金融', 教育: '5 年，做老師', 社科: '4 年，社工 / 文職 / 設計' };
-  return mkCard('E-MAJOR', '揀大學學系', '你嘅成績可以揀以下學系：', show.map((m) => ({ label: m[0], note: desc[m[0]] })), (g2, i) => {
+  const lock = pro ? '' : best === 7 ? '醫科、法律同藥劑今年收生滿晒，你差少少攞唔到學位。' : '醫科、法律同藥劑要公開試全對先有機會入。';
+  return mkCard('E-MAJOR', '揀大學學系', `${lock}你嘅成績可以揀以下學系：`, show.map((m) => ({ label: m[0], note: desc[m[0]] })), (g2, i) => {
     const [m, yrs] = show[i];
     g2.s.major = m;
     g2.s.study = { kind: '學士', left: yrs, fee: m === '法律' ? 55000 + 190000 / 5 : 55000, years: 0 };
