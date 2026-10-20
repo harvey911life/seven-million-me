@@ -9,7 +9,7 @@ import { drawTitle, drawScene, SW, SH } from './ui/scene';
 import { store, speedList, type Settings } from './ui/store';
 import { playGame, estMinutes } from './ui/play';
 import { simulateParallel } from './engine/parallel';
-import { showEnding, boardTable, booking, placeOf, achGrid } from './ui/ending';
+import { showEnding, boardTable, SHOW_BOARD, booking, placeOf, achGrid } from './ui/ending';
 import { makeSave, restoreSave, type SaveData } from './engine/save';
 
 const VERSION = 'v1.7';
@@ -63,7 +63,7 @@ function title() {
       } }, saved ? '重新出生' : '出生'),
       runs ? h('p', { class: 'muted small' }, '已解鎖：揀出生時段、自動揀、自動答題') : null,
       h('div', { class: 'title-row' },
-        h('button', { class: 'btn ghost small', type: 'button', onclick: () => boardScreen() }, '排行榜'),
+        SHOW_BOARD ? h('button', { class: 'btn ghost small', type: 'button', onclick: () => boardScreen() }, '排行榜') : null,
         h('button', { class: 'btn ghost small', type: 'button', onclick: () => achScreen() }, '成就'),
         h('button', { class: 'btn outline small', type: 'button', onclick: () => booking(root) }, '點擊查詢更多')),
       h('a', { class: 'title-ig', href: 'https://instagram.com/life_balance_adventure', target: '_blank', rel: 'noopener' },

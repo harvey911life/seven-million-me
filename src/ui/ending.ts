@@ -14,6 +14,8 @@ import QR from '../assets/ig-qr.png';
 import { emblem, rarityOf, rateText, tierOf } from './emblem';
 import { makeShareImage, shareImage, quoteFor } from './shareimg';
 
+export const SHOW_BOARD = false;
+
 const rateLine = (id: string) => { const t = rateText(id); return `${t.startsWith('少於') ? '' : '大約 '}${t} 嘅人生會解鎖`; };
 const GRADE_COLOR: Record<string, string> = { 'A+': '#b07ad6', A: '#e0ac2b', B: '#12706a', C: '#5aa9e6', D: '#9aa7b4', E: '#b07a5a', F: '#555c66' };
 
@@ -290,7 +292,8 @@ export function showEnding(root: HTMLElement, g: Game, period: string | null, on
         h('div', { class: 'pl-score' }, h('b', null, String(r.total)), h('span', { class: `lgc lg-${r.grade.replace('+', 'p')}` }, r.grade))))),
       h('p', { class: rank === 1 ? 'lead good' : 'lead' }, rank === 1 ? '同日出世嘅五個人入面，你行得最好。' : `同日出世嘅五個人入面，你排第 ${rank}。出身唔同，結局都唔同。`));
   });
-  P('board', () => {
+  // v1.7（用戶 10-20）：入名排行榜暫時隱藏，改返 true 就會再出現
+  if (SHOW_BOARD) P('board', () => {
     const box = h('div', { class: 'epage' }, h('h2', null, '上榜'));
     if (!boardDone) {
       const inp = h('input', { id: 'nick', type: 'text', maxlength: 8, placeholder: '你嘅暱稱（最多 8 個字）', autocomplete: 'off' });
