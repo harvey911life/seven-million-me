@@ -65,7 +65,9 @@ function title() {
       h('div', { class: 'title-row' },
         h('button', { class: 'btn ghost small', type: 'button', onclick: () => boardScreen() }, '排行榜'),
         h('button', { class: 'btn ghost small', type: 'button', onclick: () => achScreen() }, '成就'),
-        h('button', { class: 'btn outline small', type: 'button', onclick: () => booking(root) }, '點擊查詢更多'))),
+        h('button', { class: 'btn outline small', type: 'button', onclick: () => booking(root) }, '點擊查詢更多')),
+      h('a', { class: 'title-ig', href: 'https://instagram.com/life_balance_adventure', target: '_blank', rel: 'noopener' },
+        h('span', null, '新事件、新結局陸續有嚟'), h('b', null, 'IG follow @life_balance_adventure'), h('span', null, '更新第一時間知 →'))),
     h('footer', { class: 'title-foot' }, h('span', null, '同一個起點，有冇規劃，結局差好遠。'),
       h('button', { class: 'linkbtn', type: 'button', onclick: () => fullDisclaimer() }, '免責聲明'))));
 }
