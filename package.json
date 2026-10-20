@@ -6,7 +6,8 @@
   "scripts": {
     "dev": "vite",
     "build": "tsc --noEmit && vite build && python3 scripts/package.py",
-    "sim": "esbuild scripts/sim.ts --bundle --platform=node --format=esm --outfile=.sim/sim.mjs --log-level=warning && node .sim/sim.mjs"
+    "sim": "esbuild scripts/sim.ts --bundle --platform=node --format=esm --outfile=.sim/sim.mjs --log-level=warning && node .sim/sim.mjs",
+    "release": "npm run build && python3 scripts/make-release.py"
   },
   "devDependencies": {
     "typescript": "5.6.3",
