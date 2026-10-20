@@ -1,6 +1,7 @@
 // 主遊戲畫面（直向單手，版面參考 80億分之1）：頂部歲數同速度列；中間場景、指標、人生紀錄、身分紀錄、家人、人生地圖；
 // 下面事件卡 / 快捷理財（唔遮場景）；底部導航（右下角主頁）
 import type { Game } from '../engine/game';
+import { myWishes, wishDone, wishLabel } from '../engine/wishes';
 import type { Card } from '../engine/cards';
 import type { StatKey, InsKind } from '../engine/state';
 import { INS_NAME } from '../engine/state';
@@ -466,6 +467,8 @@ export function playGame(root: HTMLElement, g: Game, settings: Settings, onEnd: 
       rows.push(['保險', (['med', 'ci', 'acc', 'life'] as InsKind[]).map((k) => `${INS_NAME[k]}${['✕', '基本', '充足'][s.ins[k].level]}`).join('・')]);
     }
     if (s.diseases.length || s.mental) rows.push(['健康狀況', [...s.diseases.map((d) => ({ cancer: '癌症', stroke: '中風', heart: '心臟病', kidney: '腎病', threeHigh: '三高', dementia: '認知障礙' }[d.kind])), s.mental ? '情緒病' : ''].filter(Boolean).join('、')]);
+    const ws = myWishes(s);
+    if (ws.length) rows.push(['心願', ws.map((id) => `${wishDone(s, id) ? '✓' : '○'} ${wishLabel(id)}`).join('、')]);
     rows.push(['成就', `${s.ach.length} 個`]);
     return h('div', { class: 'list' }, h('dl', { class: 'facts' }, rows.flatMap(([a, b]) => [h('dt', null, a), h('dd', null, b)])),
       s.mental ? h('p', { class: 'fine' }, '如果你感到困擾，可以搵身邊人傾吓，或致電「情緒通」18111。') : null);

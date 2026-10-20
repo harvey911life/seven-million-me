@@ -230,6 +230,8 @@ export function showEnding(root: HTMLElement, g: Game, period: string | null, on
     const grade = lifeGrade(e.total);
     return h('div', { class: 'epage' }, h('h2', null, '人生排行榜計分'), h('div', { class: 'scores' }, rows),
       e.wonder ? h('p', { class: 'wonder' }, `天馬行空奇遇 +${e.wonder}`) : null,
+      e.wishes.length ? h('div', { class: 'wishbox' }, h('b', null, `18 歲嘅心願 ${e.wishes.filter((w) => w.done).length} / ${e.wishes.length}${e.wishBonus ? `（+${e.wishBonus}）` : ''}`),
+        h('ul', { class: 'plain' }, e.wishes.map((w) => h('li', { class: w.done ? 'up' : 'muted' }, `${w.done ? '✓' : '✗'} ${w.label}`)))) : null,
       h('div', { class: 'total' }, h('span', null, '總分'), h('b', null, String(e.total)), h('small', null, '/ 1,000')),
       h('div', { class: `lgrade lg-${grade.replace('+', 'p')}` }, h('span', null, '人生評級'), h('b', null, grade)),
       h('p', { class: 'fine' }, GRADE_CUTS.slice(0, -1).map(([g, t]) => `${g} ≥ ${t}`).join('・') + `・${GRADE_CUTS[GRADE_CUTS.length - 1][0]} < ${GRADE_CUTS[GRADE_CUTS.length - 2][1]}`),

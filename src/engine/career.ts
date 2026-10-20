@@ -611,6 +611,7 @@ export const CAREER_EVENTS: EventDef[] = [
     ], (g2, i) => {
       if (i !== 0) return '你覺得而家唔係時候。';
       g2.spend(g2.p(30000), '工作假期');
+      g2.flag('whv');
       g2.fx({ J: 6, R: 2, K: 1 }, '工作假期');
       const s = g2.s;
       if (s.job) { s.lastSalary = s.job.salary; }

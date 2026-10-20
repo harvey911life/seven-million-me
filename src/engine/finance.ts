@@ -217,6 +217,7 @@ export function adoptPet(g: Game, kind: 'cat' | 'dog'): string {
     if (r() < 0.01 && !used.includes('楊桃')) { pt.name = '楊桃'; pt.yt = true; pt.giantAt = s.age + r.int(1, 3); }
   }
   s.pets.push(pt);
+  g.flag('petsEver', Number(s.flags['petsEver'] ?? 0) + 1);
   const t = payCost(g, g.p(info.once));
   g.add('J', 3);
   g.log(`領養咗一隻${info.name}，叫「${pt.name}」。`, '生活日常', true);

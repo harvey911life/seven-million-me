@@ -359,7 +359,7 @@ export const EDU_EVENTS: EventDef[] = [
       { label: '專心讀書', fx: { K: 1, J: -2, R: -1 } },
     ], (g2, i) => {
       if (i === 0) { g2.fx({ J: 5, R: 3 }, '初戀'); g2.flag('teenLove'); return '放學你哋一齊行去巴士站，行得特別慢。'; }
-      if (i === 1) { g2.add('R', 1); g2.add('J', -1); return '你哋之後仍然係好朋友。'; }
+      if (i === 1) { g2.add('R', 1); g2.add('J', -1); g2.flag('teenFriend'); return '你哋之後仍然係好朋友。'; }
       g2.fx({ K: 1, J: -2, R: -1 });
       return '你話想專心考公開試，對方點點頭。';
     }, { def: 1, auto: 1, agui: 1, scene: 'school' }),

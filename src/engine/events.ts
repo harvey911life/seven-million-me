@@ -6,6 +6,9 @@ import { mkCard, firstEnabled, capOptions, type Card, type EventDef } from './ca
 import { CAREER_EVENTS, insuranceGateCard, jobOf } from './career';
 import { EDU_EVENTS } from './education';
 import { MIDLIFE_EVENTS } from './midlife';
+import { HK_EVENTS } from './hk';
+import { CALLBACK_EVENTS } from './callbacks';
+import { WISH_EVENTS } from './wishes';
 import { TRAGEDY_EVENTS } from './tragedy';
 import { BIZ_EVENTS } from './biz';
 import { HISTORY_EVENTS, rewritten } from './history';
@@ -216,6 +219,7 @@ function borrowCard(g: Game): Card {
     g2.spend(Math.round(part), '借錢');
     if (r() < Math.min(0.6, 0.4 * Math.sqrt(Mpos(s2.R)))) { s2.cash += part; return '佢真係準時還錢，仲請你食飯。'; }
     g2.add('R', -2); g2.add('J', -2);
+    g2.flag('loanLost', Math.round(part / g2.P)); g2.flag('loanLostAge', s2.age); // 後果回馬槍
     return '三個月變咗三年，佢已讀不回。';
   }, { pri: 300, def: 2, auto: 1, agui: 2, cat: '生活陷阱', reason: why });
 }
@@ -959,7 +963,7 @@ function rescueMark(g: Game, k: 'H' | 'J') {
   g.s.flags[`rescue${k}Age`] = g.s.age;
 }
 
-export const ALL_EVENTS: EventDef[] = [...CAREER_EVENTS, ...BIZ_EVENTS, ...TRAGEDY_EVENTS, ...HISTORY_EVENTS, ...EDU_EVENTS, ...HEALTH_EVENTS, ...FAMILY_EVENTS, ...GENERAL_EVENTS, ...MIDLIFE_EVENTS];
+export const ALL_EVENTS: EventDef[] = [...CAREER_EVENTS, ...BIZ_EVENTS, ...TRAGEDY_EVENTS, ...HISTORY_EVENTS, ...EDU_EVENTS, ...HEALTH_EVENTS, ...FAMILY_EVENTS, ...GENERAL_EVENTS, ...MIDLIFE_EVENTS, ...HK_EVENTS, ...CALLBACK_EVENTS, ...WISH_EVENTS];
 export const EVENTS_BY_ID: Record<string, EventDef> = Object.fromEntries(ALL_EVENTS.map((e) => [e.id, e]));
 
 const isInteractive = (c: Card) => c.kind !== 'system';

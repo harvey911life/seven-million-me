@@ -86,7 +86,7 @@ export const MIDLIFE_EVENTS: EventDef[] = [
         { label: '放三個月假去旅行', money: -trip, fx: { J: 5, H: 2 }, disabled: afford(g, trip) },
         { label: '寫低人生下半場目標', fx: { J: 2, K: 1 } },
       ], (g2, i) => {
-        if (i === 0) { g2.spend(car, '跑車'); g2.add('J', 6, '買跑車'); g2.flag('gadgetLast', g2.s.year); return '開咗兩個月，你發覺香港塞車塞到跑唔起。'; }
+        if (i === 0) { g2.spend(car, '跑車'); g2.add('J', 6, '買跑車'); g2.flag('car'); g2.flag('gadgetLast', g2.s.year); return '開咗兩個月，你發覺香港塞車塞到跑唔起。'; }
         if (i === 1) { g2.spend(trip, '長假'); g2.fx({ J: 5, H: 2 }, '長假'); return '你喺冰島睇到極光，返嚟成個人輕鬆咗。'; }
         g2.fx({ J: 2, K: 1 }); return '你喺筆記簿寫低三個目標，第一個係學識游水。';
       }, { def: 2, auto: 2, agui: 2 });

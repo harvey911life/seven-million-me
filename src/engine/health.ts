@@ -404,6 +404,8 @@ export function deathCheck(g: Game): boolean {
   if (a <= 12) comps.push(['病逝（兒童重病）', a <= 4 ? 0.001 : 0.0004]);
   if (s.flags['accFatal'] === s.year) comps.push(['意外離世', 1]);
   if (s.flags['fatalMinor']) { comps.push(['急病離世', 0.5]); delete s.flags['fatalMinor']; }
+  // v1.6：專科排公立 / 去深圳，可能延誤治療（細字有寫）
+  if (Number(s.flags['specRiskTo'] ?? 0) >= s.year) comps.push(['病逝', Number(s.flags['specRiskQ'] ?? 0)]);
   if (s.H <= 0) comps.push(['急病離世', 0.4]); else if (s.H <= 5) comps.push(['急病離世', 0.1]);
   const surv = comps.reduce((p, [, q]) => p * (1 - q), 1);
   const q = 1 - surv;
@@ -492,7 +494,7 @@ export const HEALTH_EVENTS: EventDef[] = [
     id: 'E-SMOKE', pri: 200, ages: [15, 25], cat: '生活日常',
     when: (g) => 0.03 * Math.sqrt(Mpos(g.s.R)) * (g.s.origin.father && g.s.birthYear < 1990 ? 1.5 : 1),
     make: () => mkCard('E-SMOKE', '朋友遞煙', '朋友遞咗支煙俾你：「試吓啦，冇事嘅。」', [{ label: '試一口' }, { label: '唔要' }], (g2, i) => {
-      if (i === 1) return '你搖搖頭，朋友都冇再迫你。';
+      if (i === 1) { g2.flag('noSmoke', g2.s.age); return '你搖搖頭，朋友都冇再迫你。'; }
       if (g2.er() < 0.6) { g2.s.smoker = true; g2.flag('recur_smoke', 28000); return '一支變一包，你開始食煙。'; }
       return '你咳到眼淚都出埋，之後冇再試。';
     }, { def: 1, auto: 1, agui: 1 }),
@@ -502,7 +504,7 @@ export const HEALTH_EVENTS: EventDef[] = [
     when: (g) => (g.s.smoker ? (g.s.flags['hadCI'] ? 0.6 : 0.08) : 0),
     make: () => mkCard('E-QUIT', '戒煙機會', '醫生同屋企人都叫你戒煙。', [{ label: '即刻戒' }, { label: '慢慢減' }, { label: '唔戒' }], (g2, i) => {
       const ok = g2.er() < [0.5, 0.3, 0][i];
-      if (ok) { g2.s.smoker = false; delete g2.s.flags['recur_smoke']; g2.add('J', 2); return '你成功戒咗煙！'; }
+      if (ok) { g2.s.smoker = false; delete g2.s.flags['recur_smoke']; g2.add('J', 2); if (g2.s.age < 40) g2.flag('quitYoung', g2.s.age); return '你成功戒咗煙！'; }
       return i === 2 ? '你照食。' : '戒咗幾個月，又食返。';
     }, { def: 0, auto: 0, agui: 0 }),
   },

@@ -1,5 +1,6 @@
 // 第 12 章 結局：家人壓力指數、退休成績表、蜘蛛網圖、人生排行榜十項計分
 import type { Game } from './game';
+import { wishResult, WISH_PTS } from './wishes';
 import { clamp, interp, fmtMoney } from './util';
 import { liquidAssets, plansValue, kidCostYear, supportCostYear, propValue } from './finance';
 import { ACH_BY_ID, SPECIAL_ACH, aRet } from './achievements';
@@ -11,7 +12,7 @@ export interface Spider { H: number; J: number; K: number; R: number; F: number 
 export interface ScoreItem { key: string; name: string; v: number }
 export interface Ending {
   age: number; cause: string; year: number;
-  fpi: FPIResult; retire: RetireReport; spider: Spider; items: ScoreItem[]; wonder: number; total: number; nine: number;
+  fpi: FPIResult; retire: RetireReport; spider: Spider; items: ScoreItem[]; wonder: number; wishes: { label: string; done: boolean }[]; wishBonus: number; total: number; nine: number;
   earnReal: number; achPts: number; knowledge: number; od: number;
 }
 
@@ -184,11 +185,14 @@ export function computeEnding(g: Game, agui?: Ending): Ending {
     { key: 'give', name: '回饋社會', v: give },
   ];
   const wonder = s.wonder ? 20 : 0;
+  // v1.6：心願清單，每個達成 +10
+  const wishes = wishResult(s);
+  const wishBonus = wishes.filter((w) => w.done).length * WISH_PTS;
   const sum = items.reduce((a, b) => a + b.v, 0);
   const nine = sum - achScore;
   const e: Ending = {
-    age: s.age, cause: s.deathCause ?? '', year: s.year, fpi, retire: ret, spider: sp, items, wonder,
-    total: Math.round(sum + wonder), nine, earnReal: s.earnReal, achPts, knowledge: sp.K, od,
+    age: s.age, cause: s.deathCause ?? '', year: s.year, fpi, retire: ret, spider: sp, items, wonder, wishes, wishBonus,
+    total: Math.round(sum + wonder + wishBonus), nine, earnReal: s.earnReal, achPts, knowledge: sp.K, od,
   };
   return e;
 }

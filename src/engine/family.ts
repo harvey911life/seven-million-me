@@ -578,6 +578,7 @@ export function buyHome(g: Game, price: number, ltv: number, kind: string, subsi
   s.prop = { kind, price0: price, hpi0: g.e.hpi, mortgage: m.loan, rate: m.rate, monthsLeft: m.years * 12, pmt: m.pmt, first: !s.flags['ownedBefore'], ltv, passedStress: true, boughtYear: s.year };
   s.home = 'own';
   s.publicWait = null;
+  if (!s.flags['ownedBefore']) g.flag('firstHomeAge', s.age);
   g.flag('ownedBefore');
   g.ach('first_home');
   if (subsidised) g.flag('hos');
@@ -1091,6 +1092,7 @@ export const FAMILY_EVENTS: EventDef[] = [
       if (!spouse(g) || s.flags['tryBaby'] || s.kids.length >= 5 || s.age >= 70) return 0;
       if (femaleAge(g) > 44) return 0;
       // v1.5（用家指定）：45 歲或以上少啲再問（到期後每年 40% 機會先問）
+      if (s.age >= 50) return 0; // v1.6（用家指定）：50 歲或以上唔再問
       return s.babyAskAge <= s.age && s.babyAskAge > 0 ? (s.age >= 45 ? 0.4 : 1) : 0;
     },
     make: babyCard,

@@ -1,6 +1,7 @@
 // 第 12 章 12.11 成就清單 + 每年檢查
 import type { Game } from './game';
 import { liquidAssets, netWorth, plansValue, insActive } from './finance';
+import { checkWishes } from './wishes';
 
 export interface AchDef { id: string; name: string; desc: string; pts: number; cat: string; hidden?: boolean }
 
@@ -76,6 +77,8 @@ export const ACHIEVEMENTS: AchDef[] = [
     ['return_hk', '始終香港好', '移民後回流', 3],
     ['pentagon', '五邊形戰士', '蜘蛛網圖五項全部 > 70', 5],
     ['beat_agui', '贏咗隔離屋某某人', '九項總分高過某某人', 2],
+    ['wish_all', '心想事成', '18 歲許嘅三個心願全部達成', 3],
+    ['wild_boar', '野豬朋友', '同野豬對望過', 1],
   ]),
   ...A('特殊', [
     ['jackpot', '頭獎得主', '中六星彩頭獎', 0, true],
@@ -155,4 +158,5 @@ export function checkAchievementsYear(g: Game) {
     s.flags['jMarSum'] = Number(s.flags['jMarSum'] ?? 0) + s.J;
     s.flags['jMarN'] = Number(s.flags['jMarN'] ?? 0) + 1;
   }
+  checkWishes(g);
 }
