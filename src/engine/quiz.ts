@@ -141,6 +141,10 @@ const P_SUB = (k: number) => (k >= 80 ? 0.99 : k >= 60 ? 0.9 : k >= 40 ? 0.65 : 
 const DELTA = (c: number) => (c >= 8 ? 15 : c === 7 ? 10 : c === 6 ? 5 : c === 5 ? 0 : c === 4 ? -5 : c === 3 ? -10 : -15);
 export const GRADE = (c: number) => (c >= 8 ? 'S' : c === 7 ? 'A' : c === 6 ? 'B' : c === 5 ? 'C' : c === 4 ? 'D' : c === 3 ? 'E' : 'F');
 const eraUni = (y: number) => (y < 2000 ? 0.5 : y < 2012 ? 0.75 : 1);
+// v1.7：8 題全對必入大學；4–6 題收緊（用戶 10-20），少過 4 題入唔到
+const C_UNI: Record<number, number> = { 4: 0.2, 5: 0.3, 6: 0.45, 7: 1 };
+const UNI_MIN = 4;
+const pUni = (k: number, c: number, y: number) => (c >= 8 ? 1 : c < UNI_MIN ? 0 : P_UNI(k) * eraUni(y) * C_UNI[c]);
 
 export function examCard(g: Game, onDone: (g: Game) => void): Card {
   const s = g.s;
@@ -155,7 +159,7 @@ export function examCard(g: Game, onDone: (g: Game) => void): Card {
   ];
   const qs = draw(g, r, 8, (i) => ({ subj: spec[i].subj, diff: spec[i].diff, exam: true, exclude: i === 7 ? new Set<number>() : exclude }));
   qs.sort(() => r() - 0.5);
-  const c = mkCard('EXAM', s.examTries ? '重考公開試' : '公開試', '8 條題目連續作答，每條 15 秒，中間唔會停。入大學最少要答啱 4 題。', [{ label: '入試場' }], (g2) => {
+  const c = mkCard('EXAM', s.examTries ? '重考公開試' : '公開試', '8 條題目連續作答，每條 15 秒，中間唔會停。入大學最少要答啱 4 題，全對就一定入到。', [{ label: '入試場' }], (g2) => {
     const res = applyExam(g2, c);
     onDone(g2);
     return res;
@@ -171,13 +175,11 @@ function applyExam(g: Game, c: Card): string {
   const r = streamRng(s.seed, 'examResult', s.age);
   const kBefore = s.K;
   const kEff = clamp(kBefore + DELTA(C), 0, 100);
-  const pu = P_UNI(kEff) * eraUni(s.year);
+  const pu = pUni(kEff, C, s.year);
   const ps = Math.max(P_SUB(kEff), pu);
   const x = r();
-  // v1.0：入大學最少要答啱 4 題
-  const UNI_MIN = 4;
-  const result = x < pu && C >= UNI_MIN ? '達大學要求' : x < ps ? '達副學位要求' : '未達副學位要求';
-  const short = result !== '達大學要求' && C < 8 && (C === UNI_MIN - 1 ? x < pu : C >= UNI_MIN && x < P_UNI(clamp(kBefore + DELTA(C + 1), 0, 100)) * eraUni(s.year));
+  const result = x < pu ? '達大學要求' : x < ps ? '達副學位要求' : '未達副學位要求';
+  const short = result !== '達大學要求' && x < pUni(clamp(kBefore + DELTA(C + 1), 0, 100), C + 1, s.year);
   g.add('K', (C - 4) * 0.5);
   s.examTries++;
   // 取較好嘅結果

@@ -42,7 +42,7 @@ export function studyYear(g: Game) {
   g.tick(`你${st.kind === '出國升學' ? `喺${String(s.flags['abroadCountry'] ?? '外國')}` : st.kind}畢業喇！`);
   if (st.kind === '碩士') { g.add('K', 5, '碩士'); g.flag('needFirstJob'); return; }
   if ((st.kind === '學士' || st.kind === '出國升學') && !s.everEmployed && s.K >= 45 && s.edu < 6) { g.pushCard(masterCard(g, 'grad')); return; }
-  if ((st.kind === '副學士' || st.kind === '高級文憑') && r() < clamp((st.kind === '副學士' ? 0.45 : 0.3) * Mpos(s.K) * (s.year >= 2012 ? 1 : 0.8), 0.05, 0.9)) {
+  if ((st.kind === '副學士' || st.kind === '高級文憑') && r() < clamp((st.kind === '副學士' ? 0.3 : 0.2) * Mpos(s.K) * (s.year >= 2012 ? 1 : 0.8), 0.05, 0.9)) {
     g.pushCard(bridgeCard(g));
     return;
   }
