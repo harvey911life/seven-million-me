@@ -99,7 +99,7 @@ function parentsYear(g: Game, r: RNG) {
   for (const p of s.parents) {
     if (!p.alive) continue;
     p.age++;
-    p.health = clamp(p.health + (p.age < 60 ? -0.5 : p.age < 75 ? -1 : -1.5) + (s.support === 'live' ? 0.5 : 0), 0, 100);
+    p.health = clamp(p.health + (p.age < 60 ? -0.5 : p.age < 75 ? -1 : -1.5) + (s.support === 'live' || s.support === 'helper' ? 0.5 : 0), 0, 100);
     if (p.working && p.age >= 65) { p.working = false; p.income = 0; }
     const illKey = `parentIll_${p.role}`;
     const illYear = Number(s.flags[illKey] ?? -99);
@@ -156,11 +156,10 @@ function inheritance(g: Game, r: RNG) {
   let estate = Math.max(0, fs + eq - Number(s.flags['parentsGave'] ?? 0));
   if (estate < 10000 || s.age < 22) return;
   let share = estate / (s.siblings + 1);
+  // v1.8：爭產由一句說話變成抉擇卡，出現機會照舊
   if (s.siblings >= 1 && estate >= 1_000_000 * g.P && r() < 0.75 * 0.25 * Mneg(s.R)) {
-    share *= 0.8;
-    g.add('R', -10, '爭遺產');
-    g.add('J', -5);
-    g.tick('父母冇立遺囑，兄弟姊妹為遺產鬧上律師樓。');
+    g.pushCard(estateFightCard(g, Math.round(share), r() < 0.55));
+    return;
   }
   share = Math.round(share);
   s.cash += share;
@@ -850,6 +849,33 @@ function schoolCard(g: Game, k: Kid): Card {
   }, { pri: 735, def: 0, auto: 0, agui: 0, cat: '人生抉擇', scene: 'school' });
 }
 
+function estateFightCard(g: Game, share: number, win: boolean): Card {
+  const fee = g.p(200000), med = g.p(20000);
+  const end = (g2: Game, amt: number, how: string) => {
+    const s2 = g2.s;
+    amt = Math.max(0, Math.round(amt));
+    s2.cash += amt;
+    g2.flag('inherited', amt);
+    g2.log(`繼承父母遺產 ${fmtMoney(amt)}（${how}）`, '人生抉擇');
+    return `你最後分到 ${fmtMoney(amt)}。${s2.will ? '你慶幸自己早就立咗遺囑，唔會留低同樣嘅麻煩俾屋企人。' : '你諗起自己都未立遺囑。'}`;
+  };
+  return mkCard('E-ESTATE', '祖屋爭產', `父母冇立遺囑，兄弟姊妹為咗層祖屋同積蓄點分嗌到拍枱。按道理你應該分到大約 ${fmtMoney(share)}。`, [
+    { label: '打官司', money: -fee, note: `律師費約 ${fmtMoney(fee)}；贏咗多分三成，輸咗少兩成`, fx: { R: -10 } },
+    { label: '坐低傾，平分', money: -med, note: `調解費約 ${fmtMoney(med)}`, fx: { R: -3 } },
+    { label: '讓俾佢哋', note: '你只拎一半', fx: { R: 5, J: 2 } },
+  ], (g2, i) => {
+    if (i === 0) {
+      const t = g2.spend(fee, '律師費');
+      g2.add('R', -10, '爭遺產'); g2.add('J', -3);
+      g2.ach('estate_fight');
+      return `${win ? '打咗兩年官司，法官判你分多啲。' : '打咗兩年官司，法官判你分少咗。'}律師費 ${fmtMoney(fee)}${t}。` + end(g2, share * (win ? 1.3 : 0.8), '打官司');
+    }
+    if (i === 1) { const t = g2.spend(med, '調解費'); g2.add('R', -3, '爭遺產'); return `大家喺調解員面前簽咗字${t}。` + end(g2, share, '調解'); }
+    g2.add('R', 5); g2.add('J', 2);
+    return '你話「唔好為錢傷和氣」，兄弟姊妹都靜咗落嚟。' + end(g2, share * 0.5, '讓步');
+  }, { pri: 760, def: 1, auto: 1, agui: 1, cat: '人生抉擇' });
+}
+
 function supportCard(g: Game): Card {
   const s = g.s;
   const care = s.parents.some((p) => p.alive && p.needsCare);
@@ -857,9 +883,11 @@ function supportCard(g: Game): Card {
     { label: '每月俾家用', note: `每月約 ${fmtMoney(g.p(5000))}–${fmtMoney(g.p(8000))}` },
     { label: '接返嚟同住', note: `每月生活費約 ${fmtMoney(g.p(4000))}`, fx: { R: 3 } },
     { label: '安排入安老院', note: `私營每月約 ${fmtMoney(g.p(14000))}`, fx: { J: -2, R: -2 } },
+    { label: '請外傭照顧', note: `每月約 ${fmtMoney(g.p(7500))}，父母留喺自己屋企`, fx: { R: 2 } },
   ], (g2, i) => {
     const s2 = g2.s;
-    s2.support = (['money', 'live', 'home'] as const)[i];
+    s2.support = (['money', 'live', 'home', 'helper'] as const)[i];
+    if (i === 3) { g2.add('R', 2); return '新嚟嘅姐姐好細心，阿媽話佢煲湯比你煲得仲好飲。'; }
     delete s2.flags['needSupportCard'];
     if (i === 1) { g2.add('R', 3); return '阿爸搬入嚟，晚晚都有老火湯飲。'; }
     if (i === 2) { g2.add('J', -2); g2.add('R', -2); return '你每個星期日都去探佢。'; }

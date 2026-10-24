@@ -81,7 +81,7 @@ export interface State {
   // 家庭
   partner: Partner | null; married: boolean; marriedAt: number | null; datingYears: number; proposeAt: number; proposeTries: number;
   divorces: number; widowed: boolean; kids: Kid[]; babyPlan: 'yes' | 'no' | 'later' | null; babyAskAge: number; childcare: 'helper' | 'parents' | 'quit' | null;
-  parents: Parent[]; support: 'money' | 'live' | 'home' | null; supportedAtDeath: number; parentsDeadBefore18: number;
+  parents: Parent[]; support: 'money' | 'live' | 'home' | 'helper' | null; supportedAtDeath: number; parentsDeadBefore18: number;
   siblings: number;
 
   // 健康

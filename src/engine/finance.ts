@@ -145,6 +145,7 @@ export function supportCostYear(g: Game): number {
   let m = 0;
   if (s.support === 'money') m = Math.max(2000, Math.min(inc < 25000 * g.W ? 5000 : inc < 50000 * g.W ? 6500 : 8000, (hhMonthly(g) * 0.12) / g.P));
   else if (s.support === 'live') m = 4000 * alive;
+  else if (s.support === 'helper') m = 7500; // v1.8：請一個外傭照顧父母
   else m = 14000 * alive;
   return Math.round(m * 12 * g.P * mod);
 }
@@ -724,7 +725,7 @@ export function insScore(g: Game): number {
   if (s.status === 'work' && s.job && med < 60) med = 60;
   let ci = lv('ci');
   if (s.diseases.some((d) => ['cancer', 'stroke', 'heart', 'kidney'].includes(d.kind))) ci = Math.min(ci, 60);
-  const deps = (s.married && s.partner?.alive && s.partner.income < 100000 * g.W) || s.kids.some((k) => k.age < 22) || s.support === 'money' || s.support === 'live';
+  const deps = (s.married && s.partner?.alive && s.partner.income < 100000 * g.W) || s.kids.some((k) => k.age < 22) || s.support === 'money' || s.support === 'live' || s.support === 'helper';
   const lifeW = deps || (s.prop && s.prop.mortgage > 0) ? 25 : 0;
   return (30 * med + 35 * ci + 10 * lv('acc') + lifeW * lv('life')) / (75 + lifeW);
 }

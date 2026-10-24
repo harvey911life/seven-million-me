@@ -203,7 +203,8 @@ function majorCard(g: Game): Card {
   return mkCard('E-MAJOR', '揀大學學系', `${lock}你嘅成績可以揀以下學系：`, show.map((m) => ({ label: m[0], note: desc[m[0]] })), (g2, i) => {
     const [m, yrs] = show[i];
     g2.s.major = m;
-    g2.s.study = { kind: '學士', left: yrs, fee: m === '法律' ? 55000 + 190000 / 5 : 55000, years: 0 };
+    // v1.8：運動獎學金，學費減半
+    g2.s.study = { kind: '學士', left: yrs, fee: (m === '法律' ? 55000 + 190000 / 5 : 55000) * (g2.s.flags['sportScholar'] ? 0.5 : 1), years: 0 };
     return `你入咗${m}。`;
   }, { pri: 863, def: 0, auto: 0, agui: 0 });
 }

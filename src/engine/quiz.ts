@@ -170,7 +170,12 @@ export function examCard(g: Game, onDone: (g: Game) => void): Card {
 function applyExam(g: Game, c: Card): string {
   const s = g.s;
   const ans: QuizAnswer[] = (c as Card & { answers?: QuizAnswer[] }).answers ?? autoAnswers(g, c.quiz!, streamRng(s.seed, 'autoexam', s.age));
-  const C = ans.filter((a) => a.correct).length;
+  const raw = ans.filter((a) => a.correct).length;
+  // v1.8：報咗名師班，第一次考有 30% 機會「中貼士」，當多答啱一題
+  const tutored = s.flags['tutor'] === 2;
+  const tip = tutored && raw < 8 && streamRng(s.seed, 'tutortip')() < 0.3;
+  delete s.flags['tutor'];
+  const C = raw + (tip ? 1 : 0);
   rememberSeen(c.quiz!.map((q) => q.id));
   const r = streamRng(s.seed, 'examResult', s.age);
   const kBefore = s.K;
@@ -186,11 +191,12 @@ function applyExam(g: Game, c: Card): string {
   const rank = (t?: string) => (t === '達大學要求' ? 2 : t === '達副學位要求' ? 1 : 0);
   if (s.examCorrect === null || C > s.examCorrect) s.examCorrect = C;
   if (rank(result) >= rank(s.examResult)) { s.examResult = result; s.examR = kEff; }
-  if (C === 8 && !s.flags['autoQuiz']) g.ach('exam_top');
+  if (raw === 8 && !s.flags['autoQuiz']) g.ach('exam_top');
   if (short) { g.ach('one_mark_short'); g.add('J', -8, '差一分入大學'); }
   if (result === '達大學要求') g.add('J', 3, '放榜');
   const grade = GRADE(C);
-  const t = `答啱 ${C}/8，成績 ${grade}。結果：${s.examResult}${short ? '（差一題就入到大學！）' : ''}。`;
+  const tipText = tip ? `名師貼中一題，計多一題答啱。` : tutored ? '名師今年冇貼中題。' : '';
+  const t = `${tipText}答啱 ${C}/8，成績 ${grade}。結果：${s.examResult}${short ? '（差一題就入到大學！）' : ''}。`;
   g.flag('examText', t);
   return t;
 }

@@ -104,7 +104,7 @@ const MAP: Record<string, [string, string]> = {
   green_hat: ['hat', '#4caf6d'], giant_cat: ['catbig', '#f08a3c'], talking_cat: ['catsay', '#d9d4c7'],
   earth_defense: ['alien', '#4caf6d'], zombie_survivor: ['zombie', '#8fbf6a'], redo_10y: ['rewind', '#8e4fd6'],
   treasure: ['chest', '#9b6a43'], duck_effect: ['duck', '#f2c14e'], blackout: ['candle', '#ffffff'], robot_gift: ['robot', '#7d8696'], rooftop_ufo: ['ufo', '#7d8696'], mars_scam: ['planet', '#d6455d'],
-  wish_all: ['star', '#d6455d'], wild_boar: ['boar', '#8a6a4a'],
+  wish_all: ['star', '#d6455d'], wild_boar: ['boar', '#8a6a4a'], red_bombs: ['packet', '#f2c14e'], t8_warrior: ['umbrella', '#5c6bc0'], estate_fight: ['house', '#7d8696'],
 };
 
 const FIXED: Record<string, string> = { k: '#26262e', w: '#fbfbf7', y: '#f2c14e', r: '#d6455d', g: '#4caf6d', n: '#9b6a43', s: '#f3c9a4', d: '#7d8696', p: '#f29bb5', u: '#5aa9e6', o: '#f08a3c' };

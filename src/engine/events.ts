@@ -8,6 +8,7 @@ import { EDU_EVENTS } from './education';
 import { MIDLIFE_EVENTS } from './midlife';
 import { HK_EVENTS } from './hk';
 import { CALLBACK_EVENTS } from './callbacks';
+import { STORY_EVENTS } from './stories';
 import { WISH_EVENTS } from './wishes';
 import { TRAGEDY_EVENTS } from './tragedy';
 import { BIZ_EVENTS } from './biz';
@@ -199,7 +200,8 @@ function negEquityCard(g: Game): Card {
 
 function borrowCard(g: Game): Card {
   const s = g.s;
-  const guarantee = g.er() < 0.3;
+  // v1.8：擔保人連續劇情未完之前，唔會再叫你做擔保
+  const guarantee = g.er() < 0.3 && s.flags['guarAt'] === undefined && !s.flags['guarLeft'];
   const amt = Math.round(guarantee ? 300000 * g.P : clamp(liq(g) * 0.2, 20000 * g.P, 200000 * g.P));
   const why = s.flags['jackpotYear'] && s.year - Number(s.flags['jackpotYear']) <= 5 ? '（中咗獎之後，搵你借錢嘅人多咗）' : undefined;
   return mkCard('C-AN-04', guarantee ? '親戚叫你做擔保人' : '朋友借錢', guarantee ? `表哥做生意要借錢，叫你做 ${fmtMoney(amt)} 貸款嘅擔保人。` : `舊同學話周轉唔靈，想借 ${fmtMoney(amt)}，「三個月內一定還」。`, [
@@ -213,8 +215,10 @@ function borrowCard(g: Game): Card {
     const part = i === 0 ? amt : amt / 2;
     g2.add('R', i === 0 ? 1 : -1);
     if (guarantee) {
-      if (r() < 0.3) { const n = g2.spend(Math.round(part), '代還'); g2.add('J', -5); return `表哥生意失敗，你要代還 ${fmtMoney(part)}${n}。`; }
-      return '表哥準時還款，你鬆咗一口氣。';
+      // v1.8：代還機會照舊 30%，不過結果分幾年先出現（stories.ts ST-GUAR）
+      g2.flag('guarAt', s2.year); g2.flag('guarAmt', Math.round(part));
+      if (r() < 0.3) { g2.flag('guarFail'); g2.flag('guarDue', r() < 0.5 ? 3 : 4); }
+      return '你喺銀行簽咗擔保書，表哥拍拍你膊頭話「放心」。';
     }
     g2.spend(Math.round(part), '借錢');
     if (r() < Math.min(0.6, 0.4 * Math.sqrt(Mpos(s2.R)))) { s2.cash += part; return '佢真係準時還錢，仲請你食飯。'; }
@@ -963,7 +967,7 @@ function rescueMark(g: Game, k: 'H' | 'J') {
   g.s.flags[`rescue${k}Age`] = g.s.age;
 }
 
-export const ALL_EVENTS: EventDef[] = [...CAREER_EVENTS, ...BIZ_EVENTS, ...TRAGEDY_EVENTS, ...HISTORY_EVENTS, ...EDU_EVENTS, ...HEALTH_EVENTS, ...FAMILY_EVENTS, ...GENERAL_EVENTS, ...MIDLIFE_EVENTS, ...HK_EVENTS, ...CALLBACK_EVENTS, ...WISH_EVENTS];
+export const ALL_EVENTS: EventDef[] = [...CAREER_EVENTS, ...BIZ_EVENTS, ...TRAGEDY_EVENTS, ...HISTORY_EVENTS, ...EDU_EVENTS, ...HEALTH_EVENTS, ...FAMILY_EVENTS, ...GENERAL_EVENTS, ...MIDLIFE_EVENTS, ...HK_EVENTS, ...CALLBACK_EVENTS, ...WISH_EVENTS, ...STORY_EVENTS];
 export const EVENTS_BY_ID: Record<string, EventDef> = Object.fromEntries(ALL_EVENTS.map((e) => [e.id, e]));
 
 const isInteractive = (c: Card) => c.kind !== 'system';

@@ -12,7 +12,7 @@ import { simulateParallel } from './engine/parallel';
 import { showEnding, boardTable, SHOW_BOARD, booking, placeOf, achGrid } from './ui/ending';
 import { makeSave, restoreSave, type SaveData } from './engine/save';
 
-const VERSION = 'v1.7';
+const VERSION = 'v1.8';
 
 const root = document.getElementById('app')!;
 let settings: Settings = store.settings();
