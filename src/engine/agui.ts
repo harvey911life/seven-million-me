@@ -66,8 +66,8 @@ export function autoFocus(g: Game) {
   s.focus = map[low].find((f) => list.includes(f)) ?? list[list.length - 1];
 }
 
-export function playHeadless(seed: number, period: string | null, mode: Policy, maxAge = 120, force?: { year: number; day: number }, onYear?: (g: Game) => void, noTianma = false): Game {
-  const g = new Game(seed, period, force);
+export function playHeadless(seed: number, period: string | null, mode: Policy, maxAge = 120, force?: { year: number; day: number }, onYear?: (g: Game) => void, noTianma = false, hard = false): Game {
+  const g = new Game(seed, period, force, hard);
   // 天馬行空只會發生喺玩家身上（12.7）：某某人同平行人生唔抽
   if (mode === 'agui' || noTianma) { g.noTianma = true; g.redoAt = null; }
   // 某某人係「每一步都有規劃」嘅示範人物：佢遇到財困會即刻重組，唔會行到破產結局
@@ -92,12 +92,12 @@ export function playHeadless(seed: number, period: string | null, mode: Policy, 
 
 const aguiCache = new Map<string, Ending>();
 /** 平行人生已經行過某某人，直接放入快取，結局唔使再行一次 */
-export function cacheAgui(seed: number, period: string | null, e: Ending) { aguiCache.set(`${seed}|${period}`, e); }
-export function aguiEnding(seed: number, period: string | null): Ending {
-  const key = `${seed}|${period}`;
+export function cacheAgui(seed: number, period: string | null, e: Ending, hard = false) { aguiCache.set(`${seed}|${period}|${hard}`, e); }
+export function aguiEnding(seed: number, period: string | null, hard = false): Ending {
+  const key = `${seed}|${period}|${hard}`;
   const hit = aguiCache.get(key);
   if (hit) return hit;
-  const g = playHeadless(seed, period, 'agui');
+  const g = playHeadless(seed, period, 'agui', 120, undefined, undefined, false, hard);
   const e = computeEnding(g);
   endAchievements(g, e);
   aguiCache.set(key, e);

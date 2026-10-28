@@ -3,6 +3,8 @@ import './ui/style.css';
 import { Game } from './engine/game';
 import { PERIODS, type ParentInfo } from './engine/origin';
 import { WEALTH_LABEL } from './data/origin';
+import { fmtMoney } from './engine/util';
+import { CONG_NAME, DV_HOTLINE } from './engine/hard';
 import { ACHIEVEMENTS } from './engine/achievements';
 import { h, clear } from './ui/dom';
 import { drawTitle, drawScene, SW, SH } from './ui/scene';
@@ -12,7 +14,7 @@ import { simulateParallel } from './engine/parallel';
 import { showEnding, boardTable, SHOW_BOARD, booking, placeOf, achGrid } from './ui/ending';
 import { makeSave, restoreSave, type SaveData } from './engine/save';
 
-const VERSION = 'v1.9';
+const VERSION = 'v2.0';
 
 const root = document.getElementById('app')!;
 let settings: Settings = store.settings();
@@ -61,7 +63,7 @@ function title() {
         if (saved) { confirmNew(saved); return; }
         cancelAnimationFrame(titleAnim); disclaimer();
       } }, saved ? '重新出生' : '出生'),
-      runs ? h('p', { class: 'muted small' }, '已解鎖：揀出生時段、自動揀、自動答題') : null,
+      runs ? h('p', { class: 'muted small' }, '已解鎖：揀出生時段、自動揀、困難人生模式、自動答題') : null,
       h('div', { class: 'title-row' },
         SHOW_BOARD ? h('button', { class: 'btn ghost small', type: 'button', onclick: () => boardScreen() }, '排行榜') : null,
         h('button', { class: 'btn ghost small', type: 'button', onclick: () => achScreen() }, '成就'),
@@ -164,6 +166,7 @@ function setup() {
   }, `${v}×`)));
   const autoBox = h('input', { type: 'checkbox', id: 'autopick', checked: settings.autoPick });
   const quizBox = h('input', { type: 'checkbox', id: 'autoquiz', checked: !!settings.autoQuiz });
+  const hardBox = h('input', { type: 'checkbox', id: 'hardmode', checked: !!settings.hardMode });
   const periodSel = h('div', { class: 'periods' }, Object.keys(PERIODS).map((p) => h('button', {
     type: 'button', class: `period ${settings.period === p ? 'on' : ''}`, onclick: (e: Event) => {
       settings.period = p;
@@ -173,10 +176,11 @@ function setup() {
   const next = h('button', { class: 'btn', type: 'button', onclick: () => {
     settings.autoPick = second && autoBox.checked;
     settings.autoQuiz = store.autoQuizOk() && quizBox.checked;
+    settings.hardMode = second && hardBox.checked;
     if (!second) settings.period = '隨機時段';
     store.saveSettings(settings);
     const period = settings.period === '隨機時段' ? null : settings.period;
-    originCard(new Game(newSeed(), period), period);
+    originCard(newLife(period), period);
   } }, '下一步 ›');
   clear(root).append(h('div', { class: 'screen center-card' }, h('div', { class: 'paper' },
     h('div', { class: 'setup-head' }, h('h2', null, '投胎設定'), next),
@@ -186,11 +190,14 @@ function setup() {
     second ? [
       h('h4', null, '出生時段'), periodSel,
       h('label', { class: 'check' }, autoBox, h('span', null, '自動揀：系統幫你揀人生抉擇。')),
+      h('label', { class: 'check' }, hardBox, h('span', null, '困難人生模式：一出世就係最艱難嘅環境，總分 ×1.2。')),
       store.autoQuizOk()
         ? h('label', { class: 'check' }, quizBox, h('span', null, '自動答題：測驗同公開試由系統按你嘅學識自動作答，不過拎唔到答題相關成就。'))
         : h('p', { class: 'muted small' }, '🔒 自動答題：自己答公開試，答啱 6 題或以上就會解鎖。'),
-    ] : h('p', { class: 'muted small' }, '玩完第一局會解鎖「揀出生時段」同「自動揀」；自己答公開試答啱 6 題或以上會解鎖「自動答題」。'))));
+    ] : h('p', { class: 'muted small' }, '玩完第一局會解鎖「揀出生時段」、「自動揀」同「困難人生模式」；自己答公開試答啱 6 題或以上會解鎖「自動答題」。'))));
 }
+
+const newLife = (period: string | null) => new Game(newSeed(), period, undefined, !!settings.hardMode);
 
 function dateOf(year: number, day: number) {
   const d = new Date(Date.UTC(year, 0, day));
@@ -221,7 +228,9 @@ function originCard(g: Game, period: string | null) {
   const o = s.origin;
   const stamps: string[] = [];
   const pro = (c?: string) => c === '經理及行政級' || c === '專業人員';
+  const hd = s.flags['hardMode'] ? o.hard : undefined;
   if (pro(o.father?.cat) && pro(o.mother?.cat)) stamps.push('含住金鎖匙');
+  if (hd) stamps.push('困難人生');
   if (o.isBaoyou) stamps.push('保幼局');
   if (o.birthYear === 1997) stamps.push('九七一代');
   const stat = (k: 'H' | 'J' | 'K' | 'R', n: string) => h('div', { class: `ostat s-${k}` }, h('span', null, n), h('span', { class: 'bar' }, h('span', { style: `width:${Math.round(s[k])}%` })), h('b', null, String(Math.round(s[k]))));
@@ -241,10 +250,13 @@ function originCard(g: Game, period: string | null) {
         tile('性別', o.gender === 'M' ? '男' : '女'), tile('出生年份', `${o.birthYear} 年`), tile('地區', `${o.district}`),
         tile('住屋', o.housing), tile('家庭', o.family ?? (o.isBaoyou ? '保幼局' : '—')), tile('兄弟姊妹', sib),
         !o.isBaoyou ? [tile('父親', parentText(o.father)), tile('母親', parentText(o.mother))] : null,
-        tile('家庭財務', WEALTH_LABEL[o.wealthTier])),
+        tile('家庭財務', WEALTH_LABEL[o.wealthTier]),
+        hd && o.debt > 0 ? tile('家庭負債', fmtMoney(o.debt)) : null,
+        hd ? tile('額外困難', [hd.dv ? '家庭暴力' : '', hd.cong ? CONG_NAME : '', o.isBaoyou ? '保幼局' : ''].filter(Boolean).join('、'), 'wide') : null),
+      hd?.dv ? h('p', { class: 'muted small' }, DV_HOTLINE) : null,
       h('div', { class: 'ostats' }, stat('H', '健康'), stat('J', '快樂'), stat('K', '知識'), stat('R', '人際')),
       h('div', { class: 'row2' },
-        h('button', { class: 'btn ghost', type: 'button', onclick: () => originCard(new Game(newSeed(), period), period) }, '重洗'),
+        h('button', { class: 'btn ghost', type: 'button', onclick: () => originCard(newLife(period), period) }, '重洗'),
         h('button', { class: 'btn', type: 'button', onclick: () => start(g, period, g.s.seed) }, '開始這一生'))))));
 }
 

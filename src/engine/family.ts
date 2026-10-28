@@ -581,6 +581,7 @@ export function buyHome(g: Game, price: number, ltv: number, kind: string, subsi
   if (!s.flags['ownedBefore']) g.flag('firstHomeAge', s.age);
   g.flag('ownedBefore');
   g.ach('first_home');
+  if (g.s.flags['hardMode']) g.ach('hard_home');
   if (subsidised) g.flag('hos');
   g.add('J', 4, '上車');
   return { ok: true, text: `買咗${kind}，樓價 ${fmtMoney(price)}，每月供 ${fmtMoney(m.pmt)}。` };

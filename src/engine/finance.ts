@@ -412,7 +412,7 @@ export function settleYear(g: Game) {
     fs -= classes + tutor;
     if (s.study && s.age >= 17) {
       // 專上學費：家庭先付，唔夠就學貸
-      const fee = s.study.fee * P;
+      const fee = s.study.fee * P * (s.flags['studentGrant'] && s.study.kind !== '出國升學' ? 0.5 : 1);
       if (s.study.kind === '出國升學' || fs > fee * 1.5) fs -= fee;
       else {
         s.studentLoan = s.studentLoan ?? { bal: 0, mode: 'min', deferLeft: 0 };
@@ -518,7 +518,7 @@ export function settleYear(g: Game) {
   const homeC = s.home === 'parents' ? (pay + bonus) * s.homeContrib : 0;
   // 讀書（成年後自費）
   let study = 0;
-  if (s.study && s.status === 'study') study = s.study.fee * P;
+  if (s.study && s.status === 'study') study = s.study.fee * P * (s.flags['studentGrant'] && s.study.kind !== '出國升學' && s.study.kind !== '碩士' ? 0.5 : 1);
   // 學貸還款
   let loanPay = 0;
   if (s.studentLoan && s.studentLoan.bal > 0 && s.status !== 'study') {

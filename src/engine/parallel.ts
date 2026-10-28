@@ -23,7 +23,7 @@ const snap = (g: Game): Snap => {
   };
 };
 
-function lifeOf(seed: number, period: string | null, mode: Policy, who: string, force?: { year: number; day: number }): ParallelLife {
+function lifeOf(seed: number, period: string | null, mode: Policy, who: string, force?: { year: number; day: number }, hard = false): ParallelLife {
   const news: ParallelNews[] = [];
   let prev: Snap | null = null;
   const g = playHeadless(seed, period, mode, 120, force, (g) => {
@@ -46,11 +46,11 @@ function lifeOf(seed: number, period: string | null, mode: Policy, who: string, 
     if (p.status === 'work' && now.status === 'unemp') add('失業');
     if (!s.alive) add(s.flags['bankrupt'] ? '破產' : `離世，享年 ${s.age} 歲`, true);
     prev = now;
-  }, true);
+  }, true, hard);
   const s = g.s;
   const e = computeEnding(g);
   endAchievements(g, e);
-  if (mode === 'agui' && !force) cacheAgui(seed, period, e);
+  if (mode === 'agui' && !force) cacheAgui(seed, period, e, hard);
   return {
     who, name: mode === 'agui' ? '某某人' : s.name, planner: mode === 'agui',
     district: s.origin.district, subArea: s.origin.subArea, housing: s.origin.housing, news,
@@ -58,11 +58,11 @@ function lifeOf(seed: number, period: string | null, mode: Policy, who: string, 
   };
 }
 
-/** 某某人（同你同一個出身，每步有規劃）＋ 三個同你同年同日喺唔同地方出世嘅人 */
+/** 某某人（同你同一個出身，每步有規劃；困難人生模式一樣係困難出身）＋ 三個同你同年同日喺唔同地方出世嘅人 */
 export function simulateParallel(g: Game, period: string | null): ParallelLife[] {
   const s = g.s;
   const force = { year: s.birthYear, day: s.origin.birthDay };
-  const out = [lifeOf(s.seed, period, 'agui', '同你同一個出身')];
+  const out = [lifeOf(s.seed, period, 'agui', '同你同一個出身', undefined, !!s.flags['hardMode'])];
   const modes: Policy[] = ['def', 'auto', 'def'];
   for (let i = 0; i < 3; i++) out.push(lifeOf(hash32(s.seed, 'parallel', i), period, modes[i], '同年同日出世', force));
   return out;

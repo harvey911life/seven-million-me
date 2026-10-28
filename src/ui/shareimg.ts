@@ -21,6 +21,7 @@ export interface ShareImgInput {
   line: string; // 「我在…出世，享年…」
   grade: string; gradeColor: string;
   total: number; achCount: number;
+  hard?: boolean; // 困難人生模式標記
   star: { emblem: HTMLCanvasElement; name: string; tier: string; desc: string; rate: string } | null;
   spider: HTMLCanvasElement;
 }
@@ -58,7 +59,7 @@ export function makeShareImage(d: ShareImgInput): HTMLCanvasElement {
   c.fillStyle = '#8e1f3f'; c.font = `800 52px ${SERIF}`; c.fillText('七百萬分之', 60, 92);
   const lw = c.measureText('七百萬分之').width;
   c.fillStyle = '#c0392b'; c.font = `800 64px ${SERIF}`; c.fillText('我', 60 + lw + 4, 96);
-  c.fillStyle = '#637277'; c.font = `600 28px ${FONT}`; c.textAlign = 'right'; c.fillText('人生分享卡', W - 60, 88); c.textAlign = 'left';
+  c.fillStyle = '#637277'; c.font = `600 28px ${FONT}`; c.textAlign = 'right'; c.fillText(d.hard ? '困難人生・人生分享卡' : '人生分享卡', W - 60, 88); c.textAlign = 'left';
 
   // 像素場景（放大 6 倍，唔平滑）
   c.save(); rrect(c, 60, 124, 960, 384, 28); c.clip();

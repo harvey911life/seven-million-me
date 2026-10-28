@@ -115,7 +115,7 @@ function spiderCanvas(me: Spider, ag: Spider, forceDpr?: number): HTMLCanvasElem
 export function showEnding(root: HTMLElement, g: Game, period: string | null, onRestart: () => void) {
   const s = g.s;
   const seed0 = Number(s.flags['seed0'] ?? s.seed); // 「返到 10 年前」之後 s.seed 會變，某某人同金句跟返出世嗰個
-  const ag = aguiEnding(seed0, period);
+  const ag = aguiEnding(seed0, period, !!s.flags['hardMode']);
   const e: Ending = computeEnding(g, ag);
   const fresh = endAchievements(g, e, ag);
   const minor = s.age < 18;
@@ -234,6 +234,7 @@ export function showEnding(root: HTMLElement, g: Game, period: string | null, on
       e.wonder ? h('p', { class: 'wonder' }, `天馬行空奇遇 +${e.wonder}`) : null,
       e.wishes.length ? h('div', { class: 'wishbox' }, h('b', null, `18 歲嘅心願 ${e.wishes.filter((w) => w.done).length} / ${e.wishes.length}${e.wishBonus ? `（+${e.wishBonus}）` : ''}`),
         h('ul', { class: 'plain' }, e.wishes.map((w) => h('li', { class: w.done ? 'up' : 'muted' }, `${w.done ? '✓' : '✗'} ${w.label}`)))) : null,
+      e.hard ? h('p', { class: 'wonder' }, '困難人生模式：總分 ×1.2') : null,
       h('div', { class: 'total' }, h('span', null, '總分'), h('b', null, String(e.total)), h('small', null, '/ 1,000')),
       h('div', { class: `lgrade lg-${grade.replace('+', 'p')}` }, h('span', null, '人生評級'), h('b', null, grade)),
       h('p', { class: 'fine' }, GRADE_CUTS.slice(0, -1).map(([g, t]) => `${g} ≥ ${t}`).join('・') + `・${GRADE_CUTS[GRADE_CUTS.length - 1][0]} < ${GRADE_CUTS[GRADE_CUTS.length - 2][1]}`),
@@ -325,7 +326,7 @@ export function showEnding(root: HTMLElement, g: Game, period: string | null, on
     const tier = top ? tierOf(top.id) : null;
     const shown = rest.slice(0, 12);
     const card = h('div', { class: 'sharecard' },
-      h('div', { class: 'sc-top' }, h('span', { class: 'sc-logo' }, '七百萬分之', h('em', null, '我')), h('span', { class: 'sc-tag' }, '人生成就卡')),
+      h('div', { class: 'sc-top' }, h('span', { class: 'sc-logo' }, '七百萬分之', h('em', null, '我')), h('span', { class: 'sc-tag' }, e.hard ? '困難人生・人生成就卡' : '人生成就卡')),
       h('div', { class: 'sc-hero' }, cv),
       h('div', { class: 'sc-who' }, h('b', null, s.name), h('span', null, `${s.birthYear}–${s.year} · ${ageLine} · ${s.origin.district}出世`)),
       top ? h('div', { class: `sc-star t-${tier!.name}` },
@@ -344,7 +345,7 @@ export function showEnding(root: HTMLElement, g: Game, period: string | null, on
         h('p', null, shown.flatMap((a, i) => [i ? h('span', { class: 'dot' }, '・') : null, h('span', { class: fresh.includes(a.id) ? 'new' : '' }, a.name)])),
         rest.length > shown.length ? h('small', null, `仲有 ${rest.length - shown.length} 個`) : null) : null,
       h('div', { class: 'sc-foot' }, h('span', null, quoteFor(seed0)), h('span', null, '內容為模擬')));
-    const shareText = `我喺「七百萬分之我」做咗${s.name}，${bankrupt ? `${s.age} 歲破產收場` : apoc ? `${s.age} 歲遇上${apoc === 'alien' ? '外星人入侵' : '殭屍潮'}` : `活到 ${s.age} 歲`}，人生評級 ${grade}（${e.total} 分），解鎖咗 ${mine.length} 個成就${top ? `，最稀有係「${top.name}」` : ''}。你又會點過？`;
+    const shareText = `我喺「七百萬分之我」做咗${s.name}，${bankrupt ? `${s.age} 歲破產收場` : apoc ? `${s.age} 歲遇上${apoc === 'alien' ? '外星人入侵' : '殭屍潮'}` : `活到 ${s.age} 歲`}，${e.hard ? '挑戰困難人生模式，' : ''}人生評級 ${grade}（${e.total} 分），解鎖咗 ${mine.length} 個成就${top ? `，最稀有係「${top.name}」` : ''}。你又會點過？`;
     const note = h('small', { class: 'copied' }, '');
     return h('div', { class: 'epage achpage' }, card,
       h('div', { class: 'row2' },
@@ -353,7 +354,7 @@ export function showEnding(root: HTMLElement, g: Game, period: string | null, on
           const line = bankrupt ? `我在${placeOf(g)}出世，${s.age} 歲破產，人生提早結算` : apoc ? `我在${placeOf(g)}出世，${s.age} 歲遇上世界末日` : `我在${placeOf(g)}出世，享年 ${s.age} 歲`;
           const sc = heroScene(6);
           const img = makeShareImage({
-            scene: sc, quote: quoteFor(seed0), name: s.name, line, grade, gradeColor: GRADE_COLOR[grade] ?? '#8e1f3f', total: e.total, achCount: mine.length,
+            scene: sc, quote: quoteFor(seed0), name: s.name, line, grade, hard: e.hard, gradeColor: GRADE_COLOR[grade] ?? '#8e1f3f', total: e.total, achCount: mine.length,
             star: top ? { emblem: emblem(top.id, 120), name: top.name, tier: `最稀有成就・${tier!.name}`, desc: top.desc, rate: rateLine(top.id) } : null,
             spider: spiderCanvas(e.spider, ag.spider, 3),
           });

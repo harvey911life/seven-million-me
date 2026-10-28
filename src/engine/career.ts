@@ -28,6 +28,7 @@ export function eduOk(g: Game, j: Job, entry = true): boolean {
   if (entry && j.maxAgeEntry && s.age > j.maxAgeEntry) return false;
   if (j.needIP && s.IP < j.needIP) return false;
   if (s.disabled && j.hours <= -1.5) return false;
+  if (s.flags['congenital'] && !s.flags['heartOp'] && j.minH) return false; // 困難人生：先天心臟病未做手術
   return true;
 }
 

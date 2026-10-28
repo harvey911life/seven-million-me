@@ -4,6 +4,7 @@ import { wishResult, WISH_PTS } from './wishes';
 import { clamp, interp, fmtMoney } from './util';
 import { liquidAssets, plansValue, kidCostYear, supportCostYear, propValue } from './finance';
 import { ACH_BY_ID, SPECIAL_ACH, aRet } from './achievements';
+import { HARD_MULT } from './hard';
 
 export interface FPISource { label: string; pts: number; detail: string }
 export interface FPIResult { fpi: number; band: '低' | '中' | '高'; debtF: number; depF: number; gapRatio: number; lifePayout: number; text: string[]; sources: FPISource[] }
@@ -14,6 +15,7 @@ export interface Ending {
   age: number; cause: string; year: number;
   fpi: FPIResult; retire: RetireReport; spider: Spider; items: ScoreItem[]; wonder: number; wishes: { label: string; done: boolean }[]; wishBonus: number; total: number; nine: number;
   earnReal: number; achPts: number; knowledge: number; od: number;
+  hard: boolean; // 困難人生模式：總分 ×1.2
 }
 
 const avg = (xs: number[]) => (xs.length ? xs.reduce((a, b) => a + b, 0) / xs.length : 50);
@@ -190,9 +192,10 @@ export function computeEnding(g: Game, agui?: Ending): Ending {
   const wishBonus = wishes.filter((w) => w.done).length * WISH_PTS;
   const sum = items.reduce((a, b) => a + b.v, 0);
   const nine = sum - achScore;
+  const hard = !!s.flags['hardMode'];
   const e: Ending = {
     age: s.age, cause: s.deathCause ?? '', year: s.year, fpi, retire: ret, spider: sp, items, wonder, wishes, wishBonus,
-    total: Math.round(sum + wonder + wishBonus), nine, earnReal: s.earnReal, achPts, knowledge: sp.K, od,
+    total: Math.round((sum + wonder + wishBonus) * (hard ? HARD_MULT : 1)), nine, earnReal: s.earnReal, achPts, knowledge: sp.K, od, hard,
   };
   return e;
 }
@@ -203,6 +206,8 @@ export function endAchievements(g: Game, e: Ending, agui?: Ending): string[] {
   const before = new Set(s.ach);
   if (s.status === 'retired' && !s.flags['brokeAt'] && liquidAssets(g) > 0) g.ach('enough_forever');
   if (s.retiredAt !== null && s.retiredAt <= 54 && e.retire.M >= s.age) g.ach('early_retire');
+  if (s.flags['hardMode']) g.ach('hard_mode');
+  if (s.flags['hardMode'] && s.retiredAt !== null && s.retiredAt <= 65 && e.retire.M >= 95 && Number(s.flags['aRet65'] ?? 0) >= 3_000_000) g.ach('hard_retire');
   if (s.age >= 18 && !s.flags['invested'] && (s.mpfFund === '保守' || !s.flags['hadMpf'])) g.ach('miser');
   if (s.insuredYears >= 10 && s.claims === 0) g.ach('peace_whole_life');
   if (e.fpi.band === '低' && s.age >= 18) g.ach('family_at_ease');

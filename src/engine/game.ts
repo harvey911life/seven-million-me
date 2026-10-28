@@ -1,6 +1,6 @@
 // 遊戲核心：狀態 + 每年流程（第 3 章 3.2、第 4 章 4.4）
 import { Market, type YearEcon } from './market';
-import { rollOrigin, type Origin } from './origin';
+import { rollOrigin, hardenOrigin, type Origin } from './origin';
 import type { ParallelLife } from './parallel';
 import { streamRng, hash32, type RNG } from './rng';
 import { clamp, fmtMoney } from './util';
@@ -15,6 +15,7 @@ import { checkAchievementsYear } from './achievements';
 import { updateFamilyYear, buyCard } from './family';
 import { careerYear } from './career';
 import { rollRewrites } from './history';
+import { initHard } from './hard';
 
 export interface YearStart { cards: Card[]; ticker: string[]; stageChange?: string; needFocus?: boolean }
 export interface YearEnd { dead: boolean; summary: string; deltas: Record<StatKey, number>; saved: number }
@@ -39,10 +40,12 @@ export class Game {
   redoSnap: State | null = null; // 嗰陣要還原嘅 10 年前狀態
   redoYear = false;
 
-  constructor(seed: number, period: string | null = null, force?: { year: number; day: number }) {
+  constructor(seed: number, period: string | null = null, force?: { year: number; day: number }, hard = false) {
     this.m = new Market(seed);
-    const o = rollOrigin(seed, this.m, period, force);
+    let o = rollOrigin(seed, this.m, period, force);
+    if (hard) o = hardenOrigin(o, seed, this.m);
     this.s = initState(seed, o, this.m);
+    if (hard) initHard(this);
     this.s.rewritten = rollRewrites(seed, o.birthYear, this.m);
     if (streamRng(seed, 'harbour')() < 0.01) this.s.flags['harbourNight'] = true; // 1%：夜晚場景用維港夜景相
     scheduleQuizzes(this);

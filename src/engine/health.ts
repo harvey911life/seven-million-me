@@ -364,6 +364,7 @@ export function healthYear(g: Game) {
   }
   s.diseases = s.diseases.filter((d) => !(d.kind === 'threeHigh' && d.status === 'remission'));
   if (s.flags['kidneyCost']) g.spend(Number(s.flags['kidneyCost']) * g.P);
+  if (s.flags['congCost']) g.spend(Number(s.flags['congCost']) * g.P, '覆診同藥費');
   // 情緒病康復
   if (s.mental) {
     s.mental.years++;
@@ -378,6 +379,7 @@ export function healthYear(g: Game) {
   if (s.diseases.some((d) => d.kind === 'kidney' && d.status !== 'remission') && s.H > 60) s.H = 60;
   if (s.diseases.some((d) => d.kind === 'stroke' && d.stage === 1) && s.H > 85) s.H = 85;
   if (s.flags['needCareSelf'] && s.H > 50) s.H = 50;
+  if (s.flags['hCap'] && s.H > Number(s.flags['hCap'])) s.H = Number(s.flags['hCap']); // 困難人生：先天長期病患
   if (s.flags['3hIgnored']) g.add('H', -2, '三高冇控制');
 }
 

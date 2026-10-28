@@ -4,6 +4,7 @@ import { computeEnding, endAchievements } from '../src/engine/ending';
 
 const N = Number(process.argv[2] ?? 200);
 const mode = (process.argv[3] ?? 'def') as 'def' | 'auto' | 'agui';
+const hard = process.argv[4] === 'hard'; // npm run sim -- 1000 auto hard：困難人生模式
 const st = { age: 0, married: 0, divorced: 0, kids: 0, own: 0, scammed: 0, total: 0, M: 0, cards: 0, years: 0, uni: 0, errors: 0, ach: 0, net: 0, earn: 0 };
 const causes: Record<string, number> = {};
 const achCount: Record<string, number> = {};
@@ -11,7 +12,7 @@ const t0 = Date.now();
 for (let i = 0; i < N; i++) {
   const seed = 1000 + i * 7919;
   try {
-    const g = playHeadless(seed, null, mode);
+    const g = playHeadless(seed, null, mode, 120, undefined, undefined, false, hard);
     const e = computeEnding(g);
     endAchievements(g, e);
     const s = g.s;
@@ -38,7 +39,7 @@ for (let i = 0; i < N; i++) {
 }
 const ok = N - st.errors;
 const pct = (x: number) => `${((x / ok) * 100).toFixed(1)}%`;
-console.log(`模式 ${mode}，${N} 局，${((Date.now() - t0) / N).toFixed(0)}ms/局，錯誤 ${st.errors}`);
+console.log(`模式 ${mode}${hard ? '（困難人生）' : ''}，${N} 局，${((Date.now() - t0) / N).toFixed(0)}ms/局，錯誤 ${st.errors}`);
 console.log(`平均壽命 ${(st.age / ok).toFixed(1)}；結婚 ${pct(st.married)}；離婚 ${pct(st.divorced)}（佔已婚 ${((st.divorced / Math.max(1, st.married)) * 100).toFixed(1)}%）；平均子女 ${(st.kids / ok).toFixed(2)}`);
 console.log(`上車 ${pct(st.own)}；中招 ${pct(st.scammed)}；學士 ${pct(st.uni)}；平均總分 ${(st.total / ok).toFixed(0)}；退休錢用到 ${(st.M / ok).toFixed(1)} 歲`);
 console.log(`平均一生收入（2026 幣值）$${(st.earn / ok / 1e6).toFixed(1)}M；離世淨資產 $${(st.net / ok / 1e6).toFixed(2)}M；成就 ${(st.ach / ok).toFixed(1)} 個；每年抉擇 ${(st.cards / st.years).toFixed(2)}`);

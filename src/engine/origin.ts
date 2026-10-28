@@ -26,6 +26,7 @@ export interface Origin {
   wealthTier: WealthTier; parentCover: 0 | 1 | 2;
   H: number; J: number; K: number; R: number;
   difficulty: number; name: string;
+  hard?: { dv: boolean; cong: boolean }; // 困難人生模式：家暴、先天長期病患（保幼局用 isBaoyou）
 }
 
 function pickRow(r: RNG, names: string[], weights: number[]): string {
@@ -188,7 +189,12 @@ export function rollOrigin(seed: number, market: Market, period: string | null, 
     o.familyIncome = baoyouBranch === '被領養' ? Math.round(45000 * W) : 0;
   }
 
-  // 初始指標
+  initStats(o, mods, r, 0);
+  o.name = rollName(seed, birthYear, gender);
+  return o;
+}
+
+function initStats(o: Origin, mods: [number, number, number, number][], r: RNG, extra: number) {
   const sum = [0, 0, 0, 0];
   for (const m of mods) for (let i = 0; i < 4; i++) sum[i] += m[i];
   o.H = clamp(50 + sum[0] + r.int(-5, 5), 15, 85);
@@ -196,16 +202,95 @@ export function rollOrigin(seed: number, market: Market, period: string | null, 
   o.K = clamp(15 + sum[2] + r.int(-5, 5), 5, 30);
   o.R = clamp(50 + sum[3] + r.int(-5, 5), 15, 85);
   const modTotal = sum.reduce((a, b) => a + b, 0);
-  let special = isBaoyou ? 25 : 0;
+  let special = (o.isBaoyou ? 25 : 0) + extra;
   if (o.father?.status === '失業' || o.mother?.status === '失業') special += 5;
-  o.difficulty = clamp(50 - 1.2 * modTotal + (isBaoyou ? 0 : WEALTH_DIFF[o.wealthTier]) + special, 0, 100);
+  o.difficulty = clamp(50 - 1.2 * modTotal + (o.isBaoyou ? 0 : WEALTH_DIFF[o.wealthTier]) + special, 0, 100);
+}
 
-  // 隨機名
+function rollName(seed: number, birthYear: number, gender: 'M' | 'F'): string {
   const rn = streamRng(seed, 'name');
   const sur = rn() < 0.665
     ? rn.weighted(Object.fromEntries(SURNAMES))
     : OTHER_SURNAMES[Math.floor(rn() * OTHER_SURNAMES.length)];
   const era = birthYear < 1990 ? 0 : birthYear < 2010 ? 1 : 2;
-  o.name = sur + rn.pick(GIVEN[gender][era]);
+  return sur + rn.pick(GIVEN[gender][era]);
+}
+
+// 困難人生模式：出身一定最差（地區、住屋、家庭、父母、債務），再抽 1–2 樣額外困難。
+// 用獨立 rng 'hard' 喺普通出身之上改寫，普通模式完全唔受影響；年份、性別、名照用普通抽籤。
+const HARD_DISTRICTS: Record<string, [string, number][]> = {
+  深水埗區: [['深水埗 / 長沙灣', 1]], 觀塘區: [['觀塘 / 秀茂坪', 1]], 葵青區: [['葵涌', 1]], 元朗區: [['天水圍', 1]],
+  油尖旺區: [['旺角 / 大角咀', 0.6], ['油麻地 / 佐敦', 0.4]], 黃大仙區: [['黃大仙 / 慈雲山', 1]], 九龍城區: [['土瓜灣 / 紅磡', 1]], 屯門區: [['屯門市中心', 1]],
+};
+const HARD_DW: Record<string, number> = { 深水埗區: 25, 觀塘區: 15, 葵青區: 12, 元朗區: 14, 油尖旺區: 14, 黃大仙區: 6, 九龍城區: 8, 屯門區: 6 };
+
+export function hardenOrigin(o: Origin, seed: number, market: Market): Origin {
+  const r = streamRng(seed, 'hard');
+  const W = market.get(o.birthYear).W;
+  // 額外困難：保幼局約一成（可以再加先天病）；其餘家暴、先天病或兩樣都有
+  const baoyou = r() < 0.1;
+  let dv = false, cong = false;
+  if (baoyou) cong = r() < 0.3;
+  else {
+    const k = r();
+    if (k < 0.45) dv = true; else if (k < 0.75) cong = true; else { dv = true; cong = true; }
+  }
+  o.hard = { dv, cong };
+  o.district = r.weighted(HARD_DW);
+  o.subArea = r.weighted(Object.fromEntries(HARD_DISTRICTS[o.district]));
+  o.propertyEquity = 0;
+  o.wealthTier = '困難';
+  const mods: [number, number, number, number][] = [DISTRICTS[o.district].mod];
+  if (baoyou) {
+    o.isBaoyou = true;
+    o.baoyouBranch = r() < 0.6 ? '院舍家庭' : '寄養家庭';
+    o.housing = o.baoyouBranch === '寄養家庭' ? '寄養家庭' : '保幼局院舍';
+    o.family = undefined; o.father = undefined; o.mother = undefined;
+    o.siblings = 0; o.birthOrder = 1; o.familyIncome = 0; o.savings = 0; o.debt = 0;
+    o.parentCover = 1; o.fatherAge = 35; o.motherAge = 33;
+    mods.push(o.baoyouBranch === '院舍家庭' ? [0, -8, -2, -8] : [0, -5, -1, -5]);
+  } else {
+    o.isBaoyou = false; o.baoyouBranch = undefined;
+    o.housing = '劏房';
+    const family = r.pick(['單親', '隔代照顧', '新移民'] as Family[]);
+    o.family = family;
+    const jobs = PARENT_JOBS['非技術工人'];
+    const work = (role: '父' | '母'): ParentInfo => {
+      const jobName = r.weighted(Object.fromEntries(jobs.map((j) => [j[0], j[1]])));
+      const jm = jobs.find((j) => j[0] === jobName)!;
+      const inc = CAT_MEDIAN[JOBCATS.indexOf('非技術工人')] * jm[2] * r.uni(0.75, 1.05);
+      return { role, status: '工作', cat: '非技術工人', job: jobName, income: Math.round((inc * W) / 100) * 100 };
+    };
+    const jobless = (role: '父' | '母'): ParentInfo => ({ role, status: '失業', income: 0 });
+    const away = (role: '父' | '母'): ParentInfo => ({ role, status: '唔喺身邊', income: 0 });
+    const either = (role: '父' | '母', pJob: number) => (r() < pJob ? work(role) : jobless(role));
+    if (family === '單親') {
+      const fatherAway = r() < 0.8;
+      o.father = fatherAway ? away('父') : either('父', 0.6);
+      o.mother = fatherAway ? either('母', 0.6) : away('母');
+    } else if (family === '隔代照顧') {
+      o.father = either('父', 0.7);
+      o.mother = r() < 0.3 ? away('母') : either('母', 0.7);
+    } else {
+      o.father = either('父', 0.7);
+      o.mother = r() < 0.5 ? { role: '母', status: '主婦', income: 0 } : work('母');
+    }
+    // 至少有一個人返工，唔係就冇收入
+    if (o.father.status !== '工作' && o.mother.status !== '工作') {
+      if (o.father.status === '失業') o.father = work('父'); else o.mother = work('母');
+    }
+    o.siblings = r() < 0.5 ? 2 : 3;
+    o.birthOrder = r.int(1, o.siblings + 1);
+    o.familyIncome = o.father.income + o.mother.income;
+    o.savings = Math.round(o.familyIncome * r.uni(0, 0.5));
+    o.debt = Math.round(r.uni(50000, 200000) * W);
+    o.parentCover = 0;
+    mods.push(HOUSING_MOD['劏房'], FAMILY_MOD[family]);
+    for (const p of [o.father, o.mother]) mods.push(PARENT_CAT_MOD[p.status === '工作' ? p.cat! : p.status]);
+    mods.push(WEALTH_MOD['困難']);
+  }
+  if (dv) mods.push([0, -3, 0, -3]);
+  if (cong) mods.push([-12, 0, 0, 0]);
+  initStats(o, mods, r, (dv ? 8 : 0) + (cong ? 8 : 0));
   return o;
 }
