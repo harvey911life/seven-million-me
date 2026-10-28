@@ -9,6 +9,7 @@ import { MIDLIFE_EVENTS } from './midlife';
 import { HK_EVENTS } from './hk';
 import { CALLBACK_EVENTS } from './callbacks';
 import { STORY_EVENTS } from './stories';
+import { STORY2_EVENTS } from './stories2';
 import { WISH_EVENTS } from './wishes';
 import { TRAGEDY_EVENTS } from './tragedy';
 import { BIZ_EVENTS } from './biz';
@@ -344,7 +345,7 @@ const GENERAL_EVENTS: EventDef[] = [
   }),
   T('T-SIBWED', [20, 50], (g) => (g.s.siblings > 0 ? 0.03 : 0), (g) => { const c = g.p(g.er.uni(10000, 30000)); g.spend(c, '人情'); return `兄弟姊妹結婚，你俾咗 ${fmtMoney(c)} 人情。`; }, { cool: 4 }),
   T('T-SIBHOME', [25, 60], (g) => (g.s.siblings > 0 ? 0.03 : 0), () => '兄弟姊妹今年上咗車。', { cool: 6 }),
-  T('T-BANKRUPT', [18, 64], (g) => (g.s.status === 'work' ? 0.005 : 0), (g) => { const lost = g.monthlyIncome() * 2; const back = Math.min(lost, 36000 * g.P); g.spend(lost - back, '欠薪'); return `公司倒閉，欠你兩個月人工，破產欠薪保障基金補返 ${fmtMoney(back)}。`; }),
+  // v1.9：公司欠薪改為抉擇卡（stories2.ts ST-ARREARS），機會率一樣
   T('T-TALENT', [22, 60], (g) => (g.s.year >= 2023 && g.s.status === 'work' ? 0.04 : 0), (g) => { if (g.s.job) { g.s.job.promoBoost = 0.8; g.s.job.promoBoostYears = 3; } return '大量專業人才來港，公司升職競爭激烈咗。'; }),
   T('T-RENTUP', [18, 100], (g) => (g.s.year >= 2023 && g.s.year <= 2026 && (g.s.home === 'rent' || g.s.home === 'share') ? 0.15 : 0), (g) => { g.s.rentBase = Math.round((g.s.rentBase || 11000) * 1.1); return '租屋需求大增，業主加租一成。'; }),
   T('T-AI', [22, 64], (g) => (g.s.year >= 2023 && (g.s.focus === '增值進修' || g.s.panel.includes('course')) && !g.s.aiSkill ? 0.15 * Mpos(g.s.K) : 0), (g) => { g.s.aiSkill = true; if (g.s.job) g.s.job.salary = Math.round(g.s.job.salary * 1.08); return '你自費學 AI 工具，老闆加咗你人工。'; }),
@@ -967,7 +968,7 @@ function rescueMark(g: Game, k: 'H' | 'J') {
   g.s.flags[`rescue${k}Age`] = g.s.age;
 }
 
-export const ALL_EVENTS: EventDef[] = [...CAREER_EVENTS, ...BIZ_EVENTS, ...TRAGEDY_EVENTS, ...HISTORY_EVENTS, ...EDU_EVENTS, ...HEALTH_EVENTS, ...FAMILY_EVENTS, ...GENERAL_EVENTS, ...MIDLIFE_EVENTS, ...HK_EVENTS, ...CALLBACK_EVENTS, ...WISH_EVENTS, ...STORY_EVENTS];
+export const ALL_EVENTS: EventDef[] = [...CAREER_EVENTS, ...BIZ_EVENTS, ...TRAGEDY_EVENTS, ...HISTORY_EVENTS, ...EDU_EVENTS, ...HEALTH_EVENTS, ...FAMILY_EVENTS, ...GENERAL_EVENTS, ...MIDLIFE_EVENTS, ...HK_EVENTS, ...CALLBACK_EVENTS, ...WISH_EVENTS, ...STORY_EVENTS, ...STORY2_EVENTS];
 export const EVENTS_BY_ID: Record<string, EventDef> = Object.fromEntries(ALL_EVENTS.map((e) => [e.id, e]));
 
 const isInteractive = (c: Card) => c.kind !== 'system';

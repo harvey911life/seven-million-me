@@ -82,6 +82,7 @@ export const ACHIEVEMENTS: AchDef[] = [
     ['red_bombs', '人情債', '一年去晒 5 場或以上婚宴', 1],
     ['t8_warrior', '八號波戰士', '打風都返工三次', 0],
     ['estate_fight', '冇遺囑之爭', '為父母遺產打過官司', 0],
+    ['golden_wedding', '金婚', '同另一半結婚 50 年', 2],
   ]),
   ...A('特殊', [
     ['jackpot', '頭獎得主', '中六星彩頭獎', 0, true],

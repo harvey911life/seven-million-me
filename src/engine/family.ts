@@ -8,6 +8,7 @@ import { insuranceGateCard, yaDue } from './career';
 import { qHK } from './health';
 import { pmtOf, propEquity, liquidAssets, PRIVATE_RENT, PUBLIC_RENT, rentFactor } from './finance';
 import { tragedyHit } from './yearly';
+import { bigGiftCard } from './stories2';
 import { GIVEN } from '../data/origin';
 
 // ---------- 小工具 ----------
@@ -660,6 +661,10 @@ function proposeCard(g: Game, byPartner: boolean): Card {
     }
     g2.add('J', 6, '求婚成功');
     g2.pushCard(weddingCard(g2), true);
+    // v1.9：第一次結婚先過大禮（男玩家揀聘金；女玩家係收禮嗰邊）
+    const firstWed = !s2.divorces && !s2.widowed && !s2.emigrated;
+    if (firstWed && s2.gender === 'M') g2.pushCard(bigGiftCard(g2), true);
+    if (firstWed && s2.gender === 'F') { g2.add('J', 2); g2.tick(`${pt.name}屋企嚟過大禮，禮餅同金器擺滿成張枱，阿媽笑到見牙唔見眼。`); }
     return `${pt.name}答應咗！`;
   }, { pri: 780, def: 1, fixed: true, auto: byPartner ? 0 : s.F >= 40 ? 0 : 1, agui: 0, cat: '人生抉擇', scene: 'night' } as Partial<Card>);
 }
