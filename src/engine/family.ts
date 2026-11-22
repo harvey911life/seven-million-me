@@ -555,7 +555,7 @@ function selfCarerYear(g: Game) {
 // ---------- 買樓（8.11） ----------
 export const starterPrice = (g: Game) => Math.round((g.s.married ? 4_500_000 : 3_600_000) * g.e.hpi);
 
-function mortgageOf(g: Game, price: number, ltv: number) {
+export function mortgageOf(g: Game, price: number, ltv: number) {
   const s = g.s;
   const years = Math.max(10, Math.min(30, 75 - s.age));
   const loan = price * ltv * (ltv > 0.7 ? 1.025 : 1);
@@ -990,7 +990,10 @@ function kidWeddingCard(g: Game, name: string): Card {
 function helpBuyCard(g: Game, k: Kid): Card {
   const s = g.s;
   const amt = Math.round(Math.min(liquidAssets(g) * 0.3, 1_000_000 * g.P));
-  return mkCard('C-RT-04', `${k.name}叫你幫手上車`, `${k.name}想買樓，首期仲差少少，問你可唔可以幫手（約 ${fmtMoney(amt)}）。`, [
+  // v2.1：顯示呢筆錢等於幾多年生活費，提醒自己退休錢先
+  const yrs = amt / Math.max(1, Number(s.flags['lastExpense'] ?? 0));
+  const toRetire = s.status === 'retired' ? '你已經退休，呢筆錢' : `你離退休仲有 ${Math.max(0, s.retirePlan === 99 ? 65 - s.age : s.retirePlan - s.age)} 年，呢筆錢`;
+  return mkCard('C-RT-04', `${k.name}叫你幫手上車`, `${k.name}想買樓，首期仲差少少，問你可唔可以幫手（約 ${fmtMoney(amt)}）。${toRetire}大約等於你 ${yrs >= 10 ? Math.round(yrs) : yrs.toFixed(1)} 年嘅生活開支。`, [
     { label: '幫', money: -amt, fx: { R: 4, J: 2 } },
     { label: '唔幫', fx: { R: -3, J: -1 } },
     { label: '借俾佢、要還', money: -amt, note: '分 10 年還', fx: { R: 1 } },

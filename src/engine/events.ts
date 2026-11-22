@@ -11,6 +11,7 @@ import { CALLBACK_EVENTS } from './callbacks';
 import { STORY_EVENTS } from './stories';
 import { STORY2_EVENTS } from './stories2';
 import { HARD_EVENTS } from './hard';
+import { STORY3_EVENTS } from './stories3';
 import { WISH_EVENTS } from './wishes';
 import { TRAGEDY_EVENTS } from './tragedy';
 import { BIZ_EVENTS } from './biz';
@@ -969,7 +970,7 @@ function rescueMark(g: Game, k: 'H' | 'J') {
   g.s.flags[`rescue${k}Age`] = g.s.age;
 }
 
-export const ALL_EVENTS: EventDef[] = [...CAREER_EVENTS, ...BIZ_EVENTS, ...TRAGEDY_EVENTS, ...HISTORY_EVENTS, ...EDU_EVENTS, ...HEALTH_EVENTS, ...FAMILY_EVENTS, ...GENERAL_EVENTS, ...MIDLIFE_EVENTS, ...HK_EVENTS, ...CALLBACK_EVENTS, ...WISH_EVENTS, ...STORY_EVENTS, ...STORY2_EVENTS, ...HARD_EVENTS];
+export const ALL_EVENTS: EventDef[] = [...CAREER_EVENTS, ...BIZ_EVENTS, ...TRAGEDY_EVENTS, ...HISTORY_EVENTS, ...EDU_EVENTS, ...HEALTH_EVENTS, ...FAMILY_EVENTS, ...GENERAL_EVENTS, ...MIDLIFE_EVENTS, ...HK_EVENTS, ...CALLBACK_EVENTS, ...WISH_EVENTS, ...STORY_EVENTS, ...STORY2_EVENTS, ...STORY3_EVENTS, ...HARD_EVENTS];
 export const EVENTS_BY_ID: Record<string, EventDef> = Object.fromEntries(ALL_EVENTS.map((e) => [e.id, e]));
 
 const isInteractive = (c: Card) => c.kind !== 'system';
